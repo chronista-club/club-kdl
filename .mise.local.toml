@@ -1,0 +1,12 @@
+[env]
+UNISON_FLEET = "local"
+
+# Fleet識別子:
+# - local: ローカル開発環境（Rancher Desktop）
+# - edge: エッジ環境
+# - cloud: クラウド環境
+# - enterprise: エンタープライズ環境
+
+# その他のローカル環境設定
+# RUST_LOG = "debug"
+# API_PORT = "8080"

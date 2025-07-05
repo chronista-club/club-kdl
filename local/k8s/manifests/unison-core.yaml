@@ -30,6 +30,8 @@ spec:
         - containerPort: 9090
           name: metrics
         env:
+        - name: UNISON_FLEET
+          value: "local"
         - name: RUST_LOG
           value: "info"
         - name: NODE_ENV

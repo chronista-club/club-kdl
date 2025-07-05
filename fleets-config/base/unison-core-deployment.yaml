@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: unison-core
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: unison-core
+      app.kubernetes.io/component: core
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: unison-core
+        app.kubernetes.io/component: core
+    spec:
+      containers:
+      - name: unison-core
+        image: unison-core:latest
+        ports:
+        - containerPort: 8080
+          name: http
+        - containerPort: 9090
+          name: metrics
+        env:
+        - name: UNISON_FLEET
+          value: "base"  # これはfleetごとにオーバーライドされます
+        - name: RUST_LOG
+          valueFrom:
+            configMapKeyRef:
+              name: unison-config
+              key: LOG_LEVEL
+        - name: METRICS_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: unison-config
+              key: METRICS_PORT
+        envFrom:
+        - configMapRef:
+            name: unison-config
+            optional: true
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"

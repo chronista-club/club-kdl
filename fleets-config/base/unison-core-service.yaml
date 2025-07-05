@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: unison-core
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  - port: 9090
+    targetPort: 9090
+    protocol: TCP
+    name: metrics
+  selector:
+    app.kubernetes.io/name: unison-core
+    app.kubernetes.io/component: core

@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: unison-core
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+      - name: unison-core
+        # ローカル開発用の設定
+        image: nginx:alpine  # 開発中はnginxを使用
+        imagePullPolicy: Never
+        env:
+        - name: UNISON_FLEET
+          value: "local"
+        - name: NODE_ENV
+          value: "development"
+        - name: DEBUG
+          value: "true"
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
