@@ -1,3 +1,6 @@
+# ローカル環境設定のサンプル
+# このファイルを .mise.local.toml にコピーして使用してください
+
 [env]
 UNISON_FLEET = "local"
 
@@ -10,3 +13,5 @@ UNISON_FLEET = "local"
 # その他のローカル環境設定
 # RUST_LOG = "debug"
 # API_PORT = "8080"
+# KUBECONFIG = "~/.kube/config"
+# KUBECTL_CONTEXT = "rancher-desktop"

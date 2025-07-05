@@ -1,0 +1,10 @@
+[tools]
+# 必要なツール（バージョンは親プロジェクトから継承）
+
+[env]
+# デフォルトのFleet設定（ローカル環境では.mise.local.tomlでオーバーライド）
+# UNISON_FLEET = "local"
+
+# .mise.local.tomlで以下のように設定してください：
+# [env]
+# UNISON_FLEET = "local"
