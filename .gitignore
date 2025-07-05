@@ -1,0 +1,48 @@
+# Terraform
+*.tfstate
+*.tfstate.*
+**/.terraform/*
+*.tfvars
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Credentials
+**/credentials/*
+**/secrets/*
+*.pem
+*.key
+*.crt
+*.p12
+
+# Cloud provider
+.gcloud/
+*.json
+!*example*.json
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.bak
+*.cache
