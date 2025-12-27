@@ -1,14 +1,15 @@
 [package]
-name = "unison-kdl"
+name = "unison-protocol"
 version = "0.1.0"
 edition = "2021"
-description = "A KDL (KDL Document Language) parser with serde support"
+description = "KDL-based protocol definition with schema validation and code generation"
 license = "MIT"
-repository = "https://github.com/chronista-club/unison-kdl"
-keywords = ["kdl", "parser", "serde", "config"]
-categories = ["parser-implementations", "config"]
+repository = "https://github.com/chronista-club/unison-protocol"
+keywords = ["kdl", "protocol", "schema", "codegen"]
+categories = ["development-tools", "parser-implementations"]
 
 [dependencies]
+kdl = "6"
 thiserror = "2"
 
 [dev-dependencies]

@@ -1,25 +1,30 @@
-//! # unison-kdl
+//! # unison-protocol
 //!
-//! A KDL (KDL Document Language) v2 parser with serde support.
+//! KDL-based protocol definition with schema validation and code generation.
 //!
 //! ## Example
 //!
-//! ```
-//! use unison_kdl::KdlDocument;
+//! ```ignore
+//! use unison_protocol::{Schema, CodeGen};
 //!
-//! let input = r#"
-//! node "arg1" "arg2" key="value" {
-//!     child 1 2 3
-//! }
-//! "#;
+//! // Load schema
+//! let schema = Schema::load("protocol.kdl")?;
 //!
-//! let doc: KdlDocument = input.parse().unwrap();
+//! // Validate a message
+//! let msg: kdl::KdlNode = r#"Connect client_id="abc" version=1"#.parse()?;
+//! schema.validate(&msg)?;
+//!
+//! // Generate code
+//! CodeGen::rust(&schema).write_to("src/protocol.rs")?;
+//! CodeGen::typescript(&schema).write_to("src/protocol.ts")?;
 //! ```
 
-mod ast;
+pub mod schema;
+pub mod codegen;
 mod error;
-mod lexer;
-mod parser;
 
-pub use ast::*;
-pub use error::*;
+pub use error::Error;
+pub use schema::Schema;
+
+// Re-export kdl types for convenience
+pub use kdl::{KdlDocument, KdlNode, KdlEntry, KdlValue, KdlIdentifier};
