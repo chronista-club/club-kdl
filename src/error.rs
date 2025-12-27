@@ -1,16 +1,40 @@
+use std::fmt;
+
+use serde::{de, ser};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("Failed to parse KDL: {0}")]
+    #[error("KDL parse error: {0}")]
     Parse(#[from] kdl::KdlError),
 
-    #[error("Schema error: {0}")]
-    Schema(String),
+    #[error("{0}")]
+    Message(String),
 
-    #[error("Validation error: {0}")]
-    Validation(String),
+    #[error("Expected node, got document with {0} nodes")]
+    ExpectedSingleNode(usize),
 
-    #[error("IO error: {0}")]
-    Io(#[from] std::io::Error),
+    #[error("Missing field: {0}")]
+    MissingField(String),
+
+    #[error("Unknown field: {0}")]
+    UnknownField(String),
+
+    #[error("Type mismatch: expected {expected}, got {got}")]
+    TypeMismatch { expected: String, got: String },
+
+    #[error("Serialization not yet supported for this type")]
+    UnsupportedType,
+}
+
+impl de::Error for Error {
+    fn custom<T: fmt::Display>(msg: T) -> Self {
+        Error::Message(msg.to_string())
+    }
+}
+
+impl ser::Error for Error {
+    fn custom<T: fmt::Display>(msg: T) -> Self {
+        Error::Message(msg.to_string())
+    }
 }

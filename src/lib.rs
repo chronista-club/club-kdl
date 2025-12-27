@@ -1,30 +1,36 @@
-//! # unison-protocol
+//! # unison-kdl
 //!
-//! KDL-based protocol definition with schema validation and code generation.
+//! KDL serialization/deserialization with serde support.
 //!
 //! ## Example
 //!
-//! ```ignore
-//! use unison_protocol::{Schema, CodeGen};
+//! ```
+//! use serde::{Deserialize, Serialize};
+//! use unison_kdl::{from_str, to_string};
 //!
-//! // Load schema
-//! let schema = Schema::load("protocol.kdl")?;
+//! #[derive(Debug, Serialize, Deserialize, PartialEq)]
+//! struct Config {
+//!     name: String,
+//!     port: u16,
+//!     debug: bool,
+//! }
 //!
-//! // Validate a message
-//! let msg: kdl::KdlNode = r#"Connect client_id="abc" version=1"#.parse()?;
-//! schema.validate(&msg)?;
+//! // KDL -> Rust
+//! let kdl = r#"config name="my-app" port=8080 debug=#true"#;
+//! let config: Config = from_str(kdl).unwrap();
 //!
-//! // Generate code
-//! CodeGen::rust(&schema).write_to("src/protocol.rs")?;
-//! CodeGen::typescript(&schema).write_to("src/protocol.ts")?;
+//! assert_eq!(config.name, "my-app");
+//! assert_eq!(config.port, 8080);
+//! assert_eq!(config.debug, true);
 //! ```
 
-pub mod schema;
-pub mod codegen;
+mod de;
 mod error;
+mod ser;
 
+pub use de::from_str;
 pub use error::Error;
-pub use schema::Schema;
+pub use ser::to_string;
 
-// Re-export kdl types for convenience
-pub use kdl::{KdlDocument, KdlNode, KdlEntry, KdlValue, KdlIdentifier};
+// Re-export kdl types
+pub use kdl;
