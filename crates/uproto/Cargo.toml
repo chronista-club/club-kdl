@@ -1,0 +1,18 @@
+[package]
+name = "uproto"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Protocol definition and code generation from KDL schemas"
+keywords = ["kdl", "protocol", "codegen", "schema"]
+categories = ["development-tools", "command-line-utilities"]
+
+[[bin]]
+name = "uproto"
+path = "src/main.rs"
+
+[dependencies]
+unison-kdl.workspace = true
+kdl.workspace = true
+clap.workspace = true
+thiserror.workspace = true

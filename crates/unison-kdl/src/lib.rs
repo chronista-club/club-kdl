@@ -30,7 +30,7 @@ mod ser;
 
 pub use de::from_str;
 pub use error::Error;
-pub use ser::to_string;
+pub use ser::{to_string, to_string_with_name};
 
 // Re-export kdl types
 pub use kdl;

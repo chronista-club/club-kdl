@@ -1,0 +1,17 @@
+[package]
+name = "unison-kdl"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "KDL serialization/deserialization with serde support"
+keywords = ["kdl", "serde", "serialization", "config"]
+categories = ["encoding", "parser-implementations"]
+
+[dependencies]
+kdl.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+pretty_assertions = "1"
+serde = { version = "1", features = ["derive"] }

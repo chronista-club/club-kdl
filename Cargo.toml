@@ -1,18 +1,16 @@
-[package]
-name = "unison-kdl"
+[workspace]
+resolver = "2"
+members = ["crates/*"]
+
+[workspace.package]
 version = "0.1.0"
 edition = "2021"
-description = "KDL serialization/deserialization with serde support"
 license = "MIT"
-repository = "https://github.com/chronista-club/unison-kdl"
-keywords = ["kdl", "serde", "serialization", "config"]
-categories = ["encoding", "parser-implementations"]
+repository = "https://github.com/chronista-club/unison-fleets"
 
-[dependencies]
+[workspace.dependencies]
+unison-kdl = { path = "crates/unison-kdl" }
 kdl = "6"
 serde = "1"
 thiserror = "2"
-
-[dev-dependencies]
-pretty_assertions = "1"
-serde = { version = "1", features = ["derive"] }
+clap = { version = "4", features = ["derive"] }

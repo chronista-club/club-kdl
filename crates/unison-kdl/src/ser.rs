@@ -317,17 +317,14 @@ impl ser::SerializeTupleVariant for SeqSerializer {
 
 /// Serializer for maps.
 struct MapSerializer {
-    name: String,
     node: KdlNode,
     current_key: Option<String>,
 }
 
 impl MapSerializer {
     fn new(name: impl Into<String>) -> Self {
-        let name = name.into();
         Self {
-            node: KdlNode::new(name.clone()),
-            name,
+            node: KdlNode::new(name.into()),
             current_key: None,
         }
     }
