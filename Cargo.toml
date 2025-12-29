@@ -1,0 +1,36 @@
+[package]
+name = "unison-kdl"
+description = "Fast KDL (KDL Document Language) serialization/deserialization with derive macros"
+version = "0.1.0"
+edition = "2024"
+authors = ["Mako <mito@chronista.club>"]
+license = "MIT"
+repository = "https://github.com/chronista-club/unison-kdl"
+keywords = ["kdl", "serialization", "derive", "macro"]
+categories = ["encoding", "parsing"]
+readme = "README.md"
+
+[workspace]
+resolver = "2"
+members = [".", "derive"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+authors = ["Mako <mito@chronista.club>"]
+license = "MIT"
+repository = "https://github.com/chronista-club/unison-kdl"
+
+[workspace.dependencies]
+kdl = "6"
+thiserror = "2"
+syn = { version = "2", features = ["full", "extra-traits"] }
+quote = "1"
+proc-macro2 = "1"
+
+[dependencies]
+kdl.workspace = true
+thiserror.workspace = true
+unison-kdl-derive = { path = "./derive", version = "0.1.0" }
+
+[dev-dependencies]
