@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Rust](https://img.shields.io/badge/rust-2024-orange.svg)](https://www.rust-lang.org/)
 
-Rust向けの高性能なKDL（KDL Document Language）シリアライズ/デシリアライズライブラリ。deriveマクロ付き。
+Rust製の高速なKDL（KDL Document Language）シリアライズ/デシリアライズライブラリ。deriveマクロ付き。
 
 > **KDLのためのSerde体験** - Rust構造体を定義し、deriveを付けるだけ。あとはunison-kdlにお任せ。
 
