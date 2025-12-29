@@ -62,37 +62,37 @@ struct KdlDependsOn {
     services: Vec<String>,
 }
 
-// JSON構造体
+// JSON/rkyv共通構造体
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct JsonConfig {
+#[derive(Debug, Clone, Serialize, Deserialize, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+struct Config {
     project: String,
-    services: Vec<JsonService>,
+    services: Vec<Service>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct JsonService {
+#[derive(Debug, Clone, Serialize, Deserialize, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+struct Service {
     name: String,
     image: String,
     #[serde(default)]
-    ports: Vec<JsonPort>,
+    ports: Vec<Port>,
     #[serde(default)]
     env: HashMap<String, String>,
     #[serde(default)]
-    volumes: Vec<JsonVolume>,
+    volumes: Vec<Volume>,
     #[serde(default)]
     depends_on: Vec<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct JsonPort {
+#[derive(Debug, Clone, Serialize, Deserialize, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+struct Port {
     host: u16,
     container: u16,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct JsonVolume {
+#[derive(Debug, Clone, Serialize, Deserialize, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+struct Volume {
     host: String,
     container: String,
     #[serde(default)]
@@ -176,7 +176,13 @@ const JSON_DATA: &str = r#"{"project":"creo-memories","services":[{"name":"surre
 const ITERATIONS: u32 = 10_000;
 
 fn main() {
-    println!("=== KDL vs JSON ベンチマーク ({ITERATIONS}回) ===\n");
+    println!("=== KDL vs JSON vs rkyv ベンチマーク ({ITERATIONS}回) ===\n");
+
+    // データ準備
+    let json_config: Config = serde_json::from_str(JSON_DATA).unwrap();
+
+    // rkyv用バイナリデータを事前作成
+    let rkyv_bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&json_config).unwrap();
 
     // ウォームアップ
     for _ in 0..100 {
@@ -187,11 +193,12 @@ fn main() {
             .filter(|n| n.name().value() == "service")
             .map(|n| KdlService::from_kdl_node(n).unwrap())
             .collect();
-        let _: JsonConfig = serde_json::from_str(JSON_DATA).unwrap();
+        let _: Config = serde_json::from_str(JSON_DATA).unwrap();
+        let _: &rkyv::Archived<Config> = rkyv::access::<rkyv::Archived<Config>, rkyv::rancor::Error>(&rkyv_bytes).unwrap();
     }
 
     // === READ ===
-    println!("【Read（文字列 → 構造体）】");
+    println!("【Read（バイト列 → 構造体）】");
 
     // KDL Read
     let start = Instant::now();
@@ -210,17 +217,29 @@ fn main() {
     // JSON Read
     let start = Instant::now();
     for _ in 0..ITERATIONS {
-        let _: JsonConfig = serde_json::from_str(JSON_DATA).unwrap();
+        let _: Config = serde_json::from_str(JSON_DATA).unwrap();
     }
     let json_read_total = start.elapsed();
     let json_read_avg = json_read_total / ITERATIONS;
 
+    // rkyv Read (zero-copy access)
+    let start = Instant::now();
+    for _ in 0..ITERATIONS {
+        let _: &rkyv::Archived<Config> = rkyv::access::<rkyv::Archived<Config>, rkyv::rancor::Error>(&rkyv_bytes).unwrap();
+    }
+    let rkyv_read_total = start.elapsed();
+    let rkyv_read_avg = rkyv_read_total / ITERATIONS;
+
     println!("  KDL:  合計 {:>8.2?}  平均 {:>8.2?}", kdl_read_total, kdl_read_avg);
     println!("  JSON: 合計 {:>8.2?}  平均 {:>8.2?}", json_read_total, json_read_avg);
-    println!("  倍率: JSON が {:.1}倍 速い", kdl_read_avg.as_nanos() as f64 / json_read_avg.as_nanos() as f64);
+    println!("  rkyv: 合計 {:>8.2?}  平均 {:>8.2?}", rkyv_read_total, rkyv_read_avg);
+    println!();
+    println!("  KDL/JSON:  {:.1}倍", kdl_read_avg.as_nanos() as f64 / json_read_avg.as_nanos() as f64);
+    println!("  KDL/rkyv:  {:.1}倍", kdl_read_avg.as_nanos() as f64 / rkyv_read_avg.as_nanos().max(1) as f64);
+    println!("  JSON/rkyv: {:.1}倍", json_read_avg.as_nanos() as f64 / rkyv_read_avg.as_nanos().max(1) as f64);
 
     // === WRITE ===
-    println!("\n【Write（構造体 → 文字列）】");
+    println!("\n【Write（構造体 → バイト列）】");
 
     // 事前にデータ準備
     let doc: kdl::KdlDocument = KDL_DATA.parse().unwrap();
@@ -230,7 +249,6 @@ fn main() {
         .filter(|n| n.name().value() == "service")
         .map(|n| KdlService::from_kdl_node(n).unwrap())
         .collect();
-    let json_config: JsonConfig = serde_json::from_str(JSON_DATA).unwrap();
 
     // KDL Write
     let start = Instant::now();
@@ -251,11 +269,24 @@ fn main() {
     let json_write_total = start.elapsed();
     let json_write_avg = json_write_total / ITERATIONS;
 
+    // rkyv Write
+    let start = Instant::now();
+    for _ in 0..ITERATIONS {
+        let _ = rkyv::to_bytes::<rkyv::rancor::Error>(&json_config).unwrap();
+    }
+    let rkyv_write_total = start.elapsed();
+    let rkyv_write_avg = rkyv_write_total / ITERATIONS;
+
     println!("  KDL:  合計 {:>8.2?}  平均 {:>8.2?}", kdl_write_total, kdl_write_avg);
     println!("  JSON: 合計 {:>8.2?}  平均 {:>8.2?}", json_write_total, json_write_avg);
-    println!("  倍率: JSON が {:.1}倍 速い", kdl_write_avg.as_nanos() as f64 / json_write_avg.as_nanos() as f64);
+    println!("  rkyv: 合計 {:>8.2?}  平均 {:>8.2?}", rkyv_write_total, rkyv_write_avg);
+    println!();
+    println!("  KDL/JSON:  {:.1}倍", kdl_write_avg.as_nanos() as f64 / json_write_avg.as_nanos() as f64);
+    println!("  KDL/rkyv:  {:.1}倍", kdl_write_avg.as_nanos() as f64 / rkyv_write_avg.as_nanos() as f64);
+    println!("  JSON/rkyv: {:.1}倍", json_write_avg.as_nanos() as f64 / rkyv_write_avg.as_nanos() as f64);
 
     println!("\n=== データサイズ ===");
-    println!("  KDL:  {} bytes", KDL_DATA.len());
-    println!("  JSON: {} bytes", JSON_DATA.len());
+    println!("  KDL:  {} bytes (テキスト)", KDL_DATA.len());
+    println!("  JSON: {} bytes (テキスト)", JSON_DATA.len());
+    println!("  rkyv: {} bytes (バイナリ)", rkyv_bytes.len());
 }
