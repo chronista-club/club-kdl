@@ -1,6 +1,11 @@
 # unison-kdl
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Rust](https://img.shields.io/badge/rust-2024-orange.svg)](https://www.rust-lang.org/)
+
 High-performance KDL (KDL Document Language) serialization and deserialization for Rust with derive macros.
+
+> **Serde-like experience for KDL** - Define your Rust structs, add derives, and let unison-kdl handle the rest.
 
 ## Features
 
@@ -167,6 +172,19 @@ let node = service.to_kdl_node().unwrap();
 - Collections: `Vec<T>`, `HashMap<String, String>`
 - Optional: `Option<T>`
 - Custom types implementing `FromKdlValue` / `ToKdlValue`
+
+## Why unison-kdl?
+
+KDLは設定ファイルに最適なドキュメント言語です。unison-kdlは、RustでKDLを扱う際の開発体験を向上させます：
+
+- **宣言的**: 構造体を定義し、属性を付けるだけ
+- **型安全**: コンパイル時に構造を検証
+- **柔軟**: 引数、プロパティ、子ノードを自由にマッピング
+- **実用的**: [FleetFlow](https://github.com/chronista-club/fleetflow)で実戦投入済み
+
+## Acknowledgements
+
+Built on top of the excellent [kdl](https://crates.io/crates/kdl) crate.
 
 ## License
 
