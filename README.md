@@ -3,25 +3,25 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Rust](https://img.shields.io/badge/rust-2024-orange.svg)](https://www.rust-lang.org/)
 
-Rust製の高速なKDL（KDL Document Language）シリアライズ/デシリアライズライブラリ。deriveマクロ付き。
+Rust製の高速なKDL（KDL Document Language）シリアライズ/デシリアライズライブラリである。deriveマクロを備える。
 
-> **KDLのためのSerde体験** - Rust構造体を定義し、deriveを付けるだけ。あとはunison-kdlにお任せ。
+> 構造体を定義し、deriveを付すのみ。煩雑な実装は本ライブラリに委ねられたい。
 
 ## 特徴
 
-- **Deriveマクロ** - `#[derive(KdlDeserialize, KdlSerialize)]`で自動実装
-- **属性ベースのマッピング** - `#[kdl(...)]`属性できめ細かく制御
-- **可能な限りゼロコピー** - KDLソースから文字列を直接借用
-- **型安全** - コンパイル時にKDLスキーマを保証
+- **Deriveマクロ** - `#[derive(KdlDeserialize, KdlSerialize)]`にて自動実装
+- **属性による対応付け** - `#[kdl(...)]`属性により精緻な制御が可能
+- **可能な限り零複写** - KDL原文より文字列を直接借用する
+- **型安全** - 翻訳時にKDL構造の正当性を保証する
 
-## インストール
+## 導入
 
 ```toml
 [dependencies]
 unison-kdl = { git = "https://github.com/chronista-club/unison-kdl" }
 ```
 
-## クイックスタート
+## 手始めに
 
 ```rust
 use unison_kdl::{KdlDeserialize, KdlSerialize};
@@ -53,7 +53,7 @@ struct Port {
 }
 ```
 
-このKDLをパースできます：
+上記の構造体は、以下のKDLを解析する：
 
 ```kdl
 service "api" image="myapp:latest" version="1.0" {
@@ -62,30 +62,30 @@ service "api" image="myapp:latest" version="1.0" {
 }
 ```
 
-## 属性
+## 属性一覧
 
-### コンテナ属性
-
-| 属性 | 説明 |
-|------|------|
-| `#[kdl(name = "...")]` | KDLノード名（デフォルトはsnake_caseの構造体名） |
-
-### フィールド属性
+### 構造体属性
 
 | 属性 | 説明 |
 |------|------|
-| `#[kdl(argument)]` | 位置引数にマッピング（自動インデックス） |
-| `#[kdl(argument(index = N))]` | 特定のインデックスの引数にマッピング |
-| `#[kdl(arguments)]` | すべての引数を`Vec<T>`に収集 |
-| `#[kdl(property)]` | 名前付きプロパティにマッピング（`key=value`） |
-| `#[kdl(property(rename = "..."))]` | 別名のプロパティにマッピング |
-| `#[kdl(child)]` | 単一の子ノードにマッピング |
-| `#[kdl(children, name = "...")]` | 名前で子ノードを`Vec<T>`に収集 |
-| `#[kdl(child_map, name = "...")]` | 子ノードを`HashMap<String, String>`に収集 |
-| `#[kdl(default)]` | 欠落時に`Default::default()`を使用 |
-| `#[kdl(skip)]` | シリアライズ/デシリアライズをスキップ |
+| `#[kdl(name = "...")]` | KDL節点名を指定する。省略時は構造体名をsnake_caseに変換して用いる |
 
-## 例
+### 欄属性
+
+| 属性 | 説明 |
+|------|------|
+| `#[kdl(argument)]` | 位置引数に対応付ける。順序は自動的に定まる |
+| `#[kdl(argument(index = N))]` | 特定の位置の引数に対応付ける |
+| `#[kdl(arguments)]` | 全引数を`Vec<T>`として収集する |
+| `#[kdl(property)]` | 名前付き属性（`key=value`形式）に対応付ける |
+| `#[kdl(property(rename = "..."))]` | 異なる名称の属性に対応付ける |
+| `#[kdl(child)]` | 単一の子節点に対応付ける |
+| `#[kdl(children, name = "...")]` | 指定名の子節点群を`Vec<T>`として収集する |
+| `#[kdl(child_map, name = "...")]` | 子節点群を`HashMap<String, String>`として収集する |
+| `#[kdl(default)]` | 欠落時に`Default::default()`を用いる |
+| `#[kdl(skip)]` | 変換処理より除外する |
+
+## 用例
 
 ### 複数の引数
 
@@ -93,10 +93,10 @@ service "api" image="myapp:latest" version="1.0" {
 #[derive(KdlDeserialize, KdlSerialize)]
 #[kdl(name = "volume")]
 struct Volume {
-    #[kdl(argument)]  // 最初の引数
+    #[kdl(argument)]  // 第一引数
     host: String,
 
-    #[kdl(argument)]  // 2番目の引数
+    #[kdl(argument)]  // 第二引数
     container: String,
 
     #[kdl(property, default)]
@@ -123,7 +123,7 @@ struct DependsOn {
 depends_on "db" "redis" "cache"
 ```
 
-### 子ノードマップ（環境変数）
+### 子節点の辞書化
 
 ```rust
 #[derive(KdlDeserialize, KdlSerialize)]
@@ -146,46 +146,46 @@ service "api" {
 }
 ```
 
-## 使い方
+## 使用法
 
 ```rust
 use unison_kdl::{KdlDeserialize, KdlNodeExt};
 
-// KDLをパース
+// KDLを解析する
 let kdl = r#"service "api" image="myapp""#;
 let doc: kdl::KdlDocument = kdl.parse().unwrap();
 let node = doc.nodes().first().unwrap();
 
-// デシリアライズ
+// 復元する
 let service = Service::from_kdl_node(node).unwrap();
 
-// シリアライズ
+// 直列化する
 use unison_kdl::KdlSerialize;
 let node = service.to_kdl_node().unwrap();
 ```
 
-## サポートする型
+## 対応する型
 
-- プリミティブ: `i8`, `i16`, `i32`, `i64`, `u8`, `u16`, `u32`, `u64`, `f32`, `f64`, `bool`
+- 基本型: `i8`, `i16`, `i32`, `i64`, `u8`, `u16`, `u32`, `u64`, `f32`, `f64`, `bool`
 - 文字列: `String`, `&str`
-- パス: `PathBuf`
-- コレクション: `Vec<T>`, `HashMap<String, String>`
-- オプショナル: `Option<T>`
-- `FromKdlValue` / `ToKdlValue`を実装したカスタム型
+- 経路: `PathBuf`
+- 集合: `Vec<T>`, `HashMap<String, String>`
+- 任意: `Option<T>`
+- `FromKdlValue` / `ToKdlValue`を実装した独自型
 
-## なぜ unison-kdl？
+## 本ライブラリを用いる理由
 
-KDLは設定ファイルに最適なドキュメント言語です。unison-kdlは、RustでKDLを扱う際の開発体験を向上させます：
+KDLは設定記述に適したドキュメント言語である。本ライブラリは、RustにてKDLを扱う際の開発体験を向上せしめる。
 
-- **宣言的**: 構造体を定義し、属性を付けるだけ
-- **型安全**: コンパイル時に構造を検証
-- **柔軟**: 引数、プロパティ、子ノードを自由にマッピング
-- **実用的**: [FleetFlow](https://github.com/chronista-club/fleetflow)で実戦投入済み
+- **宣言的**: 構造体を定義し、属性を付すのみ
+- **型安全**: 翻訳時に構造の正当性を検証する
+- **柔軟**: 引数、属性、子節点を自在に対応付ける
+- **実用**: [FleetFlow](https://github.com/chronista-club/fleetflow)にて実戦に供されている
 
 ## 謝辞
 
-[kdl](https://crates.io/crates/kdl)クレートをベースにしています。
+本ライブラリは[kdl](https://crates.io/crates/kdl)クレートを基盤とする。
 
-## ライセンス
+## 許諾
 
-MIT License - 詳細は[LICENSE](LICENSE)を参照。
+MIT License - 詳細は[LICENSE](LICENSE)を参照されたい。
