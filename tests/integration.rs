@@ -415,3 +415,146 @@ fn test_enum_default_naming() {
     let status: Status = Status::from_kdl_value(&val).unwrap();
     assert_eq!(status, Status::PendingReview);
 }
+
+// ============================================================================
+// Test unwrap_arg / unwrap_args
+// ============================================================================
+
+#[derive(Debug, PartialEq, KdlDeserialize)]
+#[kdl(name = "protocol")]
+struct ProtocolDef {
+    #[kdl(argument)]
+    name: String,
+
+    #[kdl(property)]
+    version: String,
+
+    #[kdl(child, unwrap_arg)]
+    namespace: Option<String>,
+
+    #[kdl(child, unwrap_arg)]
+    description: Option<String>,
+}
+
+#[test]
+fn test_unwrap_arg_present() {
+    let kdl = r#"
+        protocol "MyProtocol" version="1.0.0" {
+            namespace "com.example"
+            description "A test protocol"
+        }
+    "#;
+
+    let doc: KdlDocument = kdl.parse().unwrap();
+    let node = doc.nodes().first().unwrap();
+    let proto: ProtocolDef = ProtocolDef::from_kdl_node(node).unwrap();
+
+    assert_eq!(proto.name, "MyProtocol");
+    assert_eq!(proto.version, "1.0.0");
+    assert_eq!(proto.namespace, Some("com.example".to_string()));
+    assert_eq!(proto.description, Some("A test protocol".to_string()));
+}
+
+#[test]
+fn test_unwrap_arg_absent() {
+    let kdl = r#"protocol "MinimalProto" version="0.1""#;
+
+    let doc: KdlDocument = kdl.parse().unwrap();
+    let node = doc.nodes().first().unwrap();
+    let proto: ProtocolDef = ProtocolDef::from_kdl_node(node).unwrap();
+
+    assert_eq!(proto.namespace, None);
+    assert_eq!(proto.description, None);
+}
+
+#[derive(Debug, PartialEq, KdlDeserialize)]
+#[kdl(name = "enum")]
+struct EnumDef {
+    #[kdl(argument)]
+    name: String,
+
+    #[kdl(child, unwrap_args)]
+    values: Vec<String>,
+}
+
+#[test]
+fn test_unwrap_args() {
+    let kdl = r#"
+        enum "Status" {
+            values "pending" "active" "completed" "cancelled"
+        }
+    "#;
+
+    let doc: KdlDocument = kdl.parse().unwrap();
+    let node = doc.nodes().first().unwrap();
+    let e: EnumDef = EnumDef::from_kdl_node(node).unwrap();
+
+    assert_eq!(e.name, "Status");
+    assert_eq!(
+        e.values,
+        vec!["pending", "active", "completed", "cancelled"]
+    );
+}
+
+// ============================================================================
+// Test document-level deserialization
+// ============================================================================
+
+#[derive(Debug, PartialEq, KdlDeserialize)]
+#[kdl(document)]
+struct Schema {
+    #[kdl(child)]
+    protocol: Option<ProtocolDef>,
+
+    #[kdl(children, name = "message")]
+    messages: Vec<MessageDef>,
+
+    #[kdl(children, name = "enum")]
+    enums: Vec<EnumDef>,
+}
+
+#[derive(Debug, PartialEq, KdlDeserialize)]
+#[kdl(name = "message")]
+struct MessageDef {
+    #[kdl(argument)]
+    name: String,
+}
+
+#[test]
+fn test_document_level_parsing() {
+    let kdl = r#"
+        protocol "TestProto" version="1.0.0" {
+            namespace "test"
+        }
+
+        message "UserMessage"
+        message "ChatMessage"
+
+        enum "Status" {
+            values "active" "inactive"
+        }
+    "#;
+
+    let schema: Schema = unison_kdl::from_str(kdl).unwrap();
+
+    assert!(schema.protocol.is_some());
+    let proto = schema.protocol.unwrap();
+    assert_eq!(proto.name, "TestProto");
+    assert_eq!(proto.namespace, Some("test".to_string()));
+
+    assert_eq!(schema.messages.len(), 2);
+    assert_eq!(schema.messages[0].name, "UserMessage");
+    assert_eq!(schema.messages[1].name, "ChatMessage");
+
+    assert_eq!(schema.enums.len(), 1);
+    assert_eq!(schema.enums[0].name, "Status");
+    assert_eq!(schema.enums[0].values, vec!["active", "inactive"]);
+}
+
+#[test]
+fn test_document_empty() {
+    let schema: Schema = unison_kdl::from_str("").unwrap();
+    assert!(schema.protocol.is_none());
+    assert!(schema.messages.is_empty());
+    assert!(schema.enums.is_empty());
+}

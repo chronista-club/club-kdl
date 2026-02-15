@@ -37,6 +37,7 @@ pub fn derive_kdl_serialize(input: TokenStream) -> TokenStream {
 #[derive(Debug, Default)]
 struct ContainerAttrs {
     name: Option<String>,
+    document: bool,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -47,6 +48,8 @@ struct FieldAttrs {
     child_name: Option<String>,
     default: bool,
     skip: bool,
+    unwrap_arg: bool,
+    unwrap_args: bool,
 }
 
 #[derive(Debug, Default, Clone, PartialEq)]
@@ -77,6 +80,8 @@ fn parse_container_attrs(attrs: &[Attribute]) -> syn::Result<ContainerAttrs> {
                 {
                     result.name = Some(s.value());
                 }
+            } else if meta.path.is_ident("document") {
+                result.document = true;
             }
             Ok(())
         })?;
@@ -209,6 +214,10 @@ fn parse_field_attrs(attrs: &[Attribute]) -> syn::Result<FieldAttrs> {
                 result.default = true;
             } else if meta.path.is_ident("skip") {
                 result.skip = true;
+            } else if meta.path.is_ident("unwrap_arg") {
+                result.unwrap_arg = true;
+            } else if meta.path.is_ident("unwrap_args") {
+                result.unwrap_args = true;
             }
             Ok(())
         })?;
@@ -367,7 +376,46 @@ fn impl_kdl_deserialize(input: &DeriveInput) -> syn::Result<TokenStream2> {
             FieldKind::Child => {
                 let child_name = field_attrs.child_name.as_ref().unwrap_or(&kdl_name);
 
-                if field_attrs.default {
+                if field_attrs.unwrap_arg {
+                    // Child node → extract first argument value
+                    if is_option_type(&field.ty) {
+                        quote! {
+                            #field_name: node.child(#child_name)
+                                .and_then(|n| n.arg(0))
+                                .map(|v| ::unison_kdl::FromKdlValue::from_kdl_value(v))
+                                .transpose()?,
+                        }
+                    } else if field_attrs.default {
+                        quote! {
+                            #field_name: node.child(#child_name)
+                                .and_then(|n| n.arg(0))
+                                .map(|v| ::unison_kdl::FromKdlValue::from_kdl_value(v))
+                                .transpose()?
+                                .unwrap_or_default(),
+                        }
+                    } else {
+                        quote! {
+                            #field_name: {
+                                let child_node = node.child(#child_name)
+                                    .ok_or(::unison_kdl::Error::MissingChild(#child_name))?;
+                                let val = child_node.arg(0)
+                                    .ok_or(::unison_kdl::Error::MissingArgument(0))?;
+                                ::unison_kdl::FromKdlValue::from_kdl_value(val)?
+                            },
+                        }
+                    }
+                } else if field_attrs.unwrap_args {
+                    // Child node → extract all arguments as Vec
+                    quote! {
+                        #field_name: node.child(#child_name)
+                            .map(|n| n.args()
+                                .into_iter()
+                                .map(|v| ::unison_kdl::FromKdlValue::from_kdl_value(v))
+                                .collect::<::unison_kdl::Result<Vec<_>>>())
+                            .transpose()?
+                            .unwrap_or_default(),
+                    }
+                } else if field_attrs.default {
                     quote! {
                         #field_name: node.child(#child_name)
                             .map(|n| ::unison_kdl::KdlDeserialize::from_kdl_node(n))
@@ -465,17 +513,39 @@ fn impl_kdl_deserialize(input: &DeriveInput) -> syn::Result<TokenStream2> {
         quote! {}
     };
 
-    Ok(quote! {
-        impl<'de> ::unison_kdl::KdlDeserialize<'de> for #name {
-            fn from_kdl_node(node: &'de ::unison_kdl::KdlNode) -> ::unison_kdl::Result<Self> {
-                use ::unison_kdl::KdlNodeExt;
-                #name_check
-                Ok(Self {
-                    #(#field_deserializers)*
-                })
+    if container_attrs.document {
+        // Document-level deserialization: treat document nodes as children
+        // Generate a helper that works with a slice of nodes (shared between from_kdl_doc and from_kdl_node)
+        Ok(quote! {
+            impl<'de> ::unison_kdl::KdlDeserialize<'de> for #name {
+                fn from_kdl_node(node: &'de ::unison_kdl::KdlNode) -> ::unison_kdl::Result<Self> {
+                    use ::unison_kdl::KdlNodeExt;
+                    #name_check
+                    Ok(Self {
+                        #(#field_deserializers)*
+                    })
+                }
+
+                fn from_kdl_doc(doc: &'de ::unison_kdl::KdlDocument) -> ::unison_kdl::Result<Self> {
+                    // Create a virtual wrapper node with the document's nodes as children
+                    let wrapper = ::unison_kdl::doc_to_wrapper_node(doc);
+                    <Self as ::unison_kdl::KdlDeserialize>::from_kdl_node(&wrapper)
+                }
             }
-        }
-    })
+        })
+    } else {
+        Ok(quote! {
+            impl<'de> ::unison_kdl::KdlDeserialize<'de> for #name {
+                fn from_kdl_node(node: &'de ::unison_kdl::KdlNode) -> ::unison_kdl::Result<Self> {
+                    use ::unison_kdl::KdlNodeExt;
+                    #name_check
+                    Ok(Self {
+                        #(#field_deserializers)*
+                    })
+                }
+            }
+        })
+    }
 }
 
 // ============================================================================

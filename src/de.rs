@@ -202,6 +202,22 @@ impl<'de> FromKdlValue<'de> for std::path::PathBuf {
 }
 
 // ============================================================================
+// Document-level helpers
+// ============================================================================
+
+/// Create a wrapper KdlNode that contains all document nodes as children.
+/// Used by `#[kdl(document)]` derive to support document-level deserialization.
+pub fn doc_to_wrapper_node(doc: &KdlDocument) -> KdlNode {
+    let mut wrapper = KdlNode::new(kdl::KdlIdentifier::from("__document__"));
+    let mut children = KdlDocument::new();
+    for node in doc.nodes() {
+        children.nodes_mut().push(node.clone());
+    }
+    wrapper.set_children(children);
+    wrapper
+}
+
+// ============================================================================
 // Node access helpers
 // ============================================================================
 

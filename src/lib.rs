@@ -63,7 +63,9 @@ pub mod error;
 pub mod ser;
 
 // Re-exports
-pub use de::{FromKdlValue, KdlDeserialize, KdlNodeExt, from_doc, from_node, from_str};
+pub use de::{
+    FromKdlValue, KdlDeserialize, KdlNodeExt, doc_to_wrapper_node, from_doc, from_node, from_str,
+};
 pub use error::{Error, Result};
 pub use ser::{
     KdlSerialize, NodeBuilder, ToKdlValue, to_doc, to_node, to_string, to_string_pretty,
