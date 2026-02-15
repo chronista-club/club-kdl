@@ -161,6 +161,16 @@ impl<'de> FromKdlValue<'de> for u16 {
     }
 }
 
+impl<'de> FromKdlValue<'de> for usize {
+    #[inline]
+    fn from_kdl_value(value: &'de KdlValue) -> Result<Self> {
+        value
+            .as_integer()
+            .and_then(|v| v.try_into().ok())
+            .ok_or_else(|| Error::type_mismatch("usize", value))
+    }
+}
+
 impl<'de> FromKdlValue<'de> for f64 {
     #[inline]
     fn from_kdl_value(value: &'de KdlValue) -> Result<Self> {
