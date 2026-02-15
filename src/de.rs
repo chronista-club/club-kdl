@@ -48,16 +48,14 @@ pub trait KdlDeserialize<'de>: Sized {
 ///     }
 /// "#)?;
 /// ```
-pub fn from_str<'de, T>(s: &'de str) -> Result<T>
+pub fn from_str<T>(s: &str) -> Result<T>
 where
-    T: KdlDeserialize<'de>,
+    T: for<'de> KdlDeserialize<'de>,
 {
-    let _doc: KdlDocument = s
+    let doc: KdlDocument = s
         .parse()
         .map_err(|e: kdl::KdlError| Error::Parse(e.to_string()))?;
-    // TODO: Implement proper lifetime handling with a wrapper type.
-    // from_str requires owned data handling because KdlDocument owns the parsed data.
-    unimplemented!("from_str requires owned data handling - use from_doc instead")
+    T::from_kdl_doc(&doc)
 }
 
 /// Deserialize a type from a KDL document.

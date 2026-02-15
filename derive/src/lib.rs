@@ -6,7 +6,8 @@ use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{
-    Attribute, Data, DeriveInput, Expr, ExprLit, Field, Fields, Lit, Type, parse_macro_input,
+    Attribute, Data, DeriveInput, Expr, ExprLit, Field, Fields, Lit, Type, Variant,
+    parse_macro_input,
 };
 
 /// Derive `KdlDeserialize` for a struct
@@ -217,12 +218,68 @@ fn parse_field_attrs(attrs: &[Attribute]) -> syn::Result<FieldAttrs> {
 }
 
 // ============================================================================
+// Variant attribute parsing (for enums)
+// ============================================================================
+
+#[derive(Debug, Default)]
+struct VariantAttrs {
+    rename: Option<String>,
+}
+
+fn parse_variant_attrs(attrs: &[Attribute]) -> syn::Result<VariantAttrs> {
+    let mut result = VariantAttrs::default();
+
+    for attr in attrs {
+        if !attr.path().is_ident("kdl") {
+            continue;
+        }
+
+        attr.parse_nested_meta(|meta| {
+            if meta.path.is_ident("rename") {
+                let value: Expr = meta.value()?.parse()?;
+                if let Expr::Lit(ExprLit {
+                    lit: Lit::Str(s), ..
+                }) = value
+                {
+                    result.rename = Some(s.value());
+                }
+            }
+            Ok(())
+        })?;
+    }
+
+    Ok(result)
+}
+
+/// Get the KDL string name for a variant (rename or snake_case of ident)
+fn variant_kdl_name(variant: &Variant, attrs: &VariantAttrs) -> String {
+    attrs
+        .rename
+        .clone()
+        .unwrap_or_else(|| to_snake_case(&variant.ident.to_string()))
+}
+
+// ============================================================================
 // Deserialize implementation
 // ============================================================================
 
 fn impl_kdl_deserialize(input: &DeriveInput) -> syn::Result<TokenStream2> {
     let name = &input.ident;
     let container_attrs = parse_container_attrs(&input.attrs)?;
+
+    // Dispatch based on data type
+    match &input.data {
+        Data::Enum(data) => {
+            return impl_kdl_deserialize_enum(input, name, &data.variants);
+        }
+        Data::Struct(_) => {} // fall through to struct handling below
+        Data::Union(_) => {
+            return Err(syn::Error::new_spanned(
+                input,
+                "KdlDeserialize does not support unions",
+            ));
+        }
+    }
 
     let fields = match &input.data {
         Data::Struct(data) => match &data.fields {
@@ -234,12 +291,7 @@ fn impl_kdl_deserialize(input: &DeriveInput) -> syn::Result<TokenStream2> {
                 ));
             }
         },
-        _ => {
-            return Err(syn::Error::new_spanned(
-                input,
-                "KdlDeserialize only supports structs",
-            ));
-        }
+        _ => unreachable!(),
     };
 
     let mut arg_index = 0usize;
@@ -427,12 +479,92 @@ fn impl_kdl_deserialize(input: &DeriveInput) -> syn::Result<TokenStream2> {
 }
 
 // ============================================================================
+// Enum deserialization (scalar string mapping)
+// ============================================================================
+
+fn impl_kdl_deserialize_enum(
+    _input: &DeriveInput,
+    name: &syn::Ident,
+    variants: &syn::punctuated::Punctuated<Variant, syn::token::Comma>,
+) -> syn::Result<TokenStream2> {
+    // Validate: all variants must be unit variants (no data)
+    for variant in variants {
+        if !matches!(variant.fields, Fields::Unit) {
+            return Err(syn::Error::new_spanned(
+                variant,
+                "KdlDeserialize for enums only supports unit variants (no data)",
+            ));
+        }
+    }
+
+    let match_arms: Vec<_> = variants
+        .iter()
+        .map(|variant| {
+            let attrs = parse_variant_attrs(&variant.attrs).unwrap_or_default();
+            let kdl_name = variant_kdl_name(variant, &attrs);
+            let variant_ident = &variant.ident;
+            quote! {
+                #kdl_name => Ok(#name::#variant_ident),
+            }
+        })
+        .collect();
+
+    let variant_names: Vec<_> = variants
+        .iter()
+        .map(|v| {
+            let attrs = parse_variant_attrs(&v.attrs).unwrap_or_default();
+            variant_kdl_name(v, &attrs)
+        })
+        .collect();
+    let expected_msg = variant_names.join(", ");
+
+    Ok(quote! {
+        impl<'de> ::unison_kdl::FromKdlValue<'de> for #name {
+            fn from_kdl_value(value: &'de ::unison_kdl::KdlValue) -> ::unison_kdl::Result<Self> {
+                let s = value.as_string()
+                    .ok_or_else(|| ::unison_kdl::Error::type_mismatch("string", value))?;
+                match s {
+                    #(#match_arms)*
+                    other => Err(::unison_kdl::Error::Custom(
+                        format!("unknown variant '{}', expected one of: {}", other, #expected_msg)
+                    )),
+                }
+            }
+        }
+
+        impl<'de> ::unison_kdl::KdlDeserialize<'de> for #name {
+            fn from_kdl_node(node: &'de ::unison_kdl::KdlNode) -> ::unison_kdl::Result<Self> {
+                use ::unison_kdl::KdlNodeExt;
+                // For scalar enums, take the first argument as the value
+                let value = node.arg(0)
+                    .ok_or(::unison_kdl::Error::MissingArgument(0))?;
+                <Self as ::unison_kdl::FromKdlValue>::from_kdl_value(value)
+            }
+        }
+    })
+}
+
+// ============================================================================
 // Serialize implementation
 // ============================================================================
 
 fn impl_kdl_serialize(input: &DeriveInput) -> syn::Result<TokenStream2> {
     let name = &input.ident;
     let container_attrs = parse_container_attrs(&input.attrs)?;
+
+    // Dispatch based on data type
+    match &input.data {
+        Data::Enum(data) => {
+            return impl_kdl_serialize_enum(input, name, &data.variants);
+        }
+        Data::Struct(_) => {} // fall through to struct handling below
+        Data::Union(_) => {
+            return Err(syn::Error::new_spanned(
+                input,
+                "KdlSerialize does not support unions",
+            ));
+        }
+    }
 
     let fields = match &input.data {
         Data::Struct(data) => match &data.fields {
@@ -444,12 +576,7 @@ fn impl_kdl_serialize(input: &DeriveInput) -> syn::Result<TokenStream2> {
                 ));
             }
         },
-        _ => {
-            return Err(syn::Error::new_spanned(
-                input,
-                "KdlSerialize only supports structs",
-            ));
-        }
+        _ => unreachable!(),
     };
 
     let node_name = container_attrs
@@ -609,14 +736,72 @@ fn impl_kdl_serialize(input: &DeriveInput) -> syn::Result<TokenStream2> {
 }
 
 // ============================================================================
+// Enum serialization (scalar string mapping)
+// ============================================================================
+
+fn impl_kdl_serialize_enum(
+    _input: &DeriveInput,
+    name: &syn::Ident,
+    variants: &syn::punctuated::Punctuated<Variant, syn::token::Comma>,
+) -> syn::Result<TokenStream2> {
+    // Validate: all variants must be unit variants
+    for variant in variants {
+        if !matches!(variant.fields, Fields::Unit) {
+            return Err(syn::Error::new_spanned(
+                variant,
+                "KdlSerialize for enums only supports unit variants (no data)",
+            ));
+        }
+    }
+
+    let to_kdl_value_arms: Vec<_> = variants
+        .iter()
+        .map(|variant| {
+            let attrs = parse_variant_attrs(&variant.attrs).unwrap_or_default();
+            let kdl_name = variant_kdl_name(variant, &attrs);
+            let variant_ident = &variant.ident;
+            quote! {
+                #name::#variant_ident => ::unison_kdl::KdlValue::String(#kdl_name.to_string()),
+            }
+        })
+        .collect();
+
+    let node_name = to_snake_case(&name.to_string());
+
+    Ok(quote! {
+        impl ::unison_kdl::ToKdlValue for #name {
+            fn to_kdl_value(&self) -> ::unison_kdl::KdlValue {
+                match self {
+                    #(#to_kdl_value_arms)*
+                }
+            }
+        }
+
+        impl ::unison_kdl::ToKdlValue for &#name {
+            fn to_kdl_value(&self) -> ::unison_kdl::KdlValue {
+                (*self).to_kdl_value()
+            }
+        }
+
+        impl ::unison_kdl::KdlSerialize for #name {
+            fn to_kdl_node(&self) -> ::unison_kdl::Result<::unison_kdl::KdlNode> {
+                Ok(::unison_kdl::NodeBuilder::new(#node_name)
+                    .arg(self)
+                    .build())
+            }
+        }
+    })
+}
+
+// ============================================================================
 // Helpers
 // ============================================================================
 
 fn is_option_type(ty: &Type) -> bool {
-    if let Type::Path(type_path) = ty {
-        if let Some(segment) = type_path.path.segments.last() {
-            return segment.ident == "Option";
-        }
+    if let Type::Path(type_path) = ty
+        && let Some(segment) = type_path.path.segments.last()
+    {
+        return segment.ident == "Option";
     }
     false
 }

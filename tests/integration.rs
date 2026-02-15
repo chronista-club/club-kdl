@@ -263,3 +263,155 @@ fn test_child_map_roundtrip() {
         restored.environment.get("KEY1")
     );
 }
+
+// ============================================================================
+// Test enum scalar derive
+// ============================================================================
+
+#[derive(Debug, PartialEq, Clone, KdlDeserialize, KdlSerialize)]
+enum Direction {
+    #[kdl(rename = "client")]
+    Client,
+    #[kdl(rename = "server")]
+    Server,
+    #[kdl(rename = "either")]
+    Either,
+}
+
+#[derive(Debug, PartialEq, KdlDeserialize, KdlSerialize)]
+#[kdl(name = "channel")]
+struct Channel {
+    #[kdl(argument)]
+    name: String,
+
+    #[kdl(property)]
+    from: Direction,
+
+    #[kdl(property)]
+    lifetime: Option<String>,
+}
+
+#[test]
+fn test_enum_scalar_deserialize() {
+    let kdl = r#"channel "events" from="server" lifetime="persistent""#;
+
+    let doc: KdlDocument = kdl.parse().unwrap();
+    let node = doc.nodes().first().unwrap();
+    let ch: Channel = Channel::from_kdl_node(node).unwrap();
+
+    assert_eq!(ch.name, "events");
+    assert_eq!(ch.from, Direction::Server);
+    assert_eq!(ch.lifetime, Some("persistent".to_string()));
+}
+
+#[test]
+fn test_enum_scalar_all_variants() {
+    for (input, expected) in [
+        ("client", Direction::Client),
+        ("server", Direction::Server),
+        ("either", Direction::Either),
+    ] {
+        let kdl = format!(r#"channel "test" from="{}""#, input);
+        let doc: KdlDocument = kdl.parse().unwrap();
+        let node = doc.nodes().first().unwrap();
+        let ch: Channel = Channel::from_kdl_node(node).unwrap();
+        assert_eq!(ch.from, expected);
+    }
+}
+
+#[test]
+fn test_enum_scalar_serialize() {
+    let ch = Channel {
+        name: "control".to_string(),
+        from: Direction::Client,
+        lifetime: Some("transient".to_string()),
+    };
+
+    let node = ch.to_kdl_node().unwrap();
+
+    // Check argument
+    use unison_kdl::KdlNodeExt;
+    assert_eq!(node.arg(0).and_then(|v| v.as_string()), Some("control"));
+
+    // Check property: from should be "client"
+    assert_eq!(
+        node.prop("from").and_then(|v| v.as_string()),
+        Some("client")
+    );
+}
+
+#[test]
+fn test_enum_scalar_roundtrip() {
+    let original = Channel {
+        name: "chat".to_string(),
+        from: Direction::Either,
+        lifetime: Some("persistent".to_string()),
+    };
+
+    let node = original.to_kdl_node().unwrap();
+    let restored: Channel = Channel::from_kdl_node(&node).unwrap();
+
+    assert_eq!(original, restored);
+}
+
+#[test]
+fn test_enum_invalid_variant() {
+    let kdl = r#"channel "test" from="unknown""#;
+
+    let doc: KdlDocument = kdl.parse().unwrap();
+    let node = doc.nodes().first().unwrap();
+    let result = Channel::from_kdl_node(node);
+
+    assert!(result.is_err());
+    let err = result.unwrap_err().to_string();
+    assert!(err.contains("unknown variant"));
+}
+
+// ============================================================================
+// Test from_str
+// ============================================================================
+
+#[test]
+fn test_from_str() {
+    let ch: Channel = unison_kdl::from_str(r#"channel "events" from="server""#).unwrap();
+    assert_eq!(ch.name, "events");
+    assert_eq!(ch.from, Direction::Server);
+}
+
+#[test]
+fn test_from_str_service() {
+    let svc: Service = unison_kdl::from_str(
+        r#"
+        service "web" image="nginx:latest" {
+            port host=80 container=80
+        }
+    "#,
+    )
+    .unwrap();
+    assert_eq!(svc.name, "web");
+    assert_eq!(svc.ports.len(), 1);
+}
+
+// ============================================================================
+// Test enum without rename (defaults to snake_case)
+// ============================================================================
+
+#[derive(Debug, PartialEq, Clone, KdlDeserialize, KdlSerialize)]
+enum Status {
+    Active,
+    Inactive,
+    PendingReview,
+}
+
+#[test]
+fn test_enum_default_naming() {
+    // Without #[kdl(rename)], variant names should be snake_cased
+    use unison_kdl::FromKdlValue;
+    let val = kdl::KdlValue::String("active".to_string());
+    let status: Status = Status::from_kdl_value(&val).unwrap();
+    assert_eq!(status, Status::Active);
+
+    let val = kdl::KdlValue::String("pending_review".to_string());
+    let status: Status = Status::from_kdl_value(&val).unwrap();
+    assert_eq!(status, Status::PendingReview);
+}
