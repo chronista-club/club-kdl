@@ -1,11 +1,11 @@
 [package]
 name = "unison-kdl"
 description = "Fast KDL (KDL Document Language) serialization/deserialization with derive macros"
-version = "0.2.0"
-edition = "2024"
-authors = ["Mako <mito@chronista.club>"]
-license = "MIT"
-repository = "https://github.com/chronista-club/unison-kdl"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
 keywords = ["kdl", "serialization", "derive", "macro"]
 categories = ["encoding", "parsing"]
 readme = "README.md"
