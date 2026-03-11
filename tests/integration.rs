@@ -40,10 +40,12 @@ struct Service {
     #[kdl(property)]
     restart: Option<String>,
 
-    #[kdl(children, name = "port")]
+    // Auto-resolves to "port" via Port::kdl_node_name()
+    #[kdl(children)]
     ports: Vec<Port>,
 
-    #[kdl(children, name = "volume")]
+    // Auto-resolves to "volume" via Volume::kdl_node_name()
+    #[kdl(children)]
     volumes: Vec<Volume>,
 }
 
@@ -368,6 +370,168 @@ fn test_enum_invalid_variant() {
 }
 
 // ============================================================================
+// Test #[kdl(child)] auto-resolves child struct's #[kdl(name)]
+// ============================================================================
+
+#[derive(Debug, PartialEq, KdlDeserialize)]
+#[kdl(name = "post-setup")]
+struct PostSetup {
+    #[kdl(argument)]
+    command: String,
+}
+
+#[derive(Debug, PartialEq, KdlDeserialize)]
+#[kdl(document)]
+struct AutoNameConfig {
+    #[kdl(child)]
+    post_setup: Option<PostSetup>,
+}
+
+#[test]
+fn test_child_auto_name_from_struct() {
+    // post_setup field → normally would look for "post_setup" node
+    // But PostSetup has #[kdl(name = "post-setup")], so it should auto-resolve
+    let kdl = r#"post-setup "bun install""#;
+    let config: AutoNameConfig = unison_kdl::from_str(kdl).unwrap();
+    assert_eq!(config.post_setup.unwrap().command, "bun install");
+}
+
+#[test]
+fn test_child_auto_name_absent() {
+    let config: AutoNameConfig = unison_kdl::from_str("").unwrap();
+    assert!(config.post_setup.is_none());
+}
+
+#[derive(Debug, PartialEq, KdlDeserialize)]
+#[kdl(name = "pre-build")]
+struct PreBuild {
+    #[kdl(argument)]
+    command: String,
+}
+
+#[derive(Debug, PartialEq, KdlDeserialize)]
+#[kdl(document)]
+struct AutoNameRequired {
+    #[kdl(child)]
+    pre_build: PreBuild,
+}
+
+#[test]
+fn test_child_auto_name_required() {
+    let kdl = r#"pre-build "cargo build""#;
+    let config: AutoNameRequired = unison_kdl::from_str(kdl).unwrap();
+    assert_eq!(config.pre_build.command, "cargo build");
+}
+
+#[test]
+fn test_child_auto_name_required_missing() {
+    let result = unison_kdl::from_str::<AutoNameRequired>("");
+    assert!(result.is_err());
+}
+
+// Test #[kdl(children)] auto-resolves child struct's #[kdl(name)]
+#[derive(Debug, PartialEq, KdlDeserialize)]
+#[kdl(name = "task")]
+struct Task {
+    #[kdl(argument)]
+    name: String,
+}
+
+#[derive(Debug, PartialEq, KdlDeserialize)]
+#[kdl(document)]
+struct AutoNameChildren {
+    #[kdl(children)]
+    tasks: Vec<Task>,
+}
+
+#[test]
+fn test_children_auto_name_from_struct() {
+    let kdl = r#"
+        task "build"
+        task "test"
+        task "deploy"
+    "#;
+    let config: AutoNameChildren = unison_kdl::from_str(kdl).unwrap();
+    assert_eq!(config.tasks.len(), 3);
+    assert_eq!(config.tasks[0].name, "build");
+    assert_eq!(config.tasks[1].name, "test");
+    assert_eq!(config.tasks[2].name, "deploy");
+}
+
+// Test fallback to field name when child struct has no #[kdl(name)]
+#[derive(Debug, PartialEq, KdlDeserialize)]
+struct NoKdlName {
+    #[kdl(argument)]
+    value: String,
+}
+
+#[derive(Debug, PartialEq, KdlDeserialize)]
+#[kdl(document)]
+struct FallbackConfig {
+    #[kdl(child)]
+    no_kdl_name: Option<NoKdlName>,
+}
+
+#[test]
+fn test_child_auto_name_fallback_to_field_name() {
+    // NoKdlName has no #[kdl(name)], so kdl_node_name() returns None
+    // Falls back to field name "no_kdl_name"
+    let kdl = r#"no_kdl_name "hello""#;
+    let config: FallbackConfig = unison_kdl::from_str(kdl).unwrap();
+    assert_eq!(config.no_kdl_name.unwrap().value, "hello");
+}
+
+// Test #[kdl(child, default)] with auto-name
+#[derive(Debug, Default, PartialEq, KdlDeserialize)]
+#[kdl(name = "defaults")]
+struct Defaults {
+    #[kdl(argument)]
+    value: String,
+}
+
+#[derive(Debug, PartialEq, KdlDeserialize)]
+#[kdl(document)]
+struct DefaultAutoNameConfig {
+    #[kdl(child, default)]
+    defaults: Defaults,
+}
+
+#[test]
+fn test_child_default_with_auto_name() {
+    let kdl = r#"defaults "custom""#;
+    let config: DefaultAutoNameConfig = unison_kdl::from_str(kdl).unwrap();
+    assert_eq!(config.defaults.value, "custom");
+}
+
+#[test]
+fn test_child_default_with_auto_name_absent() {
+    let config: DefaultAutoNameConfig = unison_kdl::from_str("").unwrap();
+    assert_eq!(config.defaults, Defaults::default());
+}
+
+// Test #[kdl(children)] auto-name with empty Vec
+#[test]
+fn test_children_auto_name_empty() {
+    let config: AutoNameChildren = unison_kdl::from_str("").unwrap();
+    assert!(config.tasks.is_empty());
+}
+
+// Test that explicit #[kdl(child(name = "..."))] still takes priority
+#[derive(Debug, PartialEq, KdlDeserialize)]
+#[kdl(document)]
+struct ExplicitNameOverride {
+    #[kdl(child(name = "post-setup"))]
+    post_setup: Option<PostSetup>,
+}
+
+#[test]
+fn test_explicit_name_still_works() {
+    let kdl = r#"post-setup "npm install""#;
+    let config: ExplicitNameOverride = unison_kdl::from_str(kdl).unwrap();
+    assert_eq!(config.post_setup.unwrap().command, "npm install");
+}
+
+// ============================================================================
 // Test from_str
 // ============================================================================
 
@@ -506,10 +670,12 @@ struct Schema {
     #[kdl(child)]
     protocol: Option<ProtocolDef>,
 
-    #[kdl(children, name = "message")]
+    // Auto-resolves to "message" via MessageDef::kdl_node_name()
+    #[kdl(children)]
     messages: Vec<MessageDef>,
 
-    #[kdl(children, name = "enum")]
+    // Auto-resolves to "enum" via EnumDef::kdl_node_name()
+    #[kdl(children)]
     enums: Vec<EnumDef>,
 }
 

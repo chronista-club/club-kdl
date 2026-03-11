@@ -27,6 +27,13 @@ pub trait KdlDeserialize<'de>: Sized {
     /// Deserialize from a KDL node.
     fn from_kdl_node(node: &'de KdlNode) -> Result<Self>;
 
+    /// Returns the expected KDL node name for this type.
+    /// When `#[kdl(name = "...")]` is specified, returns `Some("...")`.
+    /// Used by `#[kdl(child)]` to auto-resolve child node names.
+    fn kdl_node_name() -> Option<&'static str> {
+        None
+    }
+
     /// Deserialize from a KDL document (uses first node).
     fn from_kdl_doc(doc: &'de KdlDocument) -> Result<Self> {
         doc.nodes()

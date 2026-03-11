@@ -126,6 +126,13 @@ impl ToKdlValue for u16 {
     }
 }
 
+impl ToKdlValue for usize {
+    #[inline]
+    fn to_kdl_value(&self) -> KdlValue {
+        KdlValue::Integer(*self as i128)
+    }
+}
+
 impl ToKdlValue for f64 {
     #[inline]
     fn to_kdl_value(&self) -> KdlValue {
@@ -193,7 +200,7 @@ macro_rules! impl_ref_to_kdl_value {
     };
 }
 
-impl_ref_to_kdl_value!(i64, i128, i32, u64, u32, u16, f64, bool);
+impl_ref_to_kdl_value!(i64, i128, i32, u64, u32, u16, usize, f64, bool);
 
 impl ToKdlValue for &String {
     #[inline]

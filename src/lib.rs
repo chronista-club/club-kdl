@@ -44,17 +44,24 @@
 //! ### Container attributes (`#[kdl(...)]` on struct)
 //!
 //! - `name = "..."` - KDL node name (defaults to struct name in snake_case)
+//! - `alias = "..."` - Alternative node name accepted during deserialization (multiple allowed)
+//! - `document` - Treat as document-level (multiple top-level nodes)
 //!
 //! ### Field attributes (`#[kdl(...)]` on fields)
 //!
 //! - `argument` - Map to positional argument (by index)
 //! - `argument(index = N)` - Map to specific argument index
+//! - `arguments` - Collect all arguments into `Vec<T>`
 //! - `property` - Map to property (key=value)
 //! - `property(rename = "...")` - Map to property with different name
-//! - `child` - Map to single child node
-//! - `children` - Map to multiple child nodes
-//! - `children(name = "...")` - Filter children by node name
-//! - `flatten` - Flatten nested struct fields
+//! - `child` - Map to single child node (auto-resolves name from child type's `#[kdl(name)]`)
+//! - `child(name = "...")` - Map to child node with explicit name
+//! - `child, unwrap_arg` - Extract child node's first argument as value
+//! - `child, unwrap_args` - Extract child node's all arguments as `Vec<T>`
+//! - `children` - Map to multiple child nodes (auto-resolves name from child type's `#[kdl(name)]`)
+//! - `children(name = "...")` - Filter children by explicit node name
+//! - `child_map` - Collect child nodes into `HashMap<String, String>`
+//! - `child_map(name = "...")` - Collect from wrapper node into HashMap
 //! - `default` - Use Default::default() if missing
 //! - `skip` - Skip this field during serialization/deserialization
 

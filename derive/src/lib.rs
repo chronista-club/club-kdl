@@ -37,6 +37,7 @@ pub fn derive_kdl_serialize(input: TokenStream) -> TokenStream {
 #[derive(Debug, Default)]
 struct ContainerAttrs {
     name: Option<String>,
+    aliases: Vec<String>,
     document: bool,
 }
 
@@ -79,6 +80,14 @@ fn parse_container_attrs(attrs: &[Attribute]) -> syn::Result<ContainerAttrs> {
                 }) = value
                 {
                     result.name = Some(s.value());
+                }
+            } else if meta.path.is_ident("alias") {
+                let value: Expr = meta.value()?.parse()?;
+                if let Expr::Lit(ExprLit {
+                    lit: Lit::Str(s), ..
+                }) = value
+                {
+                    result.aliases.push(s.value());
                 }
             } else if meta.path.is_ident("document") {
                 result.document = true;
@@ -374,10 +383,9 @@ fn impl_kdl_deserialize(input: &DeriveInput) -> syn::Result<TokenStream2> {
                 }
             }
             FieldKind::Child => {
-                let child_name = field_attrs.child_name.as_ref().unwrap_or(&kdl_name);
-
                 if field_attrs.unwrap_arg {
-                    // Child node → extract first argument value
+                    // unwrap_arg: uses field name or explicit child_name (scalar type, no kdl_node_name)
+                    let child_name = field_attrs.child_name.as_ref().unwrap_or(&kdl_name);
                     if is_option_type(&field.ty) {
                         quote! {
                             #field_name: node.child(#child_name)
@@ -405,7 +413,8 @@ fn impl_kdl_deserialize(input: &DeriveInput) -> syn::Result<TokenStream2> {
                         }
                     }
                 } else if field_attrs.unwrap_args {
-                    // Child node → extract all arguments as Vec
+                    // unwrap_args: uses field name or explicit child_name (scalar type, no kdl_node_name)
+                    let child_name = field_attrs.child_name.as_ref().unwrap_or(&kdl_name);
                     quote! {
                         #field_name: node.child(#child_name)
                             .map(|n| n.args()
@@ -415,34 +424,89 @@ fn impl_kdl_deserialize(input: &DeriveInput) -> syn::Result<TokenStream2> {
                             .transpose()?
                             .unwrap_or_default(),
                     }
-                } else if field_attrs.default {
-                    quote! {
-                        #field_name: node.child(#child_name)
-                            .map(|n| ::unison_kdl::KdlDeserialize::from_kdl_node(n))
-                            .transpose()?
-                            .unwrap_or_default(),
-                    }
-                } else if is_option_type(&field.ty) {
-                    quote! {
-                        #field_name: node.child(#child_name)
-                            .map(|n| ::unison_kdl::KdlDeserialize::from_kdl_node(n))
-                            .transpose()?,
+                } else if let Some(ref explicit_name) = field_attrs.child_name {
+                    // Explicit name provided via #[kdl(child(name = "..."))]
+                    if field_attrs.default {
+                        quote! {
+                            #field_name: node.child(#explicit_name)
+                                .map(|n| ::unison_kdl::KdlDeserialize::from_kdl_node(n))
+                                .transpose()?
+                                .unwrap_or_default(),
+                        }
+                    } else if is_option_type(&field.ty) {
+                        quote! {
+                            #field_name: node.child(#explicit_name)
+                                .map(|n| ::unison_kdl::KdlDeserialize::from_kdl_node(n))
+                                .transpose()?,
+                        }
+                    } else {
+                        quote! {
+                            #field_name: node.child(#explicit_name)
+                                .ok_or(::unison_kdl::Error::MissingChild(#explicit_name))
+                                .and_then(|n| ::unison_kdl::KdlDeserialize::from_kdl_node(n))?,
+                        }
                     }
                 } else {
-                    quote! {
-                        #field_name: node.child(#child_name)
-                            .ok_or(::unison_kdl::Error::MissingChild(#child_name))
-                            .and_then(|n| ::unison_kdl::KdlDeserialize::from_kdl_node(n))?,
+                    // No explicit name → query child type's kdl_node_name() via trait dispatch
+                    let inner_ty = extract_option_inner_type(&field.ty);
+                    let fallback = &kdl_name;
+                    if field_attrs.default {
+                        quote! {
+                            #field_name: {
+                                let __child_name = <#inner_ty as ::unison_kdl::KdlDeserialize>::kdl_node_name()
+                                    .unwrap_or(#fallback);
+                                node.child(__child_name)
+                                    .map(|n| ::unison_kdl::KdlDeserialize::from_kdl_node(n))
+                                    .transpose()?
+                                    .unwrap_or_default()
+                            },
+                        }
+                    } else if is_option_type(&field.ty) {
+                        quote! {
+                            #field_name: {
+                                let __child_name = <#inner_ty as ::unison_kdl::KdlDeserialize>::kdl_node_name()
+                                    .unwrap_or(#fallback);
+                                node.child(__child_name)
+                                    .map(|n| ::unison_kdl::KdlDeserialize::from_kdl_node(n))
+                                    .transpose()?
+                            },
+                        }
+                    } else {
+                        quote! {
+                            #field_name: {
+                                let __child_name = <#inner_ty as ::unison_kdl::KdlDeserialize>::kdl_node_name()
+                                    .unwrap_or(#fallback);
+                                node.child(__child_name)
+                                    .ok_or(::unison_kdl::Error::MissingChild(__child_name))
+                                    .and_then(|n| ::unison_kdl::KdlDeserialize::from_kdl_node(n))?
+                            },
+                        }
                     }
                 }
             }
             FieldKind::Children => {
-                let child_name = field_attrs.child_name.as_ref().unwrap_or(&kdl_name);
-                quote! {
-                    #field_name: node.children_by_name(#child_name)
-                        .into_iter()
-                        .map(|n| ::unison_kdl::KdlDeserialize::from_kdl_node(n))
-                        .collect::<::unison_kdl::Result<Vec<_>>>()?,
+                if let Some(ref explicit_name) = field_attrs.child_name {
+                    // Explicit name provided
+                    quote! {
+                        #field_name: node.children_by_name(#explicit_name)
+                            .into_iter()
+                            .map(|n| ::unison_kdl::KdlDeserialize::from_kdl_node(n))
+                            .collect::<::unison_kdl::Result<Vec<_>>>()?,
+                    }
+                } else {
+                    // No explicit name → query inner type's kdl_node_name()
+                    let inner_ty = extract_vec_inner_type(&field.ty);
+                    let fallback = &kdl_name;
+                    quote! {
+                        #field_name: {
+                            let __child_name = <#inner_ty as ::unison_kdl::KdlDeserialize>::kdl_node_name()
+                                .unwrap_or(#fallback);
+                            node.children_by_name(__child_name)
+                                .into_iter()
+                                .map(|n| ::unison_kdl::KdlDeserialize::from_kdl_node(n))
+                                .collect::<::unison_kdl::Result<Vec<_>>>()?
+                        },
+                    }
                 }
             }
             FieldKind::Arguments => {
@@ -499,14 +563,49 @@ fn impl_kdl_deserialize(input: &DeriveInput) -> syn::Result<TokenStream2> {
         field_deserializers.push(deserializer);
     }
 
-    // Check node name if specified
-    let name_check = if let Some(expected_name) = &container_attrs.name {
+    // Validate: #[kdl(document)] + #[kdl(name = "...")] is unsupported
+    if container_attrs.document && container_attrs.name.is_some() {
+        return Err(syn::Error::new_spanned(
+            input,
+            "#[kdl(document)] cannot be combined with #[kdl(name = \"...\")]; \
+             document-level deserialization uses a virtual wrapper node",
+        ));
+    }
+
+    // Generate kdl_node_name() if #[kdl(name = "...")] is specified
+    let kdl_node_name_impl = if let Some(ref expected_name) = container_attrs.name {
         quote! {
-            if node.name().value() != #expected_name {
-                return Err(::unison_kdl::Error::UnexpectedNode {
-                    expected: #expected_name,
-                    found: node.name().value().to_string(),
-                });
+            fn kdl_node_name() -> Option<&'static str> {
+                Some(#expected_name)
+            }
+        }
+    } else {
+        quote! {}
+    };
+
+    // Check node name if specified (with alias support)
+    let name_check = if let Some(expected_name) = &container_attrs.name {
+        let aliases = &container_attrs.aliases;
+        if aliases.is_empty() {
+            quote! {
+                if node.name().value() != #expected_name {
+                    return Err(::unison_kdl::Error::UnexpectedNode {
+                        expected: #expected_name,
+                        found: node.name().value().to_string(),
+                    });
+                }
+            }
+        } else {
+            quote! {
+                {
+                    let __name = node.name().value();
+                    if __name != #expected_name #(&& __name != #aliases)* {
+                        return Err(::unison_kdl::Error::UnexpectedNode {
+                            expected: #expected_name,
+                            found: __name.to_string(),
+                        });
+                    }
+                }
             }
         }
     } else {
@@ -514,8 +613,6 @@ fn impl_kdl_deserialize(input: &DeriveInput) -> syn::Result<TokenStream2> {
     };
 
     if container_attrs.document {
-        // Document-level deserialization: treat document nodes as children
-        // Generate a helper that works with a slice of nodes (shared between from_kdl_doc and from_kdl_node)
         Ok(quote! {
             impl<'de> ::unison_kdl::KdlDeserialize<'de> for #name {
                 fn from_kdl_node(node: &'de ::unison_kdl::KdlNode) -> ::unison_kdl::Result<Self> {
@@ -526,8 +623,9 @@ fn impl_kdl_deserialize(input: &DeriveInput) -> syn::Result<TokenStream2> {
                     })
                 }
 
+                #kdl_node_name_impl
+
                 fn from_kdl_doc(doc: &'de ::unison_kdl::KdlDocument) -> ::unison_kdl::Result<Self> {
-                    // Create a virtual wrapper node with the document's nodes as children
                     let wrapper = ::unison_kdl::doc_to_wrapper_node(doc);
                     <Self as ::unison_kdl::KdlDeserialize>::from_kdl_node(&wrapper)
                 }
@@ -543,6 +641,8 @@ fn impl_kdl_deserialize(input: &DeriveInput) -> syn::Result<TokenStream2> {
                         #(#field_deserializers)*
                     })
                 }
+
+                #kdl_node_name_impl
             }
         })
     }
@@ -874,6 +974,36 @@ fn is_option_type(ty: &Type) -> bool {
         return segment.ident == "Option";
     }
     false
+}
+
+/// Extract `T` from `Option<T>`. Returns the original type if not `Option`.
+fn extract_option_inner_type(ty: &Type) -> &Type {
+    if let Type::Path(type_path) = ty
+        && let Some(segment) = type_path.path.segments.last()
+        && segment.ident == "Option"
+    {
+        if let syn::PathArguments::AngleBracketed(args) = &segment.arguments {
+            if let Some(syn::GenericArgument::Type(inner)) = args.args.first() {
+                return inner;
+            }
+        }
+    }
+    ty
+}
+
+/// Extract `T` from `Vec<T>`. Returns the original type if not `Vec`.
+fn extract_vec_inner_type(ty: &Type) -> &Type {
+    if let Type::Path(type_path) = ty
+        && let Some(segment) = type_path.path.segments.last()
+        && segment.ident == "Vec"
+    {
+        if let syn::PathArguments::AngleBracketed(args) = &segment.arguments {
+            if let Some(syn::GenericArgument::Type(inner)) = args.args.first() {
+                return inner;
+            }
+        }
+    }
+    ty
 }
 
 fn to_snake_case(s: &str) -> String {

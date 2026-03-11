@@ -37,7 +37,7 @@ struct Service {
     #[kdl(property)]       // プロパティ → image="myapp"
     image: String,
 
-    #[kdl(children, name = "port")]  // 子ノード → port { ... }
+    #[kdl(children)]       // 子ノード → Port::kdl_node_name() で自動解決
     ports: Vec<Port>,
 }
 
@@ -77,6 +77,7 @@ let kdl_text = unison_kdl::to_string_pretty(&service).unwrap();
 | 属性 | 説明 |
 |------|------|
 | `#[kdl(name = "...")]` | KDL ノード名（省略時は構造体名の snake_case） |
+| `#[kdl(alias = "...")]` | ノード名の別名（複数指定可、デシリアライズ時に受け入れる） |
 | `#[kdl(document)]` | KDL ドキュメント全体（複数トップレベルノード）として扱う |
 
 ### フィールド属性
@@ -87,13 +88,70 @@ let kdl_text = unison_kdl::to_string_pretty(&service).unwrap();
 | `#[kdl(argument(index = N))]` | 特定インデックスの引数にマッピング |
 | `#[kdl(arguments)]` | 全引数を `Vec<T>` に収集 |
 | `#[kdl(property)]` | 名前付きプロパティ（`key=value`） |
-| `#[kdl(property(rename = "..."))]` | 別名のプロパティにマッピング |
-| `#[kdl(child)]` | 単一の子ノード |
-| `#[kdl(children, name = "...")]` | 名前で子ノードを `Vec<T>` に収集 |
-| `#[kdl(child_map, name = "...")]` | 子ノードを `HashMap<String, String>` に収集 |
-| `#[kdl(flatten)]` | ネストした構造体のフィールドを展開 |
+| `#[kdl(property(rename = "...")]` | 別名のプロパティにマッピング |
+| `#[kdl(child)]` | 単一の子ノード（子型の `#[kdl(name)]` を自動参照） |
+| `#[kdl(child(name = "...")]` | 明示名で子ノードを検索 |
+| `#[kdl(child, unwrap_arg)]` | 子ノードの第1引数を値として取得 |
+| `#[kdl(child, unwrap_args)]` | 子ノードの全引数を `Vec<T>` として取得 |
+| `#[kdl(children)]` | 子ノードを `Vec<T>` に収集（子型の `#[kdl(name)]` を自動参照） |
+| `#[kdl(children(name = "...")]` | 明示名で子ノードをフィルタして収集 |
+| `#[kdl(child_map)]` | 子ノードを `HashMap<String, String>` に収集 |
+| `#[kdl(child_map(name = "...")]` | ラッパーノード内の子を HashMap に収集 |
 | `#[kdl(default)]` | 欠落時に `Default::default()` を使用 |
 | `#[kdl(skip)]` | シリアライズ / デシリアライズをスキップ |
+
+### Enum 属性
+
+| 属性 | 説明 |
+|------|------|
+| `#[kdl(rename = "...")]` | バリアント名の KDL 文字列（省略時は snake_case） |
+
+---
+
+## 子ノードの名前自動解決
+
+`#[kdl(child)]` / `#[kdl(children)]` は、子構造体の `#[kdl(name = "...")]` を自動参照する。
+フィールド名と KDL ノード名が異なる場合でも、明示指定なしで正しくマッピングされる。
+
+```rust
+#[derive(KdlDeserialize)]
+#[kdl(name = "post-setup")]
+struct PostSetup {
+    #[kdl(argument)]
+    command: String,
+}
+
+#[derive(KdlDeserialize)]
+#[kdl(document)]
+struct Config {
+    #[kdl(child)]                    // ← PostSetup::kdl_node_name() → "post-setup"
+    post_setup: Option<PostSetup>,   //    フィールド名 "post_setup" ではなく "post-setup" で検索
+}
+```
+
+```kdl
+post-setup "bun install"
+```
+
+子構造体に `#[kdl(name)]` がない場合はフィールド名にフォールバックする。
+
+---
+
+## エイリアス
+
+構造体に `#[kdl(alias = "...")]` を付けると、デシリアライズ時に別名も受け入れる。
+
+```rust
+#[derive(KdlDeserialize)]
+#[kdl(name = "database", alias = "db")]
+struct Database {
+    #[kdl(argument)]
+    url: String,
+}
+```
+
+`database "pg://..."` でも `db "pg://..."` でもデシリアライズ可能。
+`kdl_node_name()` は常に primary name（`"database"`）を返す。
 
 ---
 
@@ -107,10 +165,10 @@ KDL ファイルにトップレベルノードが複数ある場合は `#[kdl(do
 #[derive(KdlDeserialize)]
 #[kdl(document)]
 struct Config {
-    #[kdl(children, name = "stage")]
+    #[kdl(children)]    // Stage::kdl_node_name() で自動解決
     stages: Vec<Stage>,
 
-    #[kdl(children, name = "service")]
+    #[kdl(children)]    // Service::kdl_node_name() で自動解決
     services: Vec<Service>,
 }
 
@@ -155,16 +213,43 @@ service "api" {
 }
 ```
 
+### Enum スカラーマッピング
+
+```rust
+#[derive(KdlDeserialize, KdlSerialize)]
+enum Direction {
+    #[kdl(rename = "client")]
+    Client,
+    #[kdl(rename = "server")]
+    Server,
+}
+
+#[derive(KdlDeserialize, KdlSerialize)]
+#[kdl(name = "channel")]
+struct Channel {
+    #[kdl(argument)]
+    name: String,
+    #[kdl(property)]
+    from: Direction,
+}
+```
+
+```kdl
+channel "events" from="server"
+```
+
 ---
 
 ## サポートする型
 
-- プリミティブ: `i8`〜`i64`, `u8`〜`u64`, `f32`, `f64`, `bool`
+- 整数: `i32`, `i64`, `i128`, `u16`, `u32`, `u64`, `usize`
+- 浮動小数点: `f64`
+- 真偽値: `bool`
 - 文字列: `String`, `&str`（ゼロコピー）
 - パス: `PathBuf`
 - コレクション: `Vec<T>`, `HashMap<String, String>`
 - オプショナル: `Option<T>`
-- `FromKdlValue` / `ToKdlValue` を実装したカスタム型
+- カスタム型: `FromKdlValue` / `ToKdlValue` を実装
 
 ## ライセンス
 
