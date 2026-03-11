@@ -273,6 +273,13 @@ impl NodeBuilder {
         self
     }
 
+    /// Add a raw entry (for flatten support)
+    #[inline]
+    pub fn entry(mut self, entry: KdlEntry) -> Self {
+        self.node.push(entry);
+        self
+    }
+
     /// Build the node
     #[inline]
     pub fn build(self) -> KdlNode {

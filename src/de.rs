@@ -34,6 +34,13 @@ pub trait KdlDeserialize<'de>: Sized {
         None
     }
 
+    /// Returns `true` if this type can match any node name.
+    /// Data enums return `true` because each variant maps to a different node name.
+    /// Used by `#[kdl(children)]` to collect all child nodes instead of filtering by name.
+    fn kdl_matches_any_node() -> bool {
+        false
+    }
+
     /// Deserialize from a KDL document (uses first node).
     fn from_kdl_doc(doc: &'de KdlDocument) -> Result<Self> {
         doc.nodes()

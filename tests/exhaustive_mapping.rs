@@ -1323,6 +1323,22 @@ mod errors {
         let msg = result.unwrap_err().to_string();
         assert!(msg.contains("child") || msg.contains("strict"), "error: {msg}");
     }
+
+    // Error context: struct name is included in error messages
+    #[test]
+    fn err_context_includes_struct_name() {
+        let result = unison_kdl::from_str::<Strict>(r#"strict"#);
+        let msg = result.unwrap_err().to_string();
+        assert!(msg.contains("Strict"), "should contain struct name, got: {msg}");
+    }
+
+    #[test]
+    fn err_context_nested() {
+        let result = unison_kdl::from_str::<RequiredChild>(r#"parent"#);
+        let msg = result.unwrap_err().to_string();
+        // Should show nested context: "in RequiredChild: ..."
+        assert!(msg.contains("RequiredChild"), "should contain parent struct, got: {msg}");
+    }
 }
 
 // ============================================================================
@@ -1626,5 +1642,609 @@ mod trait_method {
     #[test]
     fn kdl_node_name_returns_none_when_unset() {
         assert_eq!(WithoutName::kdl_node_name(), None);
+    }
+}
+
+// ============================================================================
+// 17. unwrap_arg / unwrap_args serialize (roundtrip)
+// ============================================================================
+
+mod unwrap_serialize {
+    use super::*;
+
+    #[derive(Debug, PartialEq, KdlDeserialize, KdlSerialize)]
+    #[kdl(name = "config")]
+    struct UnwrapArgRoundtrip {
+        #[kdl(child, unwrap_arg)]
+        title: String,
+        #[kdl(child, unwrap_arg)]
+        description: Option<String>,
+        #[kdl(child, unwrap_arg, default)]
+        version: i64,
+    }
+
+    #[test]
+    fn roundtrip_unwrap_arg_all() {
+        let original = UnwrapArgRoundtrip {
+            title: "My App".into(),
+            description: Some("A great app".into()),
+            version: 3,
+        };
+        let node = original.to_kdl_node().unwrap();
+        let restored = UnwrapArgRoundtrip::from_kdl_node(&node).unwrap();
+        assert_eq!(original, restored);
+    }
+
+    #[test]
+    fn roundtrip_unwrap_arg_optional_none() {
+        let original = UnwrapArgRoundtrip {
+            title: "Minimal".into(),
+            description: None,
+            version: 0,
+        };
+        let node = original.to_kdl_node().unwrap();
+        let restored = UnwrapArgRoundtrip::from_kdl_node(&node).unwrap();
+        assert_eq!(restored.title, "Minimal");
+        assert_eq!(restored.description, None);
+    }
+
+    #[derive(Debug, PartialEq, KdlDeserialize, KdlSerialize)]
+    #[kdl(name = "enum")]
+    struct UnwrapArgsRoundtrip {
+        #[kdl(argument)]
+        name: String,
+        #[kdl(child, unwrap_args)]
+        values: Vec<String>,
+    }
+
+    #[test]
+    fn roundtrip_unwrap_args() {
+        let original = UnwrapArgsRoundtrip {
+            name: "Status".into(),
+            values: vec!["active".into(), "inactive".into()],
+        };
+        let node = original.to_kdl_node().unwrap();
+        let restored = UnwrapArgsRoundtrip::from_kdl_node(&node).unwrap();
+        assert_eq!(original, restored);
+    }
+
+    #[test]
+    fn roundtrip_unwrap_args_empty() {
+        let original = UnwrapArgsRoundtrip {
+            name: "Empty".into(),
+            values: vec![],
+        };
+        let node = original.to_kdl_node().unwrap();
+        let restored = UnwrapArgsRoundtrip::from_kdl_node(&node).unwrap();
+        assert_eq!(original, restored);
+    }
+}
+
+// ============================================================================
+// 18. Document serialize (roundtrip)
+// ============================================================================
+
+mod document_serialize {
+    use super::*;
+
+    #[derive(Debug, PartialEq, KdlDeserialize, KdlSerialize)]
+    #[kdl(name = "route")]
+    struct Route {
+        #[kdl(argument)]
+        path: String,
+        #[kdl(property)]
+        method: Option<String>,
+    }
+
+    #[derive(Debug, PartialEq, KdlDeserialize, KdlSerialize)]
+    #[kdl(name = "middleware")]
+    struct Middleware {
+        #[kdl(argument)]
+        name: String,
+    }
+
+    #[derive(Debug, PartialEq, KdlDeserialize, KdlSerialize)]
+    #[kdl(document)]
+    struct RouterConfig {
+        #[kdl(children)]
+        routes: Vec<Route>,
+        #[kdl(children)]
+        middlewares: Vec<Middleware>,
+    }
+
+    #[test]
+    fn roundtrip_document() {
+        let original = RouterConfig {
+            routes: vec![
+                Route { path: "/api".into(), method: Some("GET".into()) },
+                Route { path: "/health".into(), method: None },
+            ],
+            middlewares: vec![
+                Middleware { name: "auth".into() },
+            ],
+        };
+        let doc = original.to_kdl_doc().unwrap();
+        // Document should have 3 top-level nodes
+        assert_eq!(doc.nodes().len(), 3);
+
+        let restored: RouterConfig = unison_kdl::from_doc(&doc).unwrap();
+        assert_eq!(original, restored);
+    }
+
+    #[test]
+    fn document_to_string_roundtrip() {
+        let original = RouterConfig {
+            routes: vec![Route { path: "/".into(), method: None }],
+            middlewares: vec![],
+        };
+        let kdl_string = unison_kdl::to_string(&original).unwrap();
+        assert!(kdl_string.contains("route"));
+        let restored: RouterConfig = unison_kdl::from_str(&kdl_string).unwrap();
+        assert_eq!(original, restored);
+    }
+
+    #[test]
+    fn document_empty_roundtrip() {
+        let original = RouterConfig {
+            routes: vec![],
+            middlewares: vec![],
+        };
+        let doc = original.to_kdl_doc().unwrap();
+        assert_eq!(doc.nodes().len(), 0);
+        let restored: RouterConfig = unison_kdl::from_doc(&doc).unwrap();
+        assert_eq!(original, restored);
+    }
+}
+
+// ============================================================================
+// 19. Flatten
+// ============================================================================
+
+mod flatten {
+    use super::*;
+
+    #[derive(Debug, PartialEq, KdlDeserialize, KdlSerialize)]
+    struct Meta {
+        #[kdl(property)]
+        description: Option<String>,
+        #[kdl(property)]
+        deprecated: Option<bool>,
+    }
+
+    #[derive(Debug, PartialEq, KdlDeserialize, KdlSerialize)]
+    #[kdl(name = "service")]
+    struct ServiceWithMeta {
+        #[kdl(argument)]
+        name: String,
+        #[kdl(property)]
+        image: String,
+        #[kdl(flatten)]
+        meta: Meta,
+    }
+
+    #[test]
+    fn de_flatten() {
+        let v: ServiceWithMeta = unison_kdl::from_str(
+            r#"service "api" image="nginx" description="Main API" deprecated=#true"#,
+        ).unwrap();
+        assert_eq!(v.name, "api");
+        assert_eq!(v.image, "nginx");
+        assert_eq!(v.meta.description, Some("Main API".into()));
+        assert_eq!(v.meta.deprecated, Some(true));
+    }
+
+    #[test]
+    fn de_flatten_partial() {
+        let v: ServiceWithMeta = unison_kdl::from_str(
+            r#"service "api" image="nginx""#,
+        ).unwrap();
+        assert_eq!(v.meta.description, None);
+        assert_eq!(v.meta.deprecated, None);
+    }
+
+    #[test]
+    fn roundtrip_flatten() {
+        let original = ServiceWithMeta {
+            name: "web".into(),
+            image: "alpine".into(),
+            meta: Meta {
+                description: Some("Web server".into()),
+                deprecated: Some(false),
+            },
+        };
+        let node = original.to_kdl_node().unwrap();
+
+        // Verify flattened properties are on the node directly
+        use unison_kdl::KdlNodeExt;
+        assert_eq!(node.prop("description").and_then(|v| v.as_string()), Some("Web server"));
+        assert_eq!(node.prop("deprecated").and_then(|v| v.as_bool()), Some(false));
+
+        let restored = ServiceWithMeta::from_kdl_node(&node).unwrap();
+        assert_eq!(original, restored);
+    }
+
+    // Flatten with children
+    #[derive(Debug, PartialEq, KdlDeserialize, KdlSerialize)]
+    #[kdl(name = "port")]
+    struct FlatPort {
+        #[kdl(property)]
+        host: u16,
+        #[kdl(property)]
+        container: u16,
+    }
+
+    #[derive(Debug, PartialEq, KdlDeserialize, KdlSerialize)]
+    struct Networking {
+        #[kdl(children)]
+        ports: Vec<FlatPort>,
+    }
+
+    #[derive(Debug, PartialEq, KdlDeserialize, KdlSerialize)]
+    #[kdl(name = "app")]
+    struct AppWithFlatten {
+        #[kdl(argument)]
+        name: String,
+        #[kdl(flatten)]
+        networking: Networking,
+    }
+
+    #[test]
+    fn roundtrip_flatten_with_children() {
+        let original = AppWithFlatten {
+            name: "myapp".into(),
+            networking: Networking {
+                ports: vec![
+                    FlatPort { host: 80, container: 80 },
+                    FlatPort { host: 443, container: 443 },
+                ],
+            },
+        };
+        let node = original.to_kdl_node().unwrap();
+        let restored = AppWithFlatten::from_kdl_node(&node).unwrap();
+        assert_eq!(original, restored);
+    }
+}
+
+// ============================================================================
+// 18. Enum data variants
+// ============================================================================
+
+mod enum_data_variants {
+    use super::*;
+
+    // -- Struct variant: fields with #[kdl(argument)], #[kdl(property)] --
+
+    #[derive(Debug, PartialEq, KdlDeserialize, KdlSerialize)]
+    enum Command {
+        #[kdl(rename = "move")]
+        Move {
+            #[kdl(property)]
+            x: i64,
+            #[kdl(property)]
+            y: i64,
+        },
+        Resize {
+            #[kdl(argument)]
+            width: i64,
+            #[kdl(argument)]
+            height: i64,
+        },
+        Quit,
+    }
+
+    #[test]
+    fn de_struct_variant_properties() {
+        let doc: kdl::KdlDocument = r#"move x=10 y=20"#.parse().unwrap();
+        let node = doc.nodes().first().unwrap();
+        let cmd = Command::from_kdl_node(node).unwrap();
+        assert_eq!(cmd, Command::Move { x: 10, y: 20 });
+    }
+
+    #[test]
+    fn de_struct_variant_arguments() {
+        let doc: kdl::KdlDocument = r#"resize 800 600"#.parse().unwrap();
+        let node = doc.nodes().first().unwrap();
+        let cmd = Command::from_kdl_node(node).unwrap();
+        assert_eq!(cmd, Command::Resize { width: 800, height: 600 });
+    }
+
+    #[test]
+    fn de_unit_variant_in_data_enum() {
+        let doc: kdl::KdlDocument = "quit".parse().unwrap();
+        let node = doc.nodes().first().unwrap();
+        let cmd = Command::from_kdl_node(node).unwrap();
+        assert_eq!(cmd, Command::Quit);
+    }
+
+    #[test]
+    fn de_unknown_variant_errors() {
+        let doc: kdl::KdlDocument = "unknown".parse().unwrap();
+        let node = doc.nodes().first().unwrap();
+        let result = Command::from_kdl_node(node);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("unknown variant 'unknown'"));
+    }
+
+    #[test]
+    fn ser_struct_variant_properties() {
+        let cmd = Command::Move { x: 10, y: 20 };
+        let node = cmd.to_kdl_node().unwrap();
+        assert_eq!(node.name().value(), "move");
+        // Properties are serialized as key=value entries
+        assert_eq!(node.entries().len(), 2);
+    }
+
+    #[test]
+    fn ser_struct_variant_arguments() {
+        let cmd = Command::Resize { width: 800, height: 600 };
+        let node = cmd.to_kdl_node().unwrap();
+        assert_eq!(node.name().value(), "resize");
+        // Two positional arguments
+        assert_eq!(node.entries().len(), 2);
+    }
+
+    #[test]
+    fn ser_unit_variant_in_data_enum() {
+        let cmd = Command::Quit;
+        let node = cmd.to_kdl_node().unwrap();
+        assert_eq!(node.name().value(), "quit");
+        assert!(node.entries().is_empty());
+    }
+
+    #[test]
+    fn roundtrip_struct_variant() {
+        let original = Command::Move { x: -5, y: 42 };
+        let node = original.to_kdl_node().unwrap();
+        let restored = Command::from_kdl_node(&node).unwrap();
+        assert_eq!(original, restored);
+    }
+
+    #[test]
+    fn roundtrip_unit_variant_in_data_enum() {
+        let original = Command::Quit;
+        let node = original.to_kdl_node().unwrap();
+        let restored = Command::from_kdl_node(&node).unwrap();
+        assert_eq!(original, restored);
+    }
+
+    // -- Newtype variant --
+
+    #[derive(Debug, PartialEq, KdlDeserialize, KdlSerialize)]
+    #[kdl(name = "config")]
+    struct InnerConfig {
+        #[kdl(property)]
+        debug: bool,
+        #[kdl(property, default)]
+        level: i64,
+    }
+
+    #[derive(Debug, PartialEq, KdlDeserialize, KdlSerialize)]
+    enum Action {
+        Start,
+        Configure(InnerConfig),
+        Stop,
+    }
+
+    #[test]
+    fn de_newtype_variant() {
+        let doc: kdl::KdlDocument = "configure debug=#true level=3".parse().unwrap();
+        let node = doc.nodes().first().unwrap();
+        let action = Action::from_kdl_node(node).unwrap();
+        assert_eq!(action, Action::Configure(InnerConfig { debug: true, level: 3 }));
+    }
+
+    #[test]
+    fn de_unit_variant_mixed_enum() {
+        let doc: kdl::KdlDocument = "start".parse().unwrap();
+        let node = doc.nodes().first().unwrap();
+        let action = Action::from_kdl_node(node).unwrap();
+        assert_eq!(action, Action::Start);
+    }
+
+    #[test]
+    fn ser_newtype_variant() {
+        let action = Action::Configure(InnerConfig { debug: false, level: 5 });
+        let node = action.to_kdl_node().unwrap();
+        // Node name should be overridden to "configure" (variant name), not "config" (inner struct name)
+        assert_eq!(node.name().value(), "configure");
+    }
+
+    #[test]
+    fn roundtrip_newtype_variant() {
+        let original = Action::Configure(InnerConfig { debug: true, level: 7 });
+        let node = original.to_kdl_node().unwrap();
+        let restored = Action::from_kdl_node(&node).unwrap();
+        assert_eq!(original, restored);
+    }
+
+    // -- Struct variant with child nodes --
+
+    #[derive(Debug, PartialEq, KdlDeserialize, KdlSerialize)]
+    #[kdl(name = "target")]
+    struct DeployTarget {
+        #[kdl(argument)]
+        name: String,
+    }
+
+    #[derive(Debug, PartialEq, KdlDeserialize, KdlSerialize)]
+    enum Step {
+        Build {
+            #[kdl(argument)]
+            path: String,
+            #[kdl(property, default)]
+            release: bool,
+        },
+        Deploy {
+            #[kdl(argument)]
+            env: String,
+            #[kdl(children)]
+            targets: Vec<DeployTarget>,
+        },
+        Clean,
+    }
+
+    #[test]
+    fn de_struct_variant_with_children() {
+        let kdl = r#"deploy "production" {
+            target "web-01"
+            target "web-02"
+        }"#;
+        let doc: kdl::KdlDocument = kdl.parse().unwrap();
+        let node = doc.nodes().first().unwrap();
+        let step = Step::from_kdl_node(node).unwrap();
+        assert_eq!(step, Step::Deploy {
+            env: "production".to_string(),
+            targets: vec![
+                DeployTarget { name: "web-01".to_string() },
+                DeployTarget { name: "web-02".to_string() },
+            ],
+        });
+    }
+
+    #[test]
+    fn roundtrip_struct_variant_with_children() {
+        let original = Step::Deploy {
+            env: "staging".to_string(),
+            targets: vec![DeployTarget { name: "app-01".to_string() }],
+        };
+        let node = original.to_kdl_node().unwrap();
+        let restored = Step::from_kdl_node(&node).unwrap();
+        assert_eq!(original, restored);
+    }
+
+    #[test]
+    fn roundtrip_struct_variant_build() {
+        let original = Step::Build {
+            path: "./src".to_string(),
+            release: true,
+        };
+        let node = original.to_kdl_node().unwrap();
+        let restored = Step::from_kdl_node(&node).unwrap();
+        assert_eq!(original, restored);
+    }
+
+    // -- Data enum as Vec<T> children of a parent struct --
+
+    #[derive(Debug, PartialEq, KdlDeserialize, KdlSerialize)]
+    #[kdl(name = "pipeline")]
+    struct Pipeline {
+        #[kdl(argument)]
+        name: String,
+        #[kdl(children)]
+        steps: Vec<Step>,
+    }
+
+    #[test]
+    fn de_vec_data_enum_children() {
+        let kdl = r#"pipeline "deploy-flow" {
+            build "./src" release=#true
+            deploy "production" {
+                target "web-01"
+                target "web-02"
+            }
+            clean
+        }"#;
+        let doc: kdl::KdlDocument = kdl.parse().unwrap();
+        let node = doc.nodes().first().unwrap();
+        let pipeline = Pipeline::from_kdl_node(node).unwrap();
+        assert_eq!(pipeline.name, "deploy-flow");
+        assert_eq!(pipeline.steps.len(), 3);
+        assert_eq!(pipeline.steps[0], Step::Build {
+            path: "./src".to_string(),
+            release: true,
+        });
+        assert_eq!(pipeline.steps[2], Step::Clean);
+    }
+
+    #[test]
+    fn roundtrip_vec_data_enum_children() {
+        let original = Pipeline {
+            name: "ci".to_string(),
+            steps: vec![
+                Step::Build { path: ".".to_string(), release: false },
+                Step::Deploy {
+                    env: "staging".to_string(),
+                    targets: vec![DeployTarget { name: "app-01".to_string() }],
+                },
+                Step::Clean,
+            ],
+        };
+        let node = original.to_kdl_node().unwrap();
+        let restored = Pipeline::from_kdl_node(&node).unwrap();
+        assert_eq!(original, restored);
+    }
+
+    // -- Error context on data enum --
+
+    #[test]
+    fn err_context_on_struct_variant() {
+        let doc: kdl::KdlDocument = r#"move x="not_a_number" y=20"#.parse().unwrap();
+        let node = doc.nodes().first().unwrap();
+        let result = Command::from_kdl_node(node);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        // Should include variant context
+        assert!(err.contains("Command::Move"), "error was: {}", err);
+    }
+
+    // -- Struct variant with optional fields --
+
+    #[derive(Debug, PartialEq, KdlDeserialize, KdlSerialize)]
+    enum Event {
+        Click {
+            #[kdl(property)]
+            x: i64,
+            #[kdl(property)]
+            y: i64,
+            #[kdl(property)]
+            button: Option<String>,
+        },
+        Keypress {
+            #[kdl(argument)]
+            key: String,
+            #[kdl(property, default)]
+            modifiers: i64,
+        },
+    }
+
+    #[test]
+    fn de_optional_field_present() {
+        let doc: kdl::KdlDocument = r#"click x=100 y=200 button="left""#.parse().unwrap();
+        let node = doc.nodes().first().unwrap();
+        let event = Event::from_kdl_node(node).unwrap();
+        assert_eq!(event, Event::Click { x: 100, y: 200, button: Some("left".to_string()) });
+    }
+
+    #[test]
+    fn de_optional_field_absent() {
+        let doc: kdl::KdlDocument = r#"click x=100 y=200"#.parse().unwrap();
+        let node = doc.nodes().first().unwrap();
+        let event = Event::from_kdl_node(node).unwrap();
+        assert_eq!(event, Event::Click { x: 100, y: 200, button: None });
+    }
+
+    #[test]
+    fn roundtrip_optional_present() {
+        let original = Event::Click { x: 50, y: 75, button: Some("right".to_string()) };
+        let node = original.to_kdl_node().unwrap();
+        let restored = Event::from_kdl_node(&node).unwrap();
+        assert_eq!(original, restored);
+    }
+
+    #[test]
+    fn roundtrip_optional_absent() {
+        let original = Event::Click { x: 50, y: 75, button: None };
+        let node = original.to_kdl_node().unwrap();
+        let restored = Event::from_kdl_node(&node).unwrap();
+        assert_eq!(original, restored);
+    }
+
+    #[test]
+    fn roundtrip_default_field() {
+        let original = Event::Keypress { key: "a".to_string(), modifiers: 0 };
+        let node = original.to_kdl_node().unwrap();
+        let restored = Event::from_kdl_node(&node).unwrap();
+        assert_eq!(original, restored);
     }
 }

@@ -79,7 +79,7 @@ pub use ser::{
 };
 
 // Re-export kdl types for convenience
-pub use kdl::{KdlDocument, KdlNode, KdlValue};
+pub use kdl::{KdlDocument, KdlIdentifier, KdlNode, KdlValue};
 
 // Derive macros
 pub use unison_kdl_derive::{KdlDeserialize, KdlSerialize};

@@ -52,6 +52,14 @@ pub enum Error {
     /// Custom error message
     #[error("{0}")]
     Custom(String),
+
+    /// Error with context (struct::field path)
+    #[error("in {context}: {source}")]
+    InContext {
+        context: String,
+        #[source]
+        source: Box<Error>,
+    },
 }
 
 impl Error {
@@ -67,6 +75,15 @@ impl Error {
         Error::TypeMismatch {
             expected,
             found: found.to_string(),
+        }
+    }
+
+    /// Wrap this error with context information
+    #[inline]
+    pub fn in_context(self, context: impl Into<String>) -> Self {
+        Error::InContext {
+            context: context.into(),
+            source: Box::new(self),
         }
     }
 }
