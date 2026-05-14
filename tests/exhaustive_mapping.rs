@@ -5,7 +5,7 @@
 
 use std::collections::HashMap;
 use std::path::PathBuf;
-use unison_kdl::{FromKdlValue, KdlDeserialize, KdlNodeExt, KdlSerialize, KdlValue};
+use club_kdl::{FromKdlValue, KdlDeserialize, KdlNodeExt, KdlSerialize, KdlValue};
 
 // ============================================================================
 // 1. Argument patterns
@@ -25,7 +25,7 @@ mod argument {
 
     #[test]
     fn de_single_arg() {
-        let v: SingleArg = unison_kdl::from_str(r#"item "hello""#).unwrap();
+        let v: SingleArg = club_kdl::from_str(r#"item "hello""#).unwrap();
         assert_eq!(v.name, "hello");
     }
 
@@ -52,7 +52,7 @@ mod argument {
 
     #[test]
     fn de_multi_arg_auto_index() {
-        let v: MultiArg = unison_kdl::from_str(r#"pair "key" 42"#).unwrap();
+        let v: MultiArg = club_kdl::from_str(r#"pair "key" 42"#).unwrap();
         assert_eq!(v.first, "key");
         assert_eq!(v.second, 42);
     }
@@ -81,7 +81,7 @@ mod argument {
 
     #[test]
     fn de_explicit_index() {
-        let v: ExplicitIndex = unison_kdl::from_str(r#"indexed 10 "world""#).unwrap();
+        let v: ExplicitIndex = club_kdl::from_str(r#"indexed 10 "world""#).unwrap();
         assert_eq!(v.first, 10);
         assert_eq!(v.second, "world");
     }
@@ -99,13 +99,13 @@ mod argument {
 
     #[test]
     fn de_optional_arg_present() {
-        let v: OptionalArg = unison_kdl::from_str(r#"maybe "hi" 5"#).unwrap();
+        let v: OptionalArg = club_kdl::from_str(r#"maybe "hi" 5"#).unwrap();
         assert_eq!(v.optional, Some(5));
     }
 
     #[test]
     fn de_optional_arg_absent() {
-        let v: OptionalArg = unison_kdl::from_str(r#"maybe "hi""#).unwrap();
+        let v: OptionalArg = club_kdl::from_str(r#"maybe "hi""#).unwrap();
         assert_eq!(v.optional, None);
     }
 
@@ -120,13 +120,13 @@ mod argument {
 
     #[test]
     fn de_default_arg_present() {
-        let v: DefaultArg = unison_kdl::from_str(r#"def 42"#).unwrap();
+        let v: DefaultArg = club_kdl::from_str(r#"def 42"#).unwrap();
         assert_eq!(v.value, 42);
     }
 
     #[test]
     fn de_default_arg_absent() {
-        let v: DefaultArg = unison_kdl::from_str(r#"def"#).unwrap();
+        let v: DefaultArg = club_kdl::from_str(r#"def"#).unwrap();
         assert_eq!(v.value, 0); // i64::default()
     }
 
@@ -141,13 +141,13 @@ mod argument {
 
     #[test]
     fn de_arguments_vec() {
-        let v: AllArgs = unison_kdl::from_str(r#"tags "a" "b" "c""#).unwrap();
+        let v: AllArgs = club_kdl::from_str(r#"tags "a" "b" "c""#).unwrap();
         assert_eq!(v.items, vec!["a", "b", "c"]);
     }
 
     #[test]
     fn de_arguments_empty() {
-        let v: AllArgs = unison_kdl::from_str(r#"tags"#).unwrap();
+        let v: AllArgs = club_kdl::from_str(r#"tags"#).unwrap();
         assert!(v.items.is_empty());
     }
 
@@ -182,7 +182,7 @@ mod property {
 
     #[test]
     fn de_basic_property() {
-        let v: BasicProp = unison_kdl::from_str(r#"cfg host="localhost" port=8080"#).unwrap();
+        let v: BasicProp = club_kdl::from_str(r#"cfg host="localhost" port=8080"#).unwrap();
         assert_eq!(v.host, "localhost");
         assert_eq!(v.port, 8080);
     }
@@ -210,7 +210,7 @@ mod property {
     #[test]
     fn de_renamed_property() {
         let v: RenamedProp =
-            unison_kdl::from_str(r#"db connection-string="postgres://localhost""#).unwrap();
+            club_kdl::from_str(r#"db connection-string="postgres://localhost""#).unwrap();
         assert_eq!(v.connection_string, "postgres://localhost");
     }
 
@@ -241,13 +241,13 @@ mod property {
 
     #[test]
     fn de_optional_property_present() {
-        let v: OptionalProp = unison_kdl::from_str(r#"server host="localhost" tls=#true"#).unwrap();
+        let v: OptionalProp = club_kdl::from_str(r#"server host="localhost" tls=#true"#).unwrap();
         assert_eq!(v.tls, Some(true));
     }
 
     #[test]
     fn de_optional_property_absent() {
-        let v: OptionalProp = unison_kdl::from_str(r#"server host="localhost""#).unwrap();
+        let v: OptionalProp = club_kdl::from_str(r#"server host="localhost""#).unwrap();
         assert_eq!(v.tls, None);
     }
 
@@ -286,14 +286,14 @@ mod property {
 
     #[test]
     fn de_default_property_present() {
-        let v: DefaultProp = unison_kdl::from_str(r#"app debug=#true workers=4"#).unwrap();
+        let v: DefaultProp = club_kdl::from_str(r#"app debug=#true workers=4"#).unwrap();
         assert_eq!(v.debug, true);
         assert_eq!(v.workers, 4);
     }
 
     #[test]
     fn de_default_property_absent() {
-        let v: DefaultProp = unison_kdl::from_str(r#"app"#).unwrap();
+        let v: DefaultProp = club_kdl::from_str(r#"app"#).unwrap();
         assert_eq!(v.debug, false);
         assert_eq!(v.workers, 0);
     }
@@ -328,7 +328,7 @@ mod child {
 
     #[test]
     fn de_required_child_auto_name() {
-        let v: RequiredChild = unison_kdl::from_str(
+        let v: RequiredChild = club_kdl::from_str(
             r#"app {
                 database "postgres://localhost"
             }"#,
@@ -339,7 +339,7 @@ mod child {
 
     #[test]
     fn de_required_child_missing_errors() {
-        let result = unison_kdl::from_str::<RequiredChild>(r#"app"#);
+        let result = club_kdl::from_str::<RequiredChild>(r#"app"#);
         assert!(result.is_err());
     }
 
@@ -356,7 +356,7 @@ mod child {
 
     #[test]
     fn de_optional_child_present() {
-        let v: OptionalChild = unison_kdl::from_str(
+        let v: OptionalChild = club_kdl::from_str(
             r#"app "myapp" {
                 database "sqlite://db" pool_size=5
             }"#,
@@ -368,7 +368,7 @@ mod child {
 
     #[test]
     fn de_optional_child_absent() {
-        let v: OptionalChild = unison_kdl::from_str(r#"app "myapp""#).unwrap();
+        let v: OptionalChild = club_kdl::from_str(r#"app "myapp""#).unwrap();
         assert!(v.database.is_none());
     }
 
@@ -417,7 +417,7 @@ mod child {
 
     #[test]
     fn de_default_child_present() {
-        let v: DefaultChild = unison_kdl::from_str(
+        let v: DefaultChild = club_kdl::from_str(
             r#"server {
                 limits max_connections=100 timeout=30
             }"#,
@@ -428,7 +428,7 @@ mod child {
 
     #[test]
     fn de_default_child_absent() {
-        let v: DefaultChild = unison_kdl::from_str(r#"server"#).unwrap();
+        let v: DefaultChild = club_kdl::from_str(r#"server"#).unwrap();
         assert_eq!(v.limits, Limits::default());
     }
 
@@ -447,7 +447,7 @@ mod child {
         // which triggers a name_check → UnexpectedNode.
         // This is expected: explicit child_name overrides SEARCH name only.
         // To use a different KDL name, the child struct itself needs matching #[kdl(name)].
-        let result = unison_kdl::from_str::<ExplicitChildName>(
+        let result = club_kdl::from_str::<ExplicitChildName>(
             r#"app {
                 db "postgres://localhost"
             }"#,
@@ -473,7 +473,7 @@ mod child {
 
     #[test]
     fn de_explicit_child_name_matching() {
-        let v: ExplicitChildNameMatching = unison_kdl::from_str(
+        let v: ExplicitChildNameMatching = club_kdl::from_str(
             r#"app {
                 db "postgres://localhost"
             }"#,
@@ -486,7 +486,7 @@ mod child {
     #[test]
     fn de_explicit_child_name_ignores_auto() {
         // "database" node should NOT match when explicit name is "db"
-        let v: ExplicitChildNameMatching = unison_kdl::from_str(
+        let v: ExplicitChildNameMatching = club_kdl::from_str(
             r#"app {
                 database "postgres://localhost"
             }"#,
@@ -510,7 +510,7 @@ mod child {
 
     #[test]
     fn de_unwrap_arg_all_present() {
-        let v: UnwrapArg = unison_kdl::from_str(
+        let v: UnwrapArg = club_kdl::from_str(
             r#"config {
                 title "My App"
                 description "A great app"
@@ -525,7 +525,7 @@ mod child {
 
     #[test]
     fn de_unwrap_arg_optional_absent() {
-        let v: UnwrapArg = unison_kdl::from_str(
+        let v: UnwrapArg = club_kdl::from_str(
             r#"config {
                 title "My App"
             }"#,
@@ -549,7 +549,7 @@ mod child {
 
     #[test]
     fn de_unwrap_args() {
-        let v: UnwrapArgs = unison_kdl::from_str(
+        let v: UnwrapArgs = club_kdl::from_str(
             r#"enum "Status" {
                 values "active" "inactive" "pending"
             }"#,
@@ -560,7 +560,7 @@ mod child {
 
     #[test]
     fn de_unwrap_args_absent() {
-        let v: UnwrapArgs = unison_kdl::from_str(r#"enum "Status""#).unwrap();
+        let v: UnwrapArgs = club_kdl::from_str(r#"enum "Status""#).unwrap();
         assert!(v.values.is_empty());
     }
 }
@@ -594,7 +594,7 @@ mod children {
 
     #[test]
     fn de_children_auto_name() {
-        let v: AutoNameChildren = unison_kdl::from_str(
+        let v: AutoNameChildren = club_kdl::from_str(
             r#"pipeline "deploy" {
                 step "build" timeout=60
                 step "test"
@@ -610,7 +610,7 @@ mod children {
 
     #[test]
     fn de_children_empty() {
-        let v: AutoNameChildren = unison_kdl::from_str(r#"pipeline "empty""#).unwrap();
+        let v: AutoNameChildren = club_kdl::from_str(r#"pipeline "empty""#).unwrap();
         assert!(v.steps.is_empty());
     }
 
@@ -645,7 +645,7 @@ mod children {
 
     #[test]
     fn de_children_explicit_name() {
-        let v: ExplicitChildrenName = unison_kdl::from_str(
+        let v: ExplicitChildrenName = club_kdl::from_str(
             r#"workflow {
                 step "a"
                 step "b"
@@ -686,7 +686,7 @@ mod children {
 
     #[test]
     fn de_multiple_children_types() {
-        let v: MultiChildTypes = unison_kdl::from_str(
+        let v: MultiChildTypes = club_kdl::from_str(
             r#"service "web" {
                 port host=80 container=80
                 volume "/data"
@@ -761,7 +761,7 @@ mod child_auto_name {
 
     #[test]
     fn de_kebab_case_auto_resolve() {
-        let v: HookConfig = unison_kdl::from_str(
+        let v: HookConfig = club_kdl::from_str(
             r#"
             post-setup "bun install"
             pre-build "cargo" "build"
@@ -777,7 +777,7 @@ mod child_auto_name {
 
     #[test]
     fn de_kebab_case_all_absent() {
-        let v: HookConfig = unison_kdl::from_str("").unwrap();
+        let v: HookConfig = club_kdl::from_str("").unwrap();
         assert!(v.post_setup.is_none());
         assert!(v.pre_build.is_none());
         assert!(v.on_errors.is_empty());
@@ -793,7 +793,7 @@ mod child_auto_name {
 
     #[test]
     fn de_old_workaround_still_works() {
-        let v: OldWorkaround = unison_kdl::from_str(r#"post-setup "npm install""#).unwrap();
+        let v: OldWorkaround = club_kdl::from_str(r#"post-setup "npm install""#).unwrap();
         assert_eq!(v.post_setup.unwrap().command, "npm install");
     }
 }
@@ -818,7 +818,7 @@ mod child_map {
 
     #[test]
     fn de_child_map_with_wrapper() {
-        let v: WithWrapper = unison_kdl::from_str(
+        let v: WithWrapper = club_kdl::from_str(
             r#"service "api" {
                 env {
                     PORT "8080"
@@ -833,7 +833,7 @@ mod child_map {
 
     #[test]
     fn de_child_map_wrapper_absent() {
-        let v: WithWrapper = unison_kdl::from_str(r#"service "api""#).unwrap();
+        let v: WithWrapper = club_kdl::from_str(r#"service "api""#).unwrap();
         assert!(v.environment.is_empty());
     }
 
@@ -861,7 +861,7 @@ mod child_map {
 
     #[test]
     fn de_child_map_direct() {
-        let v: DirectMap = unison_kdl::from_str(
+        let v: DirectMap = club_kdl::from_str(
             r#"labels {
                 app "frontend"
                 tier "web"
@@ -907,7 +907,7 @@ mod document {
 
     #[test]
     fn de_document_multiple_types() {
-        let v: RouterConfig = unison_kdl::from_str(
+        let v: RouterConfig = club_kdl::from_str(
             r#"
             middleware "auth"
             middleware "cors"
@@ -924,7 +924,7 @@ mod document {
 
     #[test]
     fn de_document_empty() {
-        let v: RouterConfig = unison_kdl::from_str("").unwrap();
+        let v: RouterConfig = club_kdl::from_str("").unwrap();
         assert!(v.routes.is_empty());
         assert!(v.middlewares.is_empty());
     }
@@ -1001,7 +1001,7 @@ mod enums {
     #[test]
     fn de_enum_as_property() {
         let v: BuildConfig =
-            unison_kdl::from_str(r#"build mode="info" optional_mode="warn""#).unwrap();
+            club_kdl::from_str(r#"build mode="info" optional_mode="warn""#).unwrap();
         assert_eq!(v.mode, LogLevel::Info);
         assert_eq!(v.optional_mode, Some(LogLevel::Warn));
     }
@@ -1036,7 +1036,7 @@ mod skip {
 
     #[test]
     fn de_skip_uses_default() {
-        let v: WithSkip = unison_kdl::from_str(r#"item "test""#).unwrap();
+        let v: WithSkip = club_kdl::from_str(r#"item "test""#).unwrap();
         assert_eq!(v.name, "test");
         assert_eq!(v.internal_id, 0); // Default::default()
     }
@@ -1076,7 +1076,7 @@ mod primitives {
 
     #[test]
     fn de_all_primitive_types() {
-        let v: AllTypes = unison_kdl::from_str(
+        let v: AllTypes = club_kdl::from_str(
             r#"types s="hello" i32_val=42 i64_val=9999999 u16_val=65535 u32_val=100 u64_val=200 usize_val=300 f64_val=3.14 bool_val=#true path_val="/usr/bin""#,
         ).unwrap();
         assert_eq!(v.s, "hello");
@@ -1147,7 +1147,7 @@ mod nesting {
 
     #[test]
     fn de_three_level_nesting() {
-        let v: Protocol = unison_kdl::from_str(
+        let v: Protocol = club_kdl::from_str(
             r#"protocol "MyProto" {
                 message "Request" {
                     field "id" type="u64"
@@ -1223,7 +1223,7 @@ mod mixed {
 
     #[test]
     fn de_all_field_kinds() {
-        let v: Endpoint = unison_kdl::from_str(
+        let v: Endpoint = club_kdl::from_str(
             r#"endpoint "/api/users" method="POST" timeout=30 {
                 description "Create a user"
                 header "Content-Type" "application/json"
@@ -1240,7 +1240,7 @@ mod mixed {
 
     #[test]
     fn de_mixed_minimal() {
-        let v: Endpoint = unison_kdl::from_str(r#"endpoint "/health" method="GET""#).unwrap();
+        let v: Endpoint = club_kdl::from_str(r#"endpoint "/health" method="GET""#).unwrap();
         assert_eq!(v.path, "/health");
         assert_eq!(v.timeout, None);
         assert_eq!(v.description, None);
@@ -1269,7 +1269,7 @@ mod errors {
 
     #[test]
     fn err_missing_required_argument() {
-        let result = unison_kdl::from_str::<Strict>(r#"strict"#);
+        let result = club_kdl::from_str::<Strict>(r#"strict"#);
         assert!(result.is_err());
         let msg = result.unwrap_err().to_string();
         assert!(msg.contains("argument"), "error: {msg}");
@@ -1277,7 +1277,7 @@ mod errors {
 
     #[test]
     fn err_missing_required_property() {
-        let result = unison_kdl::from_str::<Strict>(r#"strict "ok""#);
+        let result = club_kdl::from_str::<Strict>(r#"strict "ok""#);
         assert!(result.is_err());
         let msg = result.unwrap_err().to_string();
         assert!(msg.contains("required"), "error: {msg}");
@@ -1285,7 +1285,7 @@ mod errors {
 
     #[test]
     fn err_wrong_node_name() {
-        let result = unison_kdl::from_str::<Strict>(r#"wrong "ok" required=1"#);
+        let result = club_kdl::from_str::<Strict>(r#"wrong "ok" required=1"#);
         assert!(result.is_err());
         let msg = result.unwrap_err().to_string();
         assert!(
@@ -1303,7 +1303,7 @@ mod errors {
 
     #[test]
     fn err_type_mismatch_string_as_int() {
-        let result = unison_kdl::from_str::<TypedField>(r#"typed count="not_a_number""#);
+        let result = club_kdl::from_str::<TypedField>(r#"typed count="not_a_number""#);
         assert!(result.is_err());
         let msg = result.unwrap_err().to_string();
         assert!(
@@ -1321,7 +1321,7 @@ mod errors {
 
     #[test]
     fn err_missing_required_child_auto_name() {
-        let result = unison_kdl::from_str::<RequiredChild>(r#"parent"#);
+        let result = club_kdl::from_str::<RequiredChild>(r#"parent"#);
         assert!(result.is_err());
         let msg = result.unwrap_err().to_string();
         assert!(
@@ -1333,7 +1333,7 @@ mod errors {
     // Error context: struct name is included in error messages
     #[test]
     fn err_context_includes_struct_name() {
-        let result = unison_kdl::from_str::<Strict>(r#"strict"#);
+        let result = club_kdl::from_str::<Strict>(r#"strict"#);
         let msg = result.unwrap_err().to_string();
         assert!(
             msg.contains("Strict"),
@@ -1343,7 +1343,7 @@ mod errors {
 
     #[test]
     fn err_context_nested() {
-        let result = unison_kdl::from_str::<RequiredChild>(r#"parent"#);
+        let result = club_kdl::from_str::<RequiredChild>(r#"parent"#);
         let msg = result.unwrap_err().to_string();
         // Should show nested context: "in RequiredChild: ..."
         assert!(
@@ -1430,7 +1430,7 @@ mod real_world {
 
     #[test]
     fn de_full_compose_like() {
-        let v: ComposeFile = unison_kdl::from_str(
+        let v: ComposeFile = club_kdl::from_str(
             r#"
             service "postgres" image="postgres:17" restart="always" {
                 port host=5432 container=5432
@@ -1529,19 +1529,19 @@ mod alias {
 
     #[test]
     fn de_primary_name() {
-        let v: Database = unison_kdl::from_str(r#"database "pg://localhost""#).unwrap();
+        let v: Database = club_kdl::from_str(r#"database "pg://localhost""#).unwrap();
         assert_eq!(v.url, "pg://localhost");
     }
 
     #[test]
     fn de_alias_name() {
-        let v: Database = unison_kdl::from_str(r#"db "pg://localhost""#).unwrap();
+        let v: Database = club_kdl::from_str(r#"db "pg://localhost""#).unwrap();
         assert_eq!(v.url, "pg://localhost");
     }
 
     #[test]
     fn de_wrong_name_still_errors() {
-        let result = unison_kdl::from_str::<Database>(r#"datasource "pg://localhost""#);
+        let result = club_kdl::from_str::<Database>(r#"datasource "pg://localhost""#);
         assert!(result.is_err());
     }
 
@@ -1556,13 +1556,13 @@ mod alias {
     #[test]
     fn de_multiple_aliases() {
         // primary
-        let v: FlexibleDb = unison_kdl::from_str(r#"database "a""#).unwrap();
+        let v: FlexibleDb = club_kdl::from_str(r#"database "a""#).unwrap();
         assert_eq!(v.url, "a");
         // alias 1
-        let v: FlexibleDb = unison_kdl::from_str(r#"db "b""#).unwrap();
+        let v: FlexibleDb = club_kdl::from_str(r#"db "b""#).unwrap();
         assert_eq!(v.url, "b");
         // alias 2
-        let v: FlexibleDb = unison_kdl::from_str(r#"datasource "c""#).unwrap();
+        let v: FlexibleDb = club_kdl::from_str(r#"datasource "c""#).unwrap();
         assert_eq!(v.url, "c");
     }
 
@@ -1577,7 +1577,7 @@ mod alias {
     #[test]
     fn de_child_explicit_name_matches_alias() {
         // parent searches for "db", Database accepts "db" as alias
-        let v: AppWithAlias = unison_kdl::from_str(
+        let v: AppWithAlias = club_kdl::from_str(
             r#"app {
                 db "postgres://localhost"
             }"#,
@@ -1598,7 +1598,7 @@ mod alias {
     #[test]
     fn de_auto_name_uses_primary() {
         // kdl_node_name() returns "database" (primary), not "db" (alias)
-        let v: AppAutoName = unison_kdl::from_str(
+        let v: AppAutoName = club_kdl::from_str(
             r#"app2 {
                 database "pg://"
             }"#,
@@ -1610,7 +1610,7 @@ mod alias {
     #[test]
     fn de_auto_name_alias_not_searched() {
         // auto-name searches "database", not "db"
-        let v: AppAutoName = unison_kdl::from_str(
+        let v: AppAutoName = club_kdl::from_str(
             r#"app2 {
                 db "pg://"
             }"#,
@@ -1779,7 +1779,7 @@ mod document_serialize {
         // Document should have 3 top-level nodes
         assert_eq!(doc.nodes().len(), 3);
 
-        let restored: RouterConfig = unison_kdl::from_doc(&doc).unwrap();
+        let restored: RouterConfig = club_kdl::from_doc(&doc).unwrap();
         assert_eq!(original, restored);
     }
 
@@ -1792,9 +1792,9 @@ mod document_serialize {
             }],
             middlewares: vec![],
         };
-        let kdl_string = unison_kdl::to_string(&original).unwrap();
+        let kdl_string = club_kdl::to_string(&original).unwrap();
         assert!(kdl_string.contains("route"));
-        let restored: RouterConfig = unison_kdl::from_str(&kdl_string).unwrap();
+        let restored: RouterConfig = club_kdl::from_str(&kdl_string).unwrap();
         assert_eq!(original, restored);
     }
 
@@ -1806,7 +1806,7 @@ mod document_serialize {
         };
         let doc = original.to_kdl_doc().unwrap();
         assert_eq!(doc.nodes().len(), 0);
-        let restored: RouterConfig = unison_kdl::from_doc(&doc).unwrap();
+        let restored: RouterConfig = club_kdl::from_doc(&doc).unwrap();
         assert_eq!(original, restored);
     }
 }
@@ -1839,7 +1839,7 @@ mod flatten {
 
     #[test]
     fn de_flatten() {
-        let v: ServiceWithMeta = unison_kdl::from_str(
+        let v: ServiceWithMeta = club_kdl::from_str(
             r#"service "api" image="nginx" description="Main API" deprecated=#true"#,
         )
         .unwrap();
@@ -1851,7 +1851,7 @@ mod flatten {
 
     #[test]
     fn de_flatten_partial() {
-        let v: ServiceWithMeta = unison_kdl::from_str(r#"service "api" image="nginx""#).unwrap();
+        let v: ServiceWithMeta = club_kdl::from_str(r#"service "api" image="nginx""#).unwrap();
         assert_eq!(v.meta.description, None);
         assert_eq!(v.meta.deprecated, None);
     }
@@ -1869,7 +1869,7 @@ mod flatten {
         let node = original.to_kdl_node().unwrap();
 
         // Verify flattened properties are on the node directly
-        use unison_kdl::KdlNodeExt;
+        use club_kdl::KdlNodeExt;
         assert_eq!(
             node.prop("description").and_then(|v| v.as_string()),
             Some("Web server")

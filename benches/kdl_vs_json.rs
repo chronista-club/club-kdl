@@ -2,10 +2,10 @@ use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use std::collections::HashMap;
 
 // ============================================================
-// KDL用の構造体（unison-kdl）
+// KDL用の構造体（club-kdl）
 // ============================================================
 
-use unison_kdl::{KdlDeserialize, KdlNodeExt, KdlSerialize};
+use club_kdl::{KdlDeserialize, KdlNodeExt, KdlSerialize};
 
 #[derive(Debug, Clone, KdlDeserialize, KdlSerialize)]
 #[kdl(name = "project")]

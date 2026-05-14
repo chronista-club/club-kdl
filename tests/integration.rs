@@ -1,6 +1,6 @@
-//! Integration tests for unison-kdl
+//! Integration tests for club-kdl
 
-use unison_kdl::{KdlDeserialize, KdlDocument, KdlNodeExt, KdlSerialize};
+use club_kdl::{KdlDeserialize, KdlDocument, KdlNodeExt, KdlSerialize};
 
 // ============================================================================
 // Basic test structures
@@ -332,7 +332,7 @@ fn test_enum_scalar_serialize() {
     let node = ch.to_kdl_node().unwrap();
 
     // Check argument
-    use unison_kdl::KdlNodeExt;
+    use club_kdl::KdlNodeExt;
     assert_eq!(node.arg(0).and_then(|v| v.as_string()), Some("control"));
 
     // Check property: from should be "client"
@@ -392,13 +392,13 @@ fn test_child_auto_name_from_struct() {
     // post_setup field → normally would look for "post_setup" node
     // But PostSetup has #[kdl(name = "post-setup")], so it should auto-resolve
     let kdl = r#"post-setup "bun install""#;
-    let config: AutoNameConfig = unison_kdl::from_str(kdl).unwrap();
+    let config: AutoNameConfig = club_kdl::from_str(kdl).unwrap();
     assert_eq!(config.post_setup.unwrap().command, "bun install");
 }
 
 #[test]
 fn test_child_auto_name_absent() {
-    let config: AutoNameConfig = unison_kdl::from_str("").unwrap();
+    let config: AutoNameConfig = club_kdl::from_str("").unwrap();
     assert!(config.post_setup.is_none());
 }
 
@@ -419,13 +419,13 @@ struct AutoNameRequired {
 #[test]
 fn test_child_auto_name_required() {
     let kdl = r#"pre-build "cargo build""#;
-    let config: AutoNameRequired = unison_kdl::from_str(kdl).unwrap();
+    let config: AutoNameRequired = club_kdl::from_str(kdl).unwrap();
     assert_eq!(config.pre_build.command, "cargo build");
 }
 
 #[test]
 fn test_child_auto_name_required_missing() {
-    let result = unison_kdl::from_str::<AutoNameRequired>("");
+    let result = club_kdl::from_str::<AutoNameRequired>("");
     assert!(result.is_err());
 }
 
@@ -451,7 +451,7 @@ fn test_children_auto_name_from_struct() {
         task "test"
         task "deploy"
     "#;
-    let config: AutoNameChildren = unison_kdl::from_str(kdl).unwrap();
+    let config: AutoNameChildren = club_kdl::from_str(kdl).unwrap();
     assert_eq!(config.tasks.len(), 3);
     assert_eq!(config.tasks[0].name, "build");
     assert_eq!(config.tasks[1].name, "test");
@@ -477,7 +477,7 @@ fn test_child_auto_name_fallback_to_field_name() {
     // NoKdlName has no #[kdl(name)], so kdl_node_name() returns None
     // Falls back to field name "no_kdl_name"
     let kdl = r#"no_kdl_name "hello""#;
-    let config: FallbackConfig = unison_kdl::from_str(kdl).unwrap();
+    let config: FallbackConfig = club_kdl::from_str(kdl).unwrap();
     assert_eq!(config.no_kdl_name.unwrap().value, "hello");
 }
 
@@ -499,20 +499,20 @@ struct DefaultAutoNameConfig {
 #[test]
 fn test_child_default_with_auto_name() {
     let kdl = r#"defaults "custom""#;
-    let config: DefaultAutoNameConfig = unison_kdl::from_str(kdl).unwrap();
+    let config: DefaultAutoNameConfig = club_kdl::from_str(kdl).unwrap();
     assert_eq!(config.defaults.value, "custom");
 }
 
 #[test]
 fn test_child_default_with_auto_name_absent() {
-    let config: DefaultAutoNameConfig = unison_kdl::from_str("").unwrap();
+    let config: DefaultAutoNameConfig = club_kdl::from_str("").unwrap();
     assert_eq!(config.defaults, Defaults::default());
 }
 
 // Test #[kdl(children)] auto-name with empty Vec
 #[test]
 fn test_children_auto_name_empty() {
-    let config: AutoNameChildren = unison_kdl::from_str("").unwrap();
+    let config: AutoNameChildren = club_kdl::from_str("").unwrap();
     assert!(config.tasks.is_empty());
 }
 
@@ -527,7 +527,7 @@ struct ExplicitNameOverride {
 #[test]
 fn test_explicit_name_still_works() {
     let kdl = r#"post-setup "npm install""#;
-    let config: ExplicitNameOverride = unison_kdl::from_str(kdl).unwrap();
+    let config: ExplicitNameOverride = club_kdl::from_str(kdl).unwrap();
     assert_eq!(config.post_setup.unwrap().command, "npm install");
 }
 
@@ -537,14 +537,14 @@ fn test_explicit_name_still_works() {
 
 #[test]
 fn test_from_str() {
-    let ch: Channel = unison_kdl::from_str(r#"channel "events" from="server""#).unwrap();
+    let ch: Channel = club_kdl::from_str(r#"channel "events" from="server""#).unwrap();
     assert_eq!(ch.name, "events");
     assert_eq!(ch.from, Direction::Server);
 }
 
 #[test]
 fn test_from_str_service() {
-    let svc: Service = unison_kdl::from_str(
+    let svc: Service = club_kdl::from_str(
         r#"
         service "web" image="nginx:latest" {
             port host=80 container=80
@@ -570,7 +570,7 @@ enum Status {
 #[test]
 fn test_enum_default_naming() {
     // Without #[kdl(rename)], variant names should be snake_cased
-    use unison_kdl::FromKdlValue;
+    use club_kdl::FromKdlValue;
     let val = kdl::KdlValue::String("active".to_string());
     let status: Status = Status::from_kdl_value(&val).unwrap();
     assert_eq!(status, Status::Active);
@@ -701,7 +701,7 @@ fn test_document_level_parsing() {
         }
     "#;
 
-    let schema: Schema = unison_kdl::from_str(kdl).unwrap();
+    let schema: Schema = club_kdl::from_str(kdl).unwrap();
 
     assert!(schema.protocol.is_some());
     let proto = schema.protocol.unwrap();
@@ -719,7 +719,7 @@ fn test_document_level_parsing() {
 
 #[test]
 fn test_document_empty() {
-    let schema: Schema = unison_kdl::from_str("").unwrap();
+    let schema: Schema = club_kdl::from_str("").unwrap();
     assert!(schema.protocol.is_none());
     assert!(schema.messages.is_empty());
     assert!(schema.enums.is_empty());

@@ -1,8 +1,8 @@
-//! Error types for unison-kdl
+//! Error types for club-kdl
 
 use std::fmt;
 
-/// Result type alias for unison-kdl operations
+/// Result type alias for club-kdl operations
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// Error type for KDL deserialization/serialization

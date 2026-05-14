@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::time::Instant;
 
-use unison_kdl::{KdlDeserialize, KdlSerialize};
+use club_kdl::{KdlDeserialize, KdlSerialize};
 
 // KDL構造体
 #[derive(Debug, Clone, KdlDeserialize, KdlSerialize)]

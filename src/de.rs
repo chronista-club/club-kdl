@@ -55,7 +55,7 @@ pub trait KdlDeserialize<'de>: Sized {
 /// # Example
 ///
 /// ```ignore
-/// let config: Config = unison_kdl::from_str(r#"
+/// let config: Config = club_kdl::from_str(r#"
 ///     config {
 ///         name "my-app"
 ///         port 8080

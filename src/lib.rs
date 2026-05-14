@@ -1,4 +1,4 @@
-//! # unison-kdl
+//! # club-kdl
 //!
 //! High-performance KDL serialization and deserialization for Rust.
 //!
@@ -14,7 +14,7 @@
 //! ## Example
 //!
 //! ```ignore
-//! use unison_kdl::{KdlDeserialize, KdlSerialize};
+//! use club_kdl::{KdlDeserialize, KdlSerialize};
 //!
 //! #[derive(KdlDeserialize, KdlSerialize)]
 //! #[kdl(name = "service")]
@@ -82,4 +82,4 @@ pub use ser::{
 pub use kdl::{KdlDocument, KdlIdentifier, KdlNode, KdlValue};
 
 // Derive macros
-pub use unison_kdl_derive::{KdlDeserialize, KdlSerialize};
+pub use club_kdl_derive::{KdlDeserialize, KdlSerialize};
