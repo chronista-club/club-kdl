@@ -1,5 +1,5 @@
 [package]
-name = "unison-kdl"
+name = "club-kdl"
 description = "Fast KDL (KDL Document Language) serialization/deserialization with derive macros"
 version.workspace = true
 edition.workspace = true
@@ -10,12 +10,20 @@ keywords = ["kdl", "serialization", "derive", "macro"]
 categories = ["encoding", "parsing"]
 readme = "README.md"
 
+# lib name 据置: package を `club-kdl` に rename しても、
+# `use unison_kdl::{KdlDeserialize, KdlSerialize}` のような import path は変更不要
+# (Cargo の package rename trick)。
+# 命名規則の根拠: creo-memories `mem_1Cb2haX6ZicuCweEpxAvj4` (chronista-club ecosystem の club- prefix)
+[lib]
+name = "unison_kdl"
+path = "src/lib.rs"
+
 [workspace]
 resolver = "2"
 members = [".", "derive"]
 
 [workspace.package]
-version = "0.3.0"
+version = "0.4.0"
 edition = "2024"
 authors = ["Mako <mito@chronista.club>"]
 license = "MIT"
@@ -31,7 +39,8 @@ proc-macro2 = "1"
 [dependencies]
 kdl.workspace = true
 thiserror.workspace = true
-unison-kdl-derive = { path = "./derive", version = "0.3.0" }
+# package rename: `club-kdl-derive`、 但し `pub use unison_kdl_derive::...` を維持するため alias 付与
+unison_kdl_derive = { package = "club-kdl-derive", path = "./derive", version = "0.4.0" }
 
 [dev-dependencies]
 criterion = "0.5"

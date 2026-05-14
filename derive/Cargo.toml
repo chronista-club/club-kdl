@@ -1,14 +1,19 @@
 [package]
-name = "unison-kdl-derive"
-description = "Derive macros for unison-kdl"
+name = "club-kdl-derive"
+description = "Derive macros for club-kdl"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
 
+# lib name 据置: package を `club-kdl-derive` に rename しても、
+# 親 crate の `pub use unison_kdl_derive::...` を維持するため、
+# 旧 lib name (`unison_kdl_derive`) を明示する。
 [lib]
 proc-macro = true
+name = "unison_kdl_derive"
+path = "src/lib.rs"
 
 [dependencies]
 syn.workspace = true

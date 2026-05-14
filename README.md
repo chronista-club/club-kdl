@@ -1,7 +1,7 @@
-# unison-kdl
+# club-kdl
 
-[![crates.io](https://img.shields.io/crates/v/unison-kdl.svg)](https://crates.io/crates/unison-kdl)
-[![docs.rs](https://docs.rs/unison-kdl/badge.svg)](https://docs.rs/unison-kdl)
+[![crates.io](https://img.shields.io/crates/v/club-kdl.svg)](https://crates.io/crates/club-kdl)
+[![docs.rs](https://docs.rs/club-kdl/badge.svg)](https://docs.rs/club-kdl)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Rust](https://img.shields.io/badge/rust-2024-orange.svg)](https://www.rust-lang.org/)
 
@@ -9,8 +9,15 @@ Rust 構造体に derive マクロを付けるだけで KDL の読み書きが�
 
 ```toml
 [dependencies]
-unison-kdl = "0.3"
+# crates.io 名は `club-kdl` (chronista-club 命名規則)、 import path は `use unison_kdl::...` のまま
+club-kdl = "0.4"
+# または alias を使って従来通り
+# unison_kdl = { package = "club-kdl", version = "0.4" }
 ```
+
+> **v0.3 → v0.4 migration**: crate 名が `unison-kdl` から `club-kdl` に変わりました。
+> `[lib].name = "unison_kdl"` を維持しているため、 ソースコードの `use unison_kdl::...` は **変更不要**。
+> Cargo.toml の dep 行だけ書き換えてください。 詳細は [CHANGELOG.md](CHANGELOG.md) 参照。
 
 ---
 
