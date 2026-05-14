@@ -1,4 +1,4 @@
-//! Derive macros for unison-kdl
+//! Derive macros for club-kdl
 //!
 //! Provides `#[derive(KdlDeserialize, KdlSerialize)]` macros.
 
@@ -317,21 +317,21 @@ fn generate_field_deserializers<'a>(
                 if field_attrs.default {
                     quote! {
                         #field_name: node.arg(#idx)
-                            .map(|v| ::unison_kdl::FromKdlValue::from_kdl_value(v))
+                            .map(|v| ::club_kdl::FromKdlValue::from_kdl_value(v))
                             .transpose()?
                             .unwrap_or_default(),
                     }
                 } else if is_option_type(&field.ty) {
                     quote! {
                         #field_name: node.arg(#idx)
-                            .map(|v| ::unison_kdl::FromKdlValue::from_kdl_value(v))
+                            .map(|v| ::club_kdl::FromKdlValue::from_kdl_value(v))
                             .transpose()?,
                     }
                 } else {
                     quote! {
                         #field_name: node.arg(#idx)
-                            .ok_or(::unison_kdl::Error::MissingArgument(#idx))
-                            .and_then(|v| ::unison_kdl::FromKdlValue::from_kdl_value(v))?,
+                            .ok_or(::club_kdl::Error::MissingArgument(#idx))
+                            .and_then(|v| ::club_kdl::FromKdlValue::from_kdl_value(v))?,
                     }
                 }
             }
@@ -339,21 +339,21 @@ fn generate_field_deserializers<'a>(
                 if field_attrs.default {
                     quote! {
                         #field_name: node.prop(#kdl_name)
-                            .map(|v| ::unison_kdl::FromKdlValue::from_kdl_value(v))
+                            .map(|v| ::club_kdl::FromKdlValue::from_kdl_value(v))
                             .transpose()?
                             .unwrap_or_default(),
                     }
                 } else if is_option_type(&field.ty) {
                     quote! {
                         #field_name: node.prop(#kdl_name)
-                            .map(|v| ::unison_kdl::FromKdlValue::from_kdl_value(v))
+                            .map(|v| ::club_kdl::FromKdlValue::from_kdl_value(v))
                             .transpose()?,
                     }
                 } else {
                     quote! {
                         #field_name: node.prop(#kdl_name)
-                            .ok_or(::unison_kdl::Error::MissingField(#kdl_name))
-                            .and_then(|v| ::unison_kdl::FromKdlValue::from_kdl_value(v))?,
+                            .ok_or(::club_kdl::Error::MissingField(#kdl_name))
+                            .and_then(|v| ::club_kdl::FromKdlValue::from_kdl_value(v))?,
                     }
                 }
             }
@@ -364,14 +364,14 @@ fn generate_field_deserializers<'a>(
                         quote! {
                             #field_name: node.child(#child_name)
                                 .and_then(|n| n.arg(0))
-                                .map(|v| ::unison_kdl::FromKdlValue::from_kdl_value(v))
+                                .map(|v| ::club_kdl::FromKdlValue::from_kdl_value(v))
                                 .transpose()?,
                         }
                     } else if field_attrs.default {
                         quote! {
                             #field_name: node.child(#child_name)
                                 .and_then(|n| n.arg(0))
-                                .map(|v| ::unison_kdl::FromKdlValue::from_kdl_value(v))
+                                .map(|v| ::club_kdl::FromKdlValue::from_kdl_value(v))
                                 .transpose()?
                                 .unwrap_or_default(),
                         }
@@ -379,10 +379,10 @@ fn generate_field_deserializers<'a>(
                         quote! {
                             #field_name: {
                                 let child_node = node.child(#child_name)
-                                    .ok_or(::unison_kdl::Error::MissingChild(#child_name))?;
+                                    .ok_or(::club_kdl::Error::MissingChild(#child_name))?;
                                 let val = child_node.arg(0)
-                                    .ok_or(::unison_kdl::Error::MissingArgument(0))?;
-                                ::unison_kdl::FromKdlValue::from_kdl_value(val)?
+                                    .ok_or(::club_kdl::Error::MissingArgument(0))?;
+                                ::club_kdl::FromKdlValue::from_kdl_value(val)?
                             },
                         }
                     }
@@ -392,8 +392,8 @@ fn generate_field_deserializers<'a>(
                         #field_name: node.child(#child_name)
                             .map(|n| n.args()
                                 .into_iter()
-                                .map(|v| ::unison_kdl::FromKdlValue::from_kdl_value(v))
-                                .collect::<::unison_kdl::Result<Vec<_>>>())
+                                .map(|v| ::club_kdl::FromKdlValue::from_kdl_value(v))
+                                .collect::<::club_kdl::Result<Vec<_>>>())
                             .transpose()?
                             .unwrap_or_default(),
                     }
@@ -401,21 +401,21 @@ fn generate_field_deserializers<'a>(
                     if field_attrs.default {
                         quote! {
                             #field_name: node.child(#explicit_name)
-                                .map(|n| ::unison_kdl::KdlDeserialize::from_kdl_node(n))
+                                .map(|n| ::club_kdl::KdlDeserialize::from_kdl_node(n))
                                 .transpose()?
                                 .unwrap_or_default(),
                         }
                     } else if is_option_type(&field.ty) {
                         quote! {
                             #field_name: node.child(#explicit_name)
-                                .map(|n| ::unison_kdl::KdlDeserialize::from_kdl_node(n))
+                                .map(|n| ::club_kdl::KdlDeserialize::from_kdl_node(n))
                                 .transpose()?,
                         }
                     } else {
                         quote! {
                             #field_name: node.child(#explicit_name)
-                                .ok_or(::unison_kdl::Error::MissingChild(#explicit_name))
-                                .and_then(|n| ::unison_kdl::KdlDeserialize::from_kdl_node(n))?,
+                                .ok_or(::club_kdl::Error::MissingChild(#explicit_name))
+                                .and_then(|n| ::club_kdl::KdlDeserialize::from_kdl_node(n))?,
                         }
                     }
                 } else {
@@ -424,10 +424,10 @@ fn generate_field_deserializers<'a>(
                     if field_attrs.default {
                         quote! {
                             #field_name: {
-                                let __child_name = <#inner_ty as ::unison_kdl::KdlDeserialize>::kdl_node_name()
+                                let __child_name = <#inner_ty as ::club_kdl::KdlDeserialize>::kdl_node_name()
                                     .unwrap_or(#fallback);
                                 node.child(__child_name)
-                                    .map(|n| ::unison_kdl::KdlDeserialize::from_kdl_node(n))
+                                    .map(|n| ::club_kdl::KdlDeserialize::from_kdl_node(n))
                                     .transpose()?
                                     .unwrap_or_default()
                             },
@@ -435,21 +435,21 @@ fn generate_field_deserializers<'a>(
                     } else if is_option_type(&field.ty) {
                         quote! {
                             #field_name: {
-                                let __child_name = <#inner_ty as ::unison_kdl::KdlDeserialize>::kdl_node_name()
+                                let __child_name = <#inner_ty as ::club_kdl::KdlDeserialize>::kdl_node_name()
                                     .unwrap_or(#fallback);
                                 node.child(__child_name)
-                                    .map(|n| ::unison_kdl::KdlDeserialize::from_kdl_node(n))
+                                    .map(|n| ::club_kdl::KdlDeserialize::from_kdl_node(n))
                                     .transpose()?
                             },
                         }
                     } else {
                         quote! {
                             #field_name: {
-                                let __child_name = <#inner_ty as ::unison_kdl::KdlDeserialize>::kdl_node_name()
+                                let __child_name = <#inner_ty as ::club_kdl::KdlDeserialize>::kdl_node_name()
                                     .unwrap_or(#fallback);
                                 node.child(__child_name)
-                                    .ok_or(::unison_kdl::Error::MissingChild(__child_name))
-                                    .and_then(|n| ::unison_kdl::KdlDeserialize::from_kdl_node(n))?
+                                    .ok_or(::club_kdl::Error::MissingChild(__child_name))
+                                    .and_then(|n| ::club_kdl::KdlDeserialize::from_kdl_node(n))?
                             },
                         }
                     }
@@ -460,27 +460,27 @@ fn generate_field_deserializers<'a>(
                     quote! {
                         #field_name: node.children_by_name(#explicit_name)
                             .into_iter()
-                            .map(|n| ::unison_kdl::KdlDeserialize::from_kdl_node(n))
-                            .collect::<::unison_kdl::Result<Vec<_>>>()?,
+                            .map(|n| ::club_kdl::KdlDeserialize::from_kdl_node(n))
+                            .collect::<::club_kdl::Result<Vec<_>>>()?,
                     }
                 } else {
                     let inner_ty = extract_vec_inner_type(&field.ty);
                     let fallback = &kdl_name;
                     quote! {
                         #field_name: {
-                            if <#inner_ty as ::unison_kdl::KdlDeserialize>::kdl_matches_any_node() {
+                            if <#inner_ty as ::club_kdl::KdlDeserialize>::kdl_matches_any_node() {
                                 // Data enum: collect all children and dispatch by node name
                                 node.all_children()
                                     .into_iter()
-                                    .map(|n| ::unison_kdl::KdlDeserialize::from_kdl_node(n))
-                                    .collect::<::unison_kdl::Result<Vec<_>>>()?
+                                    .map(|n| ::club_kdl::KdlDeserialize::from_kdl_node(n))
+                                    .collect::<::club_kdl::Result<Vec<_>>>()?
                             } else {
-                                let __child_name = <#inner_ty as ::unison_kdl::KdlDeserialize>::kdl_node_name()
+                                let __child_name = <#inner_ty as ::club_kdl::KdlDeserialize>::kdl_node_name()
                                     .unwrap_or(#fallback);
                                 node.children_by_name(__child_name)
                                     .into_iter()
-                                    .map(|n| ::unison_kdl::KdlDeserialize::from_kdl_node(n))
-                                    .collect::<::unison_kdl::Result<Vec<_>>>()?
+                                    .map(|n| ::club_kdl::KdlDeserialize::from_kdl_node(n))
+                                    .collect::<::club_kdl::Result<Vec<_>>>()?
                             }
                         },
                     }
@@ -490,14 +490,14 @@ fn generate_field_deserializers<'a>(
                 quote! {
                     #field_name: node.args()
                         .into_iter()
-                        .map(|v| ::unison_kdl::FromKdlValue::from_kdl_value(v))
-                        .collect::<::unison_kdl::Result<Vec<_>>>()?,
+                        .map(|v| ::club_kdl::FromKdlValue::from_kdl_value(v))
+                        .collect::<::club_kdl::Result<Vec<_>>>()?,
                 }
             }
             FieldKind::Flatten => {
                 let field_ty = &field.ty;
                 quote! {
-                    #field_name: <#field_ty as ::unison_kdl::KdlDeserialize>::from_kdl_node(node)?,
+                    #field_name: <#field_ty as ::club_kdl::KdlDeserialize>::from_kdl_node(node)?,
                 }
             }
             FieldKind::ChildMap => {
@@ -614,7 +614,7 @@ fn impl_kdl_deserialize(input: &DeriveInput) -> syn::Result<TokenStream2> {
         if aliases.is_empty() {
             quote! {
                 if node.name().value() != #expected_name {
-                    return Err(::unison_kdl::Error::UnexpectedNode {
+                    return Err(::club_kdl::Error::UnexpectedNode {
                         expected: #expected_name,
                         found: node.name().value().to_string(),
                     });
@@ -625,7 +625,7 @@ fn impl_kdl_deserialize(input: &DeriveInput) -> syn::Result<TokenStream2> {
                 {
                     let __name = node.name().value();
                     if __name != #expected_name #(&& __name != #aliases)* {
-                        return Err(::unison_kdl::Error::UnexpectedNode {
+                        return Err(::club_kdl::Error::UnexpectedNode {
                             expected: #expected_name,
                             found: __name.to_string(),
                         });
@@ -641,11 +641,11 @@ fn impl_kdl_deserialize(input: &DeriveInput) -> syn::Result<TokenStream2> {
 
     if container_attrs.document {
         Ok(quote! {
-            impl<'de> ::unison_kdl::KdlDeserialize<'de> for #name {
-                fn from_kdl_node(node: &'de ::unison_kdl::KdlNode) -> ::unison_kdl::Result<Self> {
-                    use ::unison_kdl::KdlNodeExt;
+            impl<'de> ::club_kdl::KdlDeserialize<'de> for #name {
+                fn from_kdl_node(node: &'de ::club_kdl::KdlNode) -> ::club_kdl::Result<Self> {
+                    use ::club_kdl::KdlNodeExt;
                     #name_check
-                    (|| -> ::unison_kdl::Result<Self> {
+                    (|| -> ::club_kdl::Result<Self> {
                         Ok(Self {
                             #(#field_deserializers)*
                         })
@@ -654,19 +654,19 @@ fn impl_kdl_deserialize(input: &DeriveInput) -> syn::Result<TokenStream2> {
 
                 #kdl_node_name_impl
 
-                fn from_kdl_doc(doc: &'de ::unison_kdl::KdlDocument) -> ::unison_kdl::Result<Self> {
-                    let wrapper = ::unison_kdl::doc_to_wrapper_node(doc);
-                    <Self as ::unison_kdl::KdlDeserialize>::from_kdl_node(&wrapper)
+                fn from_kdl_doc(doc: &'de ::club_kdl::KdlDocument) -> ::club_kdl::Result<Self> {
+                    let wrapper = ::club_kdl::doc_to_wrapper_node(doc);
+                    <Self as ::club_kdl::KdlDeserialize>::from_kdl_node(&wrapper)
                 }
             }
         })
     } else {
         Ok(quote! {
-            impl<'de> ::unison_kdl::KdlDeserialize<'de> for #name {
-                fn from_kdl_node(node: &'de ::unison_kdl::KdlNode) -> ::unison_kdl::Result<Self> {
-                    use ::unison_kdl::KdlNodeExt;
+            impl<'de> ::club_kdl::KdlDeserialize<'de> for #name {
+                fn from_kdl_node(node: &'de ::club_kdl::KdlNode) -> ::club_kdl::Result<Self> {
+                    use ::club_kdl::KdlNodeExt;
                     #name_check
-                    (|| -> ::unison_kdl::Result<Self> {
+                    (|| -> ::club_kdl::Result<Self> {
                         Ok(Self {
                             #(#field_deserializers)*
                         })
@@ -718,25 +718,25 @@ fn impl_kdl_deserialize_scalar_enum(
     let expected_msg = variant_names.join(", ");
 
     Ok(quote! {
-        impl<'de> ::unison_kdl::FromKdlValue<'de> for #name {
-            fn from_kdl_value(value: &'de ::unison_kdl::KdlValue) -> ::unison_kdl::Result<Self> {
+        impl<'de> ::club_kdl::FromKdlValue<'de> for #name {
+            fn from_kdl_value(value: &'de ::club_kdl::KdlValue) -> ::club_kdl::Result<Self> {
                 let s = value.as_string()
-                    .ok_or_else(|| ::unison_kdl::Error::type_mismatch("string", value))?;
+                    .ok_or_else(|| ::club_kdl::Error::type_mismatch("string", value))?;
                 match s {
                     #(#match_arms)*
-                    other => Err(::unison_kdl::Error::Custom(
+                    other => Err(::club_kdl::Error::Custom(
                         format!("unknown variant '{}', expected one of: {}", other, #expected_msg)
                     )),
                 }
             }
         }
 
-        impl<'de> ::unison_kdl::KdlDeserialize<'de> for #name {
-            fn from_kdl_node(node: &'de ::unison_kdl::KdlNode) -> ::unison_kdl::Result<Self> {
-                use ::unison_kdl::KdlNodeExt;
+        impl<'de> ::club_kdl::KdlDeserialize<'de> for #name {
+            fn from_kdl_node(node: &'de ::club_kdl::KdlNode) -> ::club_kdl::Result<Self> {
+                use ::club_kdl::KdlNodeExt;
                 let value = node.arg(0)
-                    .ok_or(::unison_kdl::Error::MissingArgument(0))?;
-                <Self as ::unison_kdl::FromKdlValue>::from_kdl_value(value)
+                    .ok_or(::club_kdl::Error::MissingArgument(0))?;
+                <Self as ::club_kdl::FromKdlValue>::from_kdl_value(value)
             }
         }
     })
@@ -768,7 +768,7 @@ fn impl_kdl_deserialize_data_enum(
                 let variant_ctx = format!("{}::{}", enum_name_str, variant_ident);
                 match_arms.push(quote! {
                     #kdl_name => {
-                        (|| -> ::unison_kdl::Result<Self> {
+                        (|| -> ::club_kdl::Result<Self> {
                             Ok(#name::#variant_ident {
                                 #(#field_deserializers)*
                             })
@@ -788,18 +788,18 @@ fn impl_kdl_deserialize_data_enum(
                     #kdl_name => {
                         // For newtype variants, the inner type may have its own name_check.
                         // Rename the node to match the inner type's expected name if needed.
-                        let __inner_name = <#inner_ty as ::unison_kdl::KdlDeserialize>::kdl_node_name();
+                        let __inner_name = <#inner_ty as ::club_kdl::KdlDeserialize>::kdl_node_name();
                         if let Some(expected) = __inner_name {
                             if node.name().value() != expected {
                                 let mut __renamed = node.clone();
-                                *__renamed.name_mut() = ::unison_kdl::KdlIdentifier::from(expected);
+                                *__renamed.name_mut() = ::club_kdl::KdlIdentifier::from(expected);
                                 return Ok(#name::#variant_ident(
-                                    <#inner_ty as ::unison_kdl::KdlDeserialize>::from_kdl_node(&__renamed)?
+                                    <#inner_ty as ::club_kdl::KdlDeserialize>::from_kdl_node(&__renamed)?
                                 ));
                             }
                         }
                         Ok(#name::#variant_ident(
-                            <#inner_ty as ::unison_kdl::KdlDeserialize>::from_kdl_node(node)?
+                            <#inner_ty as ::club_kdl::KdlDeserialize>::from_kdl_node(node)?
                         ))
                     },
                 });
@@ -810,13 +810,13 @@ fn impl_kdl_deserialize_data_enum(
     let expected_msg = variant_names.join(", ");
 
     Ok(quote! {
-        impl<'de> ::unison_kdl::KdlDeserialize<'de> for #name {
-            fn from_kdl_node(node: &'de ::unison_kdl::KdlNode) -> ::unison_kdl::Result<Self> {
-                use ::unison_kdl::KdlNodeExt;
+        impl<'de> ::club_kdl::KdlDeserialize<'de> for #name {
+            fn from_kdl_node(node: &'de ::club_kdl::KdlNode) -> ::club_kdl::Result<Self> {
+                use ::club_kdl::KdlNodeExt;
                 let __name = node.name().value();
                 match __name {
                     #(#match_arms)*
-                    other => Err(::unison_kdl::Error::Custom(
+                    other => Err(::club_kdl::Error::Custom(
                         format!("unknown variant '{}', expected one of: {}", other, #expected_msg)
                     )),
                 }
@@ -878,16 +878,16 @@ fn impl_kdl_serialize(input: &DeriveInput) -> syn::Result<TokenStream2> {
 
     if container_attrs.document {
         Ok(quote! {
-            impl ::unison_kdl::KdlSerialize for #name {
-                fn to_kdl_node(&self) -> ::unison_kdl::Result<::unison_kdl::KdlNode> {
-                    let mut builder = ::unison_kdl::NodeBuilder::new("__document__");
+            impl ::club_kdl::KdlSerialize for #name {
+                fn to_kdl_node(&self) -> ::club_kdl::Result<::club_kdl::KdlNode> {
+                    let mut builder = ::club_kdl::NodeBuilder::new("__document__");
                     #(#all_serializers)*
                     Ok(builder.build())
                 }
 
-                fn to_kdl_doc(&self) -> ::unison_kdl::Result<::unison_kdl::KdlDocument> {
+                fn to_kdl_doc(&self) -> ::club_kdl::Result<::club_kdl::KdlDocument> {
                     let wrapper = self.to_kdl_node()?;
-                    let mut doc = ::unison_kdl::KdlDocument::new();
+                    let mut doc = ::club_kdl::KdlDocument::new();
                     if let Some(children) = wrapper.children() {
                         for node in children.nodes() {
                             doc.nodes_mut().push(node.clone());
@@ -899,9 +899,9 @@ fn impl_kdl_serialize(input: &DeriveInput) -> syn::Result<TokenStream2> {
         })
     } else {
         Ok(quote! {
-            impl ::unison_kdl::KdlSerialize for #name {
-                fn to_kdl_node(&self) -> ::unison_kdl::Result<::unison_kdl::KdlNode> {
-                    let mut builder = ::unison_kdl::NodeBuilder::new(#node_name);
+            impl ::club_kdl::KdlSerialize for #name {
+                fn to_kdl_node(&self) -> ::club_kdl::Result<::club_kdl::KdlNode> {
+                    let mut builder = ::club_kdl::NodeBuilder::new(#node_name);
                     #(#all_serializers)*
                     Ok(builder.build())
                 }
@@ -1037,7 +1037,7 @@ fn generate_field_serializers<'a>(
                     quote! {
                         #opt_pat {
                             builder = builder.child(
-                                ::unison_kdl::NodeBuilder::new(#kdl_name).arg(v).build()
+                                ::club_kdl::NodeBuilder::new(#kdl_name).arg(v).build()
                             );
                         }
                     }
@@ -1045,7 +1045,7 @@ fn generate_field_serializers<'a>(
                     let ref_access = field_ref!(field_name);
                     quote! {
                         builder = builder.child(
-                            ::unison_kdl::NodeBuilder::new(#kdl_name).arg(#ref_access).build()
+                            ::club_kdl::NodeBuilder::new(#kdl_name).arg(#ref_access).build()
                         );
                     }
                 }
@@ -1055,7 +1055,7 @@ fn generate_field_serializers<'a>(
                 let ref_access = field_ref!(field_name);
                 quote! {
                     if !#access.is_empty() {
-                        let mut __node = ::unison_kdl::NodeBuilder::new(#kdl_name);
+                        let mut __node = ::club_kdl::NodeBuilder::new(#kdl_name);
                         for item in #ref_access {
                             __node = __node.arg(item);
                         }
@@ -1068,13 +1068,13 @@ fn generate_field_serializers<'a>(
                     let opt_pat = option_some!(field_name);
                     quote! {
                         #opt_pat {
-                            builder = builder.child(::unison_kdl::KdlSerialize::to_kdl_node(v)?);
+                            builder = builder.child(::club_kdl::KdlSerialize::to_kdl_node(v)?);
                         }
                     }
                 } else {
                     let ref_access = field_ref!(field_name);
                     quote! {
-                        builder = builder.child(::unison_kdl::KdlSerialize::to_kdl_node(#ref_access)?);
+                        builder = builder.child(::club_kdl::KdlSerialize::to_kdl_node(#ref_access)?);
                     }
                 }
             }
@@ -1082,7 +1082,7 @@ fn generate_field_serializers<'a>(
                 let ref_access = field_ref!(field_name);
                 quote! {
                     for item in #ref_access {
-                        builder = builder.child(::unison_kdl::KdlSerialize::to_kdl_node(item)?);
+                        builder = builder.child(::club_kdl::KdlSerialize::to_kdl_node(item)?);
                     }
                 }
             }
@@ -1101,10 +1101,10 @@ fn generate_field_serializers<'a>(
         if let Some(wname) = wrapper_name {
             serializers.push(quote! {
                 if !#access.is_empty() {
-                    let mut wrapper = ::unison_kdl::NodeBuilder::new(#wname);
+                    let mut wrapper = ::club_kdl::NodeBuilder::new(#wname);
                     for (key, value) in #ref_access {
                         wrapper = wrapper.child(
-                            ::unison_kdl::NodeBuilder::new(key.as_str()).arg(value).build()
+                            ::club_kdl::NodeBuilder::new(key.as_str()).arg(value).build()
                         );
                     }
                     builder = builder.child(wrapper.build());
@@ -1114,7 +1114,7 @@ fn generate_field_serializers<'a>(
             serializers.push(quote! {
                 for (key, value) in #ref_access {
                     builder = builder.child(
-                        ::unison_kdl::NodeBuilder::new(key.as_str()).arg(value).build()
+                        ::club_kdl::NodeBuilder::new(key.as_str()).arg(value).build()
                     );
                 }
             });
@@ -1127,7 +1127,7 @@ fn generate_field_serializers<'a>(
         let ref_access = field_ref!(field_name);
         serializers.push(quote! {
             {
-                let __flat_node = ::unison_kdl::KdlSerialize::to_kdl_node(#ref_access)?;
+                let __flat_node = ::club_kdl::KdlSerialize::to_kdl_node(#ref_access)?;
                 for entry in __flat_node.entries() {
                     builder = builder.entry(entry.clone());
                 }
@@ -1173,30 +1173,30 @@ fn impl_kdl_serialize_scalar_enum(
         let kdl_name = variant_kdl_name(variant, &attrs);
         let variant_ident = &variant.ident;
         to_kdl_value_arms.push(quote! {
-            #name::#variant_ident => ::unison_kdl::KdlValue::String(#kdl_name.to_string()),
+            #name::#variant_ident => ::club_kdl::KdlValue::String(#kdl_name.to_string()),
         });
     }
 
     let node_name = to_snake_case(&name.to_string());
 
     Ok(quote! {
-        impl ::unison_kdl::ToKdlValue for #name {
-            fn to_kdl_value(&self) -> ::unison_kdl::KdlValue {
+        impl ::club_kdl::ToKdlValue for #name {
+            fn to_kdl_value(&self) -> ::club_kdl::KdlValue {
                 match self {
                     #(#to_kdl_value_arms)*
                 }
             }
         }
 
-        impl ::unison_kdl::ToKdlValue for &#name {
-            fn to_kdl_value(&self) -> ::unison_kdl::KdlValue {
+        impl ::club_kdl::ToKdlValue for &#name {
+            fn to_kdl_value(&self) -> ::club_kdl::KdlValue {
                 (*self).to_kdl_value()
             }
         }
 
-        impl ::unison_kdl::KdlSerialize for #name {
-            fn to_kdl_node(&self) -> ::unison_kdl::Result<::unison_kdl::KdlNode> {
-                Ok(::unison_kdl::NodeBuilder::new(#node_name)
+        impl ::club_kdl::KdlSerialize for #name {
+            fn to_kdl_node(&self) -> ::club_kdl::Result<::club_kdl::KdlNode> {
+                Ok(::club_kdl::NodeBuilder::new(#node_name)
                     .arg(self)
                     .build())
             }
@@ -1220,7 +1220,7 @@ fn impl_kdl_serialize_data_enum(
             Fields::Unit => {
                 match_arms.push(quote! {
                     #name::#variant_ident => {
-                        Ok(::unison_kdl::NodeBuilder::new(#kdl_name).build())
+                        Ok(::club_kdl::NodeBuilder::new(#kdl_name).build())
                     },
                 });
             }
@@ -1234,7 +1234,7 @@ fn impl_kdl_serialize_data_enum(
 
                 match_arms.push(quote! {
                     #name::#variant_ident { #(#field_names),* } => {
-                        let mut builder = ::unison_kdl::NodeBuilder::new(#kdl_name);
+                        let mut builder = ::club_kdl::NodeBuilder::new(#kdl_name);
                         #(#field_serializers)*
                         Ok(builder.build())
                     },
@@ -1249,9 +1249,9 @@ fn impl_kdl_serialize_data_enum(
                 }
                 match_arms.push(quote! {
                     #name::#variant_ident(inner) => {
-                        let mut __node = ::unison_kdl::KdlSerialize::to_kdl_node(inner)?;
+                        let mut __node = ::club_kdl::KdlSerialize::to_kdl_node(inner)?;
                         // Override the node name with the variant name
-                        *__node.name_mut() = ::unison_kdl::KdlIdentifier::from(#kdl_name);
+                        *__node.name_mut() = ::club_kdl::KdlIdentifier::from(#kdl_name);
                         Ok(__node)
                     },
                 });
@@ -1260,8 +1260,8 @@ fn impl_kdl_serialize_data_enum(
     }
 
     Ok(quote! {
-        impl ::unison_kdl::KdlSerialize for #name {
-            fn to_kdl_node(&self) -> ::unison_kdl::Result<::unison_kdl::KdlNode> {
+        impl ::club_kdl::KdlSerialize for #name {
+            fn to_kdl_node(&self) -> ::club_kdl::Result<::club_kdl::KdlNode> {
                 match self {
                     #(#match_arms)*
                 }

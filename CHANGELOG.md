@@ -5,6 +5,23 @@
 フォーマットは [Keep a Changelog](https://keepachangelog.com/ja/1.0.0/) に基づいており、
 このプロジェクトは [セマンティックバージョニング](https://semver.org/lang/ja/) に準拠しています。
 
+## [0.5.0] - 2026-05-15
+
+### 変更 (Breaking)
+
+- lib name を package name と統一: `unison_kdl` → **`club_kdl`** / `unison_kdl_derive` → **`club_kdl_derive`**
+- v0.4.0 の rename trick (`[lib].name` 据置 + 内部 dep alias) を撤廃、 命名を一貫させた
+- 下流の `use unison_kdl::...` は **`use club_kdl::...`** に書き換えが必要
+
+```toml
+# Cargo.toml
+club-kdl = "0.5"
+```
+
+```rust
+use club_kdl::{KdlDeserialize, KdlSerialize};
+```
+
 ## [0.4.0] - 2026-05-15
 
 ### 変更 (Breaking — Cargo.toml level only)

@@ -37,7 +37,7 @@ pub trait KdlSerialize {
 /// # Example
 ///
 /// ```ignore
-/// let kdl_string = unison_kdl::to_string(&config)?;
+/// let kdl_string = club_kdl::to_string(&config)?;
 /// ```
 pub fn to_string<T: KdlSerialize>(value: &T) -> Result<String> {
     let doc = value.to_kdl_doc()?;
