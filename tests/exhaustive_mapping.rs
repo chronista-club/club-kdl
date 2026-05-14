@@ -241,8 +241,7 @@ mod property {
 
     #[test]
     fn de_optional_property_present() {
-        let v: OptionalProp =
-            unison_kdl::from_str(r#"server host="localhost" tls=#true"#).unwrap();
+        let v: OptionalProp = unison_kdl::from_str(r#"server host="localhost" tls=#true"#).unwrap();
         assert_eq!(v.tls, Some(true));
     }
 
@@ -794,8 +793,7 @@ mod child_auto_name {
 
     #[test]
     fn de_old_workaround_still_works() {
-        let v: OldWorkaround =
-            unison_kdl::from_str(r#"post-setup "npm install""#).unwrap();
+        let v: OldWorkaround = unison_kdl::from_str(r#"post-setup "npm install""#).unwrap();
         assert_eq!(v.post_setup.unwrap().command, "npm install");
     }
 }
@@ -1242,8 +1240,7 @@ mod mixed {
 
     #[test]
     fn de_mixed_minimal() {
-        let v: Endpoint =
-            unison_kdl::from_str(r#"endpoint "/health" method="GET""#).unwrap();
+        let v: Endpoint = unison_kdl::from_str(r#"endpoint "/health" method="GET""#).unwrap();
         assert_eq!(v.path, "/health");
         assert_eq!(v.timeout, None);
         assert_eq!(v.description, None);
@@ -1291,7 +1288,10 @@ mod errors {
         let result = unison_kdl::from_str::<Strict>(r#"wrong "ok" required=1"#);
         assert!(result.is_err());
         let msg = result.unwrap_err().to_string();
-        assert!(msg.contains("unexpected") || msg.contains("strict"), "error: {msg}");
+        assert!(
+            msg.contains("unexpected") || msg.contains("strict"),
+            "error: {msg}"
+        );
     }
 
     #[derive(Debug, PartialEq, KdlDeserialize)]
@@ -1306,7 +1306,10 @@ mod errors {
         let result = unison_kdl::from_str::<TypedField>(r#"typed count="not_a_number""#);
         assert!(result.is_err());
         let msg = result.unwrap_err().to_string();
-        assert!(msg.contains("type mismatch") || msg.contains("integer"), "error: {msg}");
+        assert!(
+            msg.contains("type mismatch") || msg.contains("integer"),
+            "error: {msg}"
+        );
     }
 
     #[derive(Debug, PartialEq, KdlDeserialize)]
@@ -1321,7 +1324,10 @@ mod errors {
         let result = unison_kdl::from_str::<RequiredChild>(r#"parent"#);
         assert!(result.is_err());
         let msg = result.unwrap_err().to_string();
-        assert!(msg.contains("child") || msg.contains("strict"), "error: {msg}");
+        assert!(
+            msg.contains("child") || msg.contains("strict"),
+            "error: {msg}"
+        );
     }
 
     // Error context: struct name is included in error messages
@@ -1329,7 +1335,10 @@ mod errors {
     fn err_context_includes_struct_name() {
         let result = unison_kdl::from_str::<Strict>(r#"strict"#);
         let msg = result.unwrap_err().to_string();
-        assert!(msg.contains("Strict"), "should contain struct name, got: {msg}");
+        assert!(
+            msg.contains("Strict"),
+            "should contain struct name, got: {msg}"
+        );
     }
 
     #[test]
@@ -1337,7 +1346,10 @@ mod errors {
         let result = unison_kdl::from_str::<RequiredChild>(r#"parent"#);
         let msg = result.unwrap_err().to_string();
         // Should show nested context: "in RequiredChild: ..."
-        assert!(msg.contains("RequiredChild"), "should contain parent struct, got: {msg}");
+        assert!(
+            msg.contains("RequiredChild"),
+            "should contain parent struct, got: {msg}"
+        );
     }
 }
 
@@ -1468,18 +1480,12 @@ mod real_world {
         assert_eq!(api.restart, Some(RestartPolicy::UnlessStopped));
         assert_eq!(api.ports.len(), 2);
         assert_eq!(api.ports[1].protocol, Some("grpc".into()));
-        assert_eq!(
-            api.depends_on.as_ref().unwrap().services,
-            vec!["postgres"]
-        );
+        assert_eq!(api.depends_on.as_ref().unwrap().services, vec!["postgres"]);
 
         // nginx
         let nginx = &v.services[2];
         assert_eq!(nginx.volumes[0].read_only, Some(true));
-        assert_eq!(
-            nginx.depends_on.as_ref().unwrap().services,
-            vec!["api"]
-        );
+        assert_eq!(nginx.depends_on.as_ref().unwrap().services, vec!["api"]);
     }
 
     #[test]
@@ -1756,12 +1762,18 @@ mod document_serialize {
     fn roundtrip_document() {
         let original = RouterConfig {
             routes: vec![
-                Route { path: "/api".into(), method: Some("GET".into()) },
-                Route { path: "/health".into(), method: None },
+                Route {
+                    path: "/api".into(),
+                    method: Some("GET".into()),
+                },
+                Route {
+                    path: "/health".into(),
+                    method: None,
+                },
             ],
-            middlewares: vec![
-                Middleware { name: "auth".into() },
-            ],
+            middlewares: vec![Middleware {
+                name: "auth".into(),
+            }],
         };
         let doc = original.to_kdl_doc().unwrap();
         // Document should have 3 top-level nodes
@@ -1774,7 +1786,10 @@ mod document_serialize {
     #[test]
     fn document_to_string_roundtrip() {
         let original = RouterConfig {
-            routes: vec![Route { path: "/".into(), method: None }],
+            routes: vec![Route {
+                path: "/".into(),
+                method: None,
+            }],
             middlewares: vec![],
         };
         let kdl_string = unison_kdl::to_string(&original).unwrap();
@@ -1826,7 +1841,8 @@ mod flatten {
     fn de_flatten() {
         let v: ServiceWithMeta = unison_kdl::from_str(
             r#"service "api" image="nginx" description="Main API" deprecated=#true"#,
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(v.name, "api");
         assert_eq!(v.image, "nginx");
         assert_eq!(v.meta.description, Some("Main API".into()));
@@ -1835,9 +1851,7 @@ mod flatten {
 
     #[test]
     fn de_flatten_partial() {
-        let v: ServiceWithMeta = unison_kdl::from_str(
-            r#"service "api" image="nginx""#,
-        ).unwrap();
+        let v: ServiceWithMeta = unison_kdl::from_str(r#"service "api" image="nginx""#).unwrap();
         assert_eq!(v.meta.description, None);
         assert_eq!(v.meta.deprecated, None);
     }
@@ -1856,8 +1870,14 @@ mod flatten {
 
         // Verify flattened properties are on the node directly
         use unison_kdl::KdlNodeExt;
-        assert_eq!(node.prop("description").and_then(|v| v.as_string()), Some("Web server"));
-        assert_eq!(node.prop("deprecated").and_then(|v| v.as_bool()), Some(false));
+        assert_eq!(
+            node.prop("description").and_then(|v| v.as_string()),
+            Some("Web server")
+        );
+        assert_eq!(
+            node.prop("deprecated").and_then(|v| v.as_bool()),
+            Some(false)
+        );
 
         let restored = ServiceWithMeta::from_kdl_node(&node).unwrap();
         assert_eq!(original, restored);
@@ -1894,8 +1914,14 @@ mod flatten {
             name: "myapp".into(),
             networking: Networking {
                 ports: vec![
-                    FlatPort { host: 80, container: 80 },
-                    FlatPort { host: 443, container: 443 },
+                    FlatPort {
+                        host: 80,
+                        container: 80,
+                    },
+                    FlatPort {
+                        host: 443,
+                        container: 443,
+                    },
                 ],
             },
         };
@@ -1945,7 +1971,13 @@ mod enum_data_variants {
         let doc: kdl::KdlDocument = r#"resize 800 600"#.parse().unwrap();
         let node = doc.nodes().first().unwrap();
         let cmd = Command::from_kdl_node(node).unwrap();
-        assert_eq!(cmd, Command::Resize { width: 800, height: 600 });
+        assert_eq!(
+            cmd,
+            Command::Resize {
+                width: 800,
+                height: 600
+            }
+        );
     }
 
     #[test]
@@ -1977,7 +2009,10 @@ mod enum_data_variants {
 
     #[test]
     fn ser_struct_variant_arguments() {
-        let cmd = Command::Resize { width: 800, height: 600 };
+        let cmd = Command::Resize {
+            width: 800,
+            height: 600,
+        };
         let node = cmd.to_kdl_node().unwrap();
         assert_eq!(node.name().value(), "resize");
         // Two positional arguments
@@ -2031,7 +2066,13 @@ mod enum_data_variants {
         let doc: kdl::KdlDocument = "configure debug=#true level=3".parse().unwrap();
         let node = doc.nodes().first().unwrap();
         let action = Action::from_kdl_node(node).unwrap();
-        assert_eq!(action, Action::Configure(InnerConfig { debug: true, level: 3 }));
+        assert_eq!(
+            action,
+            Action::Configure(InnerConfig {
+                debug: true,
+                level: 3
+            })
+        );
     }
 
     #[test]
@@ -2044,7 +2085,10 @@ mod enum_data_variants {
 
     #[test]
     fn ser_newtype_variant() {
-        let action = Action::Configure(InnerConfig { debug: false, level: 5 });
+        let action = Action::Configure(InnerConfig {
+            debug: false,
+            level: 5,
+        });
         let node = action.to_kdl_node().unwrap();
         // Node name should be overridden to "configure" (variant name), not "config" (inner struct name)
         assert_eq!(node.name().value(), "configure");
@@ -2052,7 +2096,10 @@ mod enum_data_variants {
 
     #[test]
     fn roundtrip_newtype_variant() {
-        let original = Action::Configure(InnerConfig { debug: true, level: 7 });
+        let original = Action::Configure(InnerConfig {
+            debug: true,
+            level: 7,
+        });
         let node = original.to_kdl_node().unwrap();
         let restored = Action::from_kdl_node(&node).unwrap();
         assert_eq!(original, restored);
@@ -2093,20 +2140,29 @@ mod enum_data_variants {
         let doc: kdl::KdlDocument = kdl.parse().unwrap();
         let node = doc.nodes().first().unwrap();
         let step = Step::from_kdl_node(node).unwrap();
-        assert_eq!(step, Step::Deploy {
-            env: "production".to_string(),
-            targets: vec![
-                DeployTarget { name: "web-01".to_string() },
-                DeployTarget { name: "web-02".to_string() },
-            ],
-        });
+        assert_eq!(
+            step,
+            Step::Deploy {
+                env: "production".to_string(),
+                targets: vec![
+                    DeployTarget {
+                        name: "web-01".to_string()
+                    },
+                    DeployTarget {
+                        name: "web-02".to_string()
+                    },
+                ],
+            }
+        );
     }
 
     #[test]
     fn roundtrip_struct_variant_with_children() {
         let original = Step::Deploy {
             env: "staging".to_string(),
-            targets: vec![DeployTarget { name: "app-01".to_string() }],
+            targets: vec![DeployTarget {
+                name: "app-01".to_string(),
+            }],
         };
         let node = original.to_kdl_node().unwrap();
         let restored = Step::from_kdl_node(&node).unwrap();
@@ -2150,10 +2206,13 @@ mod enum_data_variants {
         let pipeline = Pipeline::from_kdl_node(node).unwrap();
         assert_eq!(pipeline.name, "deploy-flow");
         assert_eq!(pipeline.steps.len(), 3);
-        assert_eq!(pipeline.steps[0], Step::Build {
-            path: "./src".to_string(),
-            release: true,
-        });
+        assert_eq!(
+            pipeline.steps[0],
+            Step::Build {
+                path: "./src".to_string(),
+                release: true,
+            }
+        );
         assert_eq!(pipeline.steps[2], Step::Clean);
     }
 
@@ -2162,10 +2221,15 @@ mod enum_data_variants {
         let original = Pipeline {
             name: "ci".to_string(),
             steps: vec![
-                Step::Build { path: ".".to_string(), release: false },
+                Step::Build {
+                    path: ".".to_string(),
+                    release: false,
+                },
                 Step::Deploy {
                     env: "staging".to_string(),
-                    targets: vec![DeployTarget { name: "app-01".to_string() }],
+                    targets: vec![DeployTarget {
+                        name: "app-01".to_string(),
+                    }],
                 },
                 Step::Clean,
             ],
@@ -2213,7 +2277,14 @@ mod enum_data_variants {
         let doc: kdl::KdlDocument = r#"click x=100 y=200 button="left""#.parse().unwrap();
         let node = doc.nodes().first().unwrap();
         let event = Event::from_kdl_node(node).unwrap();
-        assert_eq!(event, Event::Click { x: 100, y: 200, button: Some("left".to_string()) });
+        assert_eq!(
+            event,
+            Event::Click {
+                x: 100,
+                y: 200,
+                button: Some("left".to_string())
+            }
+        );
     }
 
     #[test]
@@ -2221,12 +2292,23 @@ mod enum_data_variants {
         let doc: kdl::KdlDocument = r#"click x=100 y=200"#.parse().unwrap();
         let node = doc.nodes().first().unwrap();
         let event = Event::from_kdl_node(node).unwrap();
-        assert_eq!(event, Event::Click { x: 100, y: 200, button: None });
+        assert_eq!(
+            event,
+            Event::Click {
+                x: 100,
+                y: 200,
+                button: None
+            }
+        );
     }
 
     #[test]
     fn roundtrip_optional_present() {
-        let original = Event::Click { x: 50, y: 75, button: Some("right".to_string()) };
+        let original = Event::Click {
+            x: 50,
+            y: 75,
+            button: Some("right".to_string()),
+        };
         let node = original.to_kdl_node().unwrap();
         let restored = Event::from_kdl_node(&node).unwrap();
         assert_eq!(original, restored);
@@ -2234,7 +2316,11 @@ mod enum_data_variants {
 
     #[test]
     fn roundtrip_optional_absent() {
-        let original = Event::Click { x: 50, y: 75, button: None };
+        let original = Event::Click {
+            x: 50,
+            y: 75,
+            button: None,
+        };
         let node = original.to_kdl_node().unwrap();
         let restored = Event::from_kdl_node(&node).unwrap();
         assert_eq!(original, restored);
@@ -2242,7 +2328,10 @@ mod enum_data_variants {
 
     #[test]
     fn roundtrip_default_field() {
-        let original = Event::Keypress { key: "a".to_string(), modifiers: 0 };
+        let original = Event::Keypress {
+            key: "a".to_string(),
+            modifiers: 0,
+        };
         let node = original.to_kdl_node().unwrap();
         let restored = Event::from_kdl_node(&node).unwrap();
         assert_eq!(original, restored);

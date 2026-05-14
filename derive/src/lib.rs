@@ -1226,9 +1226,11 @@ fn impl_kdl_serialize_data_enum(
             }
             Fields::Named(fields) => {
                 let field_serializers = generate_field_serializers(fields.named.iter(), true)?;
-                let field_names: Vec<_> = fields.named.iter().map(|f| {
-                    f.ident.as_ref().unwrap()
-                }).collect();
+                let field_names: Vec<_> = fields
+                    .named
+                    .iter()
+                    .map(|f| f.ident.as_ref().unwrap())
+                    .collect();
 
                 match_arms.push(quote! {
                     #name::#variant_ident { #(#field_names),* } => {
