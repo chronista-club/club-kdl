@@ -65,7 +65,12 @@ jobs:
       - name: Read MSRV from Cargo.toml
         id: msrv
         run: |
-          msrv=$(grep -E '^rust-version' Cargo.toml | head -1 | sed 's/.*"\(.*\)"/\1/')
+          msrv=$(grep -E '^rust-version = ' Cargo.toml | head -1 | sed 's/.*"\(.*\)"/\1/')
+          if [ -z "$msrv" ]; then
+            echo "Failed to read rust-version from Cargo.toml" >&2
+            exit 1
+          fi
+          echo "Detected MSRV: $msrv"
           echo "version=$msrv" >> "$GITHUB_OUTPUT"
       - uses: dtolnay/rust-toolchain@master
         with:
