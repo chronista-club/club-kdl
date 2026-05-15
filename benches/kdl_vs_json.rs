@@ -5,14 +5,7 @@ use std::collections::HashMap;
 // KDL用の構造体（club-kdl）
 // ============================================================
 
-use club_kdl::{KdlDeserialize, KdlNodeExt, KdlSerialize};
-
-#[derive(Debug, Clone, KdlDeserialize, KdlSerialize)]
-#[kdl(name = "project")]
-struct KdlProject {
-    #[kdl(argument)]
-    name: String,
-}
+use club_kdl::{KdlDeserialize, KdlSerialize};
 
 #[derive(Debug, Clone, KdlDeserialize, KdlSerialize)]
 #[kdl(name = "service")]

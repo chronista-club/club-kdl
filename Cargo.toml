@@ -3,23 +3,31 @@ name = "club-kdl"
 description = "Fast KDL (KDL Document Language) serialization/deserialization with derive macros"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 keywords = ["kdl", "serialization", "derive", "macro"]
 categories = ["encoding", "parsing"]
 readme = "README.md"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
 
 [workspace]
 resolver = "2"
 members = [".", "derive"]
 
 [workspace.package]
-version = "0.5.0"
+version = "0.5.1"
 edition = "2024"
+rust-version = "1.94"
 authors = ["Mako <mito@chronista.club>"]
-license = "MIT"
+license = "MIT OR Apache-2.0"
 repository = "https://github.com/chronista-club/club-kdl"
+homepage = "https://github.com/chronista-club/club-kdl"
 
 [workspace.dependencies]
 kdl = "6"
@@ -31,7 +39,7 @@ proc-macro2 = "1"
 [dependencies]
 kdl.workspace = true
 thiserror.workspace = true
-club-kdl-derive = { path = "./derive", version = "0.5.0" }
+club-kdl-derive = { path = "./derive", version = "=0.5.1" }
 
 [dev-dependencies]
 criterion = "0.5"

@@ -13,15 +13,21 @@ use kdl::{KdlDocument, KdlNode, KdlValue};
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```
+/// use club_kdl::KdlDeserialize;
+///
 /// #[derive(KdlDeserialize)]
 /// #[kdl(name = "service")]
-/// struct Service<'a> {
+/// struct Service {
 ///     #[kdl(argument)]
-///     name: &'a str,
+///     name: String,
 ///     #[kdl(property)]
 ///     image: String,
 /// }
+///
+/// let s: Service = club_kdl::from_str(r#"service "api" image="myapp""#).unwrap();
+/// assert_eq!(s.name, "api");
+/// assert_eq!(s.image, "myapp");
 /// ```
 pub trait KdlDeserialize<'de>: Sized {
     /// Deserialize from a KDL node.
@@ -54,13 +60,21 @@ pub trait KdlDeserialize<'de>: Sized {
 ///
 /// # Example
 ///
-/// ```ignore
-/// let config: Config = club_kdl::from_str(r#"
-///     config {
-///         name "my-app"
-///         port 8080
-///     }
-/// "#)?;
+/// ```
+/// use club_kdl::KdlDeserialize;
+///
+/// #[derive(KdlDeserialize)]
+/// #[kdl(name = "config")]
+/// struct Config {
+///     #[kdl(argument)]
+///     name: String,
+///     #[kdl(property)]
+///     port: u16,
+/// }
+///
+/// let config: Config = club_kdl::from_str(r#"config "my-app" port=8080"#).unwrap();
+/// assert_eq!(config.name, "my-app");
+/// assert_eq!(config.port, 8080);
 /// ```
 pub fn from_str<T>(s: &str) -> Result<T>
 where

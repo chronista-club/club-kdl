@@ -13,10 +13,10 @@
 //!
 //! ## Example
 //!
-//! ```ignore
+//! ```
 //! use club_kdl::{KdlDeserialize, KdlSerialize};
 //!
-//! #[derive(KdlDeserialize, KdlSerialize)]
+//! #[derive(Debug, KdlDeserialize, KdlSerialize)]
 //! #[kdl(name = "service")]
 //! struct Service {
 //!     #[kdl(argument)]
@@ -29,7 +29,7 @@
 //!     ports: Vec<Port>,
 //! }
 //!
-//! #[derive(KdlDeserialize, KdlSerialize)]
+//! #[derive(Debug, KdlDeserialize, KdlSerialize)]
 //! #[kdl(name = "port")]
 //! struct Port {
 //!     #[kdl(property)]
@@ -37,6 +37,19 @@
 //!     #[kdl(property)]
 //!     container: u16,
 //! }
+//!
+//! let kdl = r#"
+//!     service "api" image="myapp" {
+//!         port host=8080 container=80
+//!     }
+//! "#;
+//!
+//! let svc: Service = club_kdl::from_str(kdl).unwrap();
+//! assert_eq!(svc.name, "api");
+//! assert_eq!(svc.ports.len(), 1);
+//!
+//! let out = club_kdl::to_string_pretty(&svc).unwrap();
+//! assert!(out.contains("service"));
 //! ```
 //!
 //! ## Attributes

@@ -3,9 +3,14 @@ name = "club-kdl-derive"
 description = "Derive macros for club-kdl"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
+keywords = ["kdl", "serialization", "derive", "macro"]
+categories = ["encoding", "parsing"]
+readme = "../README.md"
 
 [lib]
 proc-macro = true
