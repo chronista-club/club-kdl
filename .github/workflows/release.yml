@@ -1,0 +1,66 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Run cargo publish --dry-run only"
+        required: false
+        default: "false"
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  publish:
+    name: publish to crates.io
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Verify version matches tag
+        if: github.event_name == 'push'
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          ver=$(grep -E '^version' Cargo.toml | head -1 | sed 's/.*"\(.*\)"/\1/')
+          if [ "$tag" != "$ver" ]; then
+            echo "Tag $tag does not match Cargo.toml version $ver" >&2
+            exit 1
+          fi
+
+      - name: Run tests before publish
+        run: cargo test --workspace --all-targets
+
+      - name: Publish derive crate (dry-run)
+        if: github.event_name == 'workflow_dispatch' && inputs.dry_run == 'true'
+        run: cargo publish --dry-run -p club-kdl-derive
+
+      - name: Publish main crate (dry-run)
+        if: github.event_name == 'workflow_dispatch' && inputs.dry_run == 'true'
+        run: cargo publish --dry-run -p club-kdl --allow-dirty
+
+      - name: Publish derive crate
+        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.dry_run == 'false')
+        run: cargo publish -p club-kdl-derive --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+      - name: Wait for crates.io to index derive
+        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.dry_run == 'false')
+        run: sleep 30
+
+      - name: Publish main crate
+        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.dry_run == 'false')
+        run: cargo publish -p club-kdl --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+      - name: Create GitHub Release
+        if: github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          body_path: ${{ github.workspace }}/CHANGELOG.md

@@ -3,9 +3,9 @@
 //! Every `#[kdl(...)]` attribute combination is tested here.
 //! Each section tests: Deserialize, Serialize (where applicable), and Roundtrip.
 
+use club_kdl::{FromKdlValue, KdlDeserialize, KdlNodeExt, KdlSerialize, KdlValue};
 use std::collections::HashMap;
 use std::path::PathBuf;
-use club_kdl::{FromKdlValue, KdlDeserialize, KdlNodeExt, KdlSerialize, KdlValue};
 
 // ============================================================================
 // 1. Argument patterns
@@ -287,14 +287,14 @@ mod property {
     #[test]
     fn de_default_property_present() {
         let v: DefaultProp = club_kdl::from_str(r#"app debug=#true workers=4"#).unwrap();
-        assert_eq!(v.debug, true);
+        assert!(v.debug);
         assert_eq!(v.workers, 4);
     }
 
     #[test]
     fn de_default_property_absent() {
         let v: DefaultProp = club_kdl::from_str(r#"app"#).unwrap();
-        assert_eq!(v.debug, false);
+        assert!(!v.debug);
         assert_eq!(v.workers, 0);
     }
 }
@@ -1077,7 +1077,7 @@ mod primitives {
     #[test]
     fn de_all_primitive_types() {
         let v: AllTypes = club_kdl::from_str(
-            r#"types s="hello" i32_val=42 i64_val=9999999 u16_val=65535 u32_val=100 u64_val=200 usize_val=300 f64_val=3.14 bool_val=#true path_val="/usr/bin""#,
+            r#"types s="hello" i32_val=42 i64_val=9999999 u16_val=65535 u32_val=100 u64_val=200 usize_val=300 f64_val=1.5 bool_val=#true path_val="/usr/bin""#,
         ).unwrap();
         assert_eq!(v.s, "hello");
         assert_eq!(v.i32_val, 42);
@@ -1086,8 +1086,8 @@ mod primitives {
         assert_eq!(v.u32_val, 100);
         assert_eq!(v.u64_val, 200);
         assert_eq!(v.usize_val, 300);
-        assert_eq!(v.f64_val, 3.14);
-        assert_eq!(v.bool_val, true);
+        assert_eq!(v.f64_val, 1.5);
+        assert!(v.bool_val);
         assert_eq!(v.path_val, PathBuf::from("/usr/bin"));
     }
 
@@ -1101,7 +1101,7 @@ mod primitives {
             u32_val: 2000,
             u64_val: 3000,
             usize_val: 4000,
-            f64_val: 2.718,
+            f64_val: 9.5,
             bool_val: false,
             path_val: PathBuf::from("/tmp/test"),
         };

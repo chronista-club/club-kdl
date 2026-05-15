@@ -1,0 +1,44 @@
+{
+  "mcpServers": {
+    "serena": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "--from",
+        "serena-agent",
+        "serena-mcp-server",
+        "--enable-web-dashboard",
+        "false",
+        "--project",
+        "$(pwd)"
+      ]
+    },
+    "SurrealDB": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "--pull",
+        "always",
+        "surrealdb/surrealmcp:latest",
+        "start"
+      ],
+      "disabled": false,
+      "autoApprove": []
+    },
+    "context7": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp"],
+      "env": {}
+    },
+    "unison-probe": {
+      "type": "stdio",
+      "command": "/Users/makoto/repos/unison/target/release/unison-mcp-probe",
+      "env": {
+        "RUST_LOG": "info"
+      }
+    }
+  }
+}

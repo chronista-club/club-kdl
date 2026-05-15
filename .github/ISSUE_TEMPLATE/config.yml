@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: セキュリティ脆弱性の報告
+    url: https://github.com/chronista-club/club-kdl/security/advisories/new
+    about: セキュリティ問題は Issue ではなく Security Advisory で報告してください
+  - name: 質問・議論
+    url: https://github.com/chronista-club/club-kdl/discussions
+    about: 使い方の質問やアイデアの相談は Discussions へ

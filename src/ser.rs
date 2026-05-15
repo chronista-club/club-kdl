@@ -9,7 +9,9 @@ use kdl::{KdlDocument, KdlEntry, KdlIdentifier, KdlNode, KdlValue};
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```
+/// use club_kdl::KdlSerialize;
+///
 /// #[derive(KdlSerialize)]
 /// #[kdl(name = "service")]
 /// struct Service {
@@ -18,6 +20,11 @@ use kdl::{KdlDocument, KdlEntry, KdlIdentifier, KdlNode, KdlValue};
 ///     #[kdl(property)]
 ///     image: String,
 /// }
+///
+/// let svc = Service { name: "api".into(), image: "myapp".into() };
+/// let kdl = club_kdl::to_string(&svc).unwrap();
+/// assert!(kdl.contains("api"));
+/// assert!(kdl.contains("myapp"));
 /// ```
 pub trait KdlSerialize {
     /// Serialize to a KDL node.
@@ -36,8 +43,19 @@ pub trait KdlSerialize {
 ///
 /// # Example
 ///
-/// ```ignore
-/// let kdl_string = club_kdl::to_string(&config)?;
+/// ```
+/// use club_kdl::KdlSerialize;
+///
+/// #[derive(KdlSerialize)]
+/// #[kdl(name = "config")]
+/// struct Config {
+///     #[kdl(argument)]
+///     name: String,
+/// }
+///
+/// let config = Config { name: "my-app".into() };
+/// let kdl_string = club_kdl::to_string(&config).unwrap();
+/// assert!(kdl_string.contains("my-app"));
 /// ```
 pub fn to_string<T: KdlSerialize>(value: &T) -> Result<String> {
     let doc = value.to_kdl_doc()?;

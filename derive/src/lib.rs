@@ -1288,12 +1288,10 @@ fn extract_option_inner_type(ty: &Type) -> &Type {
     if let Type::Path(type_path) = ty
         && let Some(segment) = type_path.path.segments.last()
         && segment.ident == "Option"
+        && let syn::PathArguments::AngleBracketed(args) = &segment.arguments
+        && let Some(syn::GenericArgument::Type(inner)) = args.args.first()
     {
-        if let syn::PathArguments::AngleBracketed(args) = &segment.arguments {
-            if let Some(syn::GenericArgument::Type(inner)) = args.args.first() {
-                return inner;
-            }
-        }
+        return inner;
     }
     ty
 }
@@ -1303,12 +1301,10 @@ fn extract_vec_inner_type(ty: &Type) -> &Type {
     if let Type::Path(type_path) = ty
         && let Some(segment) = type_path.path.segments.last()
         && segment.ident == "Vec"
+        && let syn::PathArguments::AngleBracketed(args) = &segment.arguments
+        && let Some(syn::GenericArgument::Type(inner)) = args.args.first()
     {
-        if let syn::PathArguments::AngleBracketed(args) = &segment.arguments {
-            if let Some(syn::GenericArgument::Type(inner)) = args.args.first() {
-                return inner;
-            }
-        }
+        return inner;
     }
     ty
 }
