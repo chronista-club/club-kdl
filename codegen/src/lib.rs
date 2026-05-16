@@ -18,6 +18,7 @@
 
 pub mod emit;
 pub mod ir;
+pub mod parser;
 
 /// A code generation target. Each language (Rust / TypeScript / Zod /
 /// SurrealQL) implements this trait against the shared [`ir::Schema`].

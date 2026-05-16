@@ -25,6 +25,7 @@ name = "club-kdl-codegen"
 path = "src/main.rs"
 
 [dependencies]
-# 雛形段階では依存なし。 parser / emitter 実装時に
-# kdl / club-kdl / thiserror を追加する (design memory 参照)。
+# parser が KDL schema を club-kdl の KdlDeserialize derive で読む。
+club-kdl = { path = ".." }
+thiserror.workspace = true
 
