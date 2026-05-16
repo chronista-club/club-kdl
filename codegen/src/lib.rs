@@ -16,6 +16,7 @@
 //! See the design memory `mem_1Cb5mWnMTdzXfJVoNGFwup` and `ROADMAP.md`
 //! (Phase 1) for the full plan.
 
+pub mod emit;
 pub mod ir;
 
 /// A code generation target. Each language (Rust / TypeScript / Zod /
