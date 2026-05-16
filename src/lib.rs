@@ -81,6 +81,7 @@
 pub mod de;
 pub mod error;
 pub mod ser;
+pub mod stream;
 
 // Re-exports
 pub use de::{
@@ -90,6 +91,7 @@ pub use error::{Error, Result};
 pub use ser::{
     KdlSerialize, NodeBuilder, ToKdlValue, to_doc, to_node, to_string, to_string_pretty,
 };
+pub use stream::append_node;
 
 // Re-export kdl types for convenience
 pub use kdl::{KdlDocument, KdlIdentifier, KdlNode, KdlValue};
