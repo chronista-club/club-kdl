@@ -7,6 +7,8 @@
 [![MSRV](https://img.shields.io/badge/MSRV-1.94-orange.svg)](https://github.com/chronista-club/club-kdl/blob/main/Cargo.toml)
 [![Downloads](https://img.shields.io/crates/d/club-kdl.svg)](https://crates.io/crates/club-kdl)
 
+**[English](README.en.md)** | 日本語
+
 Rust 構造体に derive マクロを付けるだけで KDL の読み書きができるライブラリ。
 
 ```toml
