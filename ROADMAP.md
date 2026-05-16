@@ -92,9 +92,9 @@ v1.0 freeze に向けた breaking changes を整理・確定。
 
 ## Notes
 
-- memory 索引 (Atlas `chronista-club`):
+- このプロジェクトのデフォルト Atlas は **`Kdl Club`** (`atl_1Cb5n12s7T1RUEB1XEfELn`)。 詳細は `CLAUDE.md`
+- memory 索引 (Atlas `Kdl Club`):
   - roadmap: `mem_1Cb5fKiwL38fsD14Msab68`
   - Phase 1 ヒアリング結果: `mem_1Cb5kDohizi4iT1PZJhALw`
   - Phase 1 spec: `mem_1Cb5mSTRoyRpZVmeZMs6vH` / design: `mem_1Cb5mWnMTdzXfJVoNGFwup`
   - design idea (spark): flat schema fast path `mem_1Cb5m77r4KN9EPn2L42VD6`
-- Atlas は現状 `chronista-club`、 将来単独 `club-kdl` Atlas 化を検討
