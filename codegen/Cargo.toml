@@ -11,8 +11,6 @@ homepage.workspace = true
 keywords = ["kdl", "codegen", "schema", "typescript"]
 categories = ["development-tools", "parsing"]
 readme = "../README.md"
-# Phase 1 開発中。 公開タイミングが club-kdl 本体と異なるため publish 対象外。
-publish = false
 
 # lib 名は bare (chronista-club CONVENTIONS.md 準拠)。
 # club-kdl 本体のみ upstream `kdl` crate 衝突回避の例外で `club_kdl`。
@@ -26,6 +24,7 @@ path = "src/main.rs"
 
 [dependencies]
 # parser が KDL schema を club-kdl の KdlDeserialize derive で読む。
-club-kdl = { path = ".." }
+# crates.io publish のため path 依存にも version を明示。
+club-kdl = { path = "..", version = "0.6.0" }
 thiserror.workspace = true
 
