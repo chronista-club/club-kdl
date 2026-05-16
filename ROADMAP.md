@@ -18,7 +18,10 @@
 
 ### Phase 1 — Schema Codegen foundation (`club-kdl-codegen`)
 
-> 設計方針はヒアリング (2026-05-16) で確定。 詳細 memory: `mem_1Cb5kDohizi4iT1PZJhALw`。
+> 設計トラック (2026-05-16 確定):
+> - ヒアリング結果: `mem_1Cb5kDohizi4iT1PZJhALw`
+> - **spec** (Why / 要件 REQ-KDLGEN-001〜012): `mem_1Cb5mSTRoyRpZVmeZMs6vH`
+> - **design** (How / 3 層パイプライン・Schema IR・抽出段取り): `mem_1Cb5mWnMTdzXfJVoNGFwup`
 
 **前提発見**: club-unison (`crates/unison-protocol`) は既に KDL-first の codegen を実装済み
 (`schemas/*.kdl` → `src/parser/schema.rs` → `src/codegen/{rust,typescript}.rs`、 既に `club-kdl` 依存)。
@@ -89,5 +92,9 @@ v1.0 freeze に向けた breaking changes を整理・確定。
 
 ## Notes
 
-- roadmap memory: `mem_1Cb5fKiwL38fsD14Msab68` / Phase 1 設計方針: `mem_1Cb5kDohizi4iT1PZJhALw` (どちらも Atlas `chronista-club`)
+- memory 索引 (Atlas `chronista-club`):
+  - roadmap: `mem_1Cb5fKiwL38fsD14Msab68`
+  - Phase 1 ヒアリング結果: `mem_1Cb5kDohizi4iT1PZJhALw`
+  - Phase 1 spec: `mem_1Cb5mSTRoyRpZVmeZMs6vH` / design: `mem_1Cb5mWnMTdzXfJVoNGFwup`
+  - design idea (spark): flat schema fast path `mem_1Cb5m77r4KN9EPn2L42VD6`
 - Atlas は現状 `chronista-club`、 将来単独 `club-kdl` Atlas 化を検討
