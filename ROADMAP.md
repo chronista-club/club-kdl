@@ -4,7 +4,7 @@
 
 ## Phases
 
-### Phase 0 — Release quality baseline (= v0.5.1) — **in-progress**
+### Phase 0 — Release quality baseline (= v0.5.1) — ✅ **完了 (2026-05-16)**
 
 リリース品質の整備。 public API は変更しない (semver patch)。
 
@@ -13,6 +13,8 @@
 - Release workflow: tag push (`v*.*.*`) → derive → main の順で `cargo publish`、 `workflow_dispatch` で dry-run support
 - OSS hygiene: `CONTRIBUTING.md` / `SECURITY.md` / `CODE_OF_CONDUCT.md` / `dependabot.yml` / Issue+PR templates / `deny.toml`
 - Polish: README badges (CI/MSRV/Downloads) / kdl-rs+knuffel+knus 比較セクション / benchmark 数値 (read 115x slower than JSON, write 5x slower) / doctest 5 件復活 / CHANGELOG compare links
+
+**成果**: PR #7 merge → `v0.5.1` tag → crates.io 公開 (`club-kdl` 0.5.1 + `club-kdl-derive` 0.5.1) → [GitHub Release v0.5.1](https://github.com/chronista-club/club-kdl/releases/tag/v0.5.1)。
 
 ### Phase 1 — Schema Codegen 連携 foundation
 
@@ -53,12 +55,12 @@ v1.0 freeze に向けた breaking changes を一括投入。
 
 ## Release milestones
 
-| Tag             | テーマ                                       |
-|-----------------|---------------------------------------------|
-| `v0.5.1`        | 品質整備 (= Phase 0、 進行中)                  |
-| `v0.6.0`        | API audit + breaking changes 全部投入         |
-| `v1.0.0-beta.1` | API freeze + beta soak (1 month)             |
-| `v1.0.0`        | stability commit (v2.0 まで breaking なし)    |
+| Tag             | テーマ                                       | 状態              |
+|-----------------|---------------------------------------------|-------------------|
+| `v0.5.1`        | 品質整備 (= Phase 0)                          | ✅ 2026-05-16 公開 |
+| `v0.6.0`        | API audit + breaking changes 全部投入         | 未着手            |
+| `v1.0.0-beta.1` | API freeze + beta soak (1 month)             | 未着手            |
+| `v1.0.0`        | stability commit (v2.0 まで breaking なし)    | 未着手            |
 
 ## 依存・連携
 
@@ -71,6 +73,5 @@ v1.0 freeze に向けた breaking changes を一括投入。
 
 ## Notes
 
-- このファイルは creo-memories の `remember` tool が **2026-05-15 から API bug で全失敗** している間の暫定 trace。 復旧後に memory に migrate する。
-- memory 化する際の category: `todo` / status: `active` / tags: `["club-kdl", "v1.0", "sprint-master", "roadmap"]`
+- creo-memories 側にも同期済み: memory `mem_1Cb5fKiwL38fsD14Msab68` (category `todo` / status `active` / Atlas `chronista-club`)
 - Atlas は現状 `chronista-club`、 将来単独 `club-kdl` Atlas 化を検討
