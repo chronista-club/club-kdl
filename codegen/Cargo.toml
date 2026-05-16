@@ -1,0 +1,30 @@
+[package]
+name = "club-kdl-codegen"
+description = "Generate Rust / TypeScript / Zod / SurrealQL code from KDL schema files"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords = ["kdl", "codegen", "schema", "typescript"]
+categories = ["development-tools", "parsing"]
+readme = "../README.md"
+# Phase 1 開発中。 公開タイミングが club-kdl 本体と異なるため publish 対象外。
+publish = false
+
+# lib 名は bare (chronista-club CONVENTIONS.md 準拠)。
+# club-kdl 本体のみ upstream `kdl` crate 衝突回避の例外で `club_kdl`。
+[lib]
+name = "kdl_codegen"
+path = "src/lib.rs"
+
+[[bin]]
+name = "club-kdl-codegen"
+path = "src/main.rs"
+
+[dependencies]
+# 雛形段階では依存なし。 parser / emitter 実装時に
+# kdl / club-kdl / thiserror を追加する (design memory 参照)。
+
