@@ -18,7 +18,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [workspace]
 resolver = "2"
-members = [".", "derive"]
+members = [".", "derive", "codegen"]
 
 [workspace.package]
 version = "0.5.1"
