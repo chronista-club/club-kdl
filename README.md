@@ -380,6 +380,14 @@ service "api" interval=30 timeout=5
 - オプショナル: `Option<T>`
 - カスタム型: `FromKdlValue` / `ToKdlValue` を実装
 
+## ガイド
+
+より詳しい使い方は [`docs/guide/`](docs/guide/) を参照:
+
+- [カスタム型ガイド](docs/guide/custom-types.md) — 独自型 (chrono 型・newtype など) を KDL 値にマッピング
+- [KDL 設計ベストプラクティス](docs/guide/best-practices.md) — argument / property / children の使い分けとアンチパターン
+- [トラブルシュート](docs/guide/troubleshooting.md) — よくあるエラーの原因と対処
+
 ## ベンチマーク
 
 `benches/kdl_vs_json.rs` に同等の docker-compose 風データを KDL と JSON で読み書きするマイクロベンチがあります。
