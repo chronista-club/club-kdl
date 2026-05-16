@@ -1,5 +1,7 @@
 # KDL 設計ベストプラクティス
 
+**[English](./best-practices.en.md)** | 日本語
+
 KDL スキーマを idiomatic に設計するための指針とアンチパターン。
 
 ## Overview

@@ -382,11 +382,11 @@ service "api" interval=30 timeout=5
 
 ## Guides
 
-For more detailed usage, see [`docs/guide/`](docs/guide/) (currently written in Japanese):
+For more detailed usage, see [`docs/guide/`](docs/guide/README.en.md):
 
-- [Custom types guide](docs/guide/custom-types.md) — map your own types (chrono types, newtypes, etc.) to KDL values
-- [KDL design best practices](docs/guide/best-practices.md) — choosing between argument / property / children, and anti-patterns
-- [Troubleshooting](docs/guide/troubleshooting.md) — common errors and their fixes
+- [Custom Types Guide](docs/guide/custom-types.en.md) — map your own types (chrono types, newtypes, etc.) to KDL values
+- [KDL Design Best Practices](docs/guide/best-practices.en.md) — choosing between argument / property / children, and anti-patterns
+- [Troubleshooting](docs/guide/troubleshooting.en.md) — common errors and their fixes
 
 ## Benchmarks
 

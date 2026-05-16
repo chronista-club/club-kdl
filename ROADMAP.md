@@ -58,8 +58,8 @@ v1.0 freeze に向けた breaking changes を整理・確定。
 - `cargo-semver-checks` baseline 確立
 - breaking changes を確定 → **v1.0.0-beta.1**
 
-> 注: Phase 1 で codegen の都合により本体 breaking が入った場合、 **v0.6.0 は Phase 1 中に切られる**
-> 可能性がある (当初の「breaking は Phase 3 で一括」 方針を緩和)。
+> 注: Phase 1 で codegen の都合により本体 breaking が入った場合、 **v0.7.0 として Phase 1 中に切る**
+> (当初の「breaking は Phase 3 で一括」 方針を緩和)。
 
 ### Phase 4 — Documentation polish
 
@@ -77,9 +77,14 @@ v1.0 freeze に向けた breaking changes を整理・確定。
 | Tag             | テーマ                                       | 状態              |
 |-----------------|---------------------------------------------|-------------------|
 | `v0.5.1`        | 品質整備 (= Phase 0)                          | ✅ 2026-05-16 公開 |
-| `v0.6.0`        | `club-kdl-codegen` 新設 + 本体 breaking (Phase 1 中、 必要時) | 未着手 |
+| `v0.6.0`        | NDKDL `append_node` 追加 + guide / README en/ja | ✅ 2026-05-17 公開 |
+| `v0.7.0` (予定)  | `club-kdl-codegen` 新設 + 本体 breaking (Phase 1) | 未着手 |
 | `v1.0.0-beta.1` | API freeze + beta soak (1 month)             | 未着手            |
 | `v1.0.0`        | stability commit (v2.0 まで breaking なし)    | 未着手            |
+
+> 注: 当初 `v0.6.0` を codegen + breaking に充てる計画だったが、 NDKDL `append_node`
+> (`mem_1Cb5m77r4KN9EPn2L42VD6` の fast-path idea の入口) が先に v0.6.0 を消費した。
+> codegen / 本体 breaking は v0.7.0 に後ろ倒し。
 
 ## 依存・連携
 

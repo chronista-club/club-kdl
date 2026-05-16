@@ -1,5 +1,7 @@
 # トラブルシュート
 
+**[English](./troubleshooting.en.md)** | 日本語
+
 club-kdl でよく遭遇するエラーと、 その原因・対処。
 
 ## ライフタイム

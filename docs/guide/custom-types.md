@@ -1,5 +1,7 @@
 # カスタム型ガイド
 
+**[English](./custom-types.en.md)** | 日本語
+
 club-kdl が標準で対応しない型 (外部 crate の型・独自 newtype など) を KDL 値にマッピングする方法。
 
 ## Overview
