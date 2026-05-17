@@ -9,8 +9,20 @@
 //!
 //! - data dialect: every [`ir::TypeDef`] — `struct` (with fields) and `enum`
 //!   (string-valued variants).
+//! - entity dialect: every [`ir::Record`] as a `struct` carrying an `id`
+//!   field; every [`ir::Relation`] as an edge `struct` carrying `id` / `in` /
+//!   `out` fields plus its edge properties.
 //! - protocol dialect: for every [`ir::Channel`], a `struct` per request
 //!   payload, per `returns` message, and per event payload.
+//!
+//! ## Tier 1 type mapping
+//!
+//! - `link<Record>` → `String` (the linked record's id).
+//! - `'literal'` and unions of literals → a generated string-valued `enum`
+//!   is *not* produced (no schema name is available at the field site);
+//!   instead the field type degrades to `String`. A union of non-literal
+//!   types also degrades to `serde_json::Value` — Rust has no anonymous sum
+//!   type, and inventing names per field is out of Tier 1 scope.
 //!
 //! Each generated `struct` / `enum` carries `#[derive(...)]` attributes and
 //! `serde` annotations matching club-unison's generator. Optional fields
@@ -49,6 +61,16 @@ impl Emitter for RustEmitter {
         for ty in &schema.types {
             out.push('\n');
             out.push_str(&render_typedef(ty));
+        }
+
+        // entity dialect — records and relations.
+        for record in &schema.records {
+            out.push('\n');
+            out.push_str(&render_record(record));
+        }
+        for relation in &schema.relations {
+            out.push('\n');
+            out.push_str(&render_relation(relation));
         }
 
         // protocol dialect — channel payload structs.
@@ -163,6 +185,32 @@ fn ty_to_rust(ty: &ir::Ty) -> String {
         ir::Ty::Primitive(p) => prim_to_rust(*p).to_string(),
         ir::Ty::Array(inner) => format!("Vec<{}>", ty_to_rust(inner)),
         ir::Ty::Named(name) => name.clone(),
+        // a link stores the target record's id — a plain string.
+        ir::Ty::Link(_) => "String".to_string(),
+        // a literal degrades to String (no per-field type name available).
+        ir::Ty::Literal(_) => "String".to_string(),
+        // a union of string literals stays a String. Otherwise, if every
+        // member maps to the same Rust type, collapse to it (`link<X> |
+        // string` → `String`); a genuinely heterogeneous union has no Rust
+        // anonymous-sum representation, so it degrades to a JSON value.
+        ir::Ty::Union(members) => {
+            if members.iter().all(|m| matches!(m, ir::Ty::Literal(_))) {
+                "String".to_string()
+            } else {
+                let mut mapped: Vec<String> = Vec::new();
+                for m in members {
+                    let t = ty_to_rust(m);
+                    if !mapped.contains(&t) {
+                        mapped.push(t);
+                    }
+                }
+                if mapped.len() == 1 {
+                    mapped.into_iter().next().unwrap()
+                } else {
+                    "serde_json::Value".to_string()
+                }
+            }
+        }
     }
 }
 
@@ -175,6 +223,50 @@ fn prim_to_rust(p: ir::Prim) -> &'static str {
         ir::Prim::Bool => "bool",
         ir::Prim::Datetime => "DateTime<Utc>",
         ir::Prim::Json => "serde_json::Value",
+    }
+}
+
+/// Render one [`ir::Record`] as a `struct`. The record's `id` becomes a
+/// leading `String` field; the remaining fields follow in source order. The
+/// struct name is PascalCased so a camelCase record name still compiles.
+fn render_record(record: &ir::Record) -> String {
+    let mut fields = Vec::with_capacity(record.fields.len() + 1);
+    fields.push(id_field());
+    fields.extend(record.fields.iter().cloned());
+    render_struct(&to_pascal_case(&record.name), &fields)
+}
+
+/// Render one [`ir::Relation`] as an edge `struct` carrying `id` / `in` /
+/// `out` (the edge endpoints, as record ids) plus its edge-property fields.
+fn render_relation(relation: &ir::Relation) -> String {
+    let mut fields = Vec::with_capacity(relation.fields.len() + 3);
+    fields.push(id_field());
+    fields.push(ir::Field {
+        name: "in".to_string(),
+        ty: ir::Ty::Primitive(ir::Prim::String),
+        required: true,
+        flexible: false,
+        default: None,
+    });
+    fields.push(ir::Field {
+        name: "out".to_string(),
+        ty: ir::Ty::Primitive(ir::Prim::String),
+        required: true,
+        flexible: false,
+        default: None,
+    });
+    fields.extend(relation.fields.iter().cloned());
+    render_struct(&to_pascal_case(&relation.name), &fields)
+}
+
+/// The synthetic `id: String` field shared by records and relations.
+fn id_field() -> ir::Field {
+    ir::Field {
+        name: "id".to_string(),
+        ty: ir::Ty::Primitive(ir::Prim::String),
+        required: true,
+        flexible: false,
+        default: None,
     }
 }
 
@@ -206,6 +298,8 @@ mod tests {
             name: name.to_string(),
             ty,
             required,
+            flexible: false,
+            default: None,
         }
     }
 
@@ -224,6 +318,7 @@ mod tests {
                 fields: vec![field("name", ir::Ty::Primitive(ir::Prim::String), true)],
             }],
             protocol: None,
+            ..Default::default()
         };
         let out = RustEmitter::new().emit(&schema);
         assert!(out.contains("#[derive(Debug, Clone, Serialize, Deserialize)]"));
@@ -239,6 +334,7 @@ mod tests {
                 fields: vec![field("type", ir::Ty::Primitive(ir::Prim::String), true)],
             }],
             protocol: None,
+            ..Default::default()
         };
         let out = RustEmitter::new().emit(&schema);
         // `type` is a Rust keyword — it must be escaped as a raw identifier
@@ -254,6 +350,7 @@ mod tests {
                 fields: vec![field("nick", ir::Ty::Primitive(ir::Prim::String), false)],
             }],
             protocol: None,
+            ..Default::default()
         };
         let out = RustEmitter::new().emit(&schema);
         assert!(out.contains("#[serde(skip_serializing_if = \"Option::is_none\")]"));
@@ -272,6 +369,7 @@ mod tests {
                 )],
             }],
             protocol: None,
+            ..Default::default()
         };
         let out = RustEmitter::new().emit(&schema);
         assert!(out.contains("#[serde(rename = \"displayName\")]"));
@@ -286,6 +384,7 @@ mod tests {
                 fields: vec![],
             }],
             protocol: None,
+            ..Default::default()
         };
         let out = RustEmitter::new().emit(&schema);
         assert!(out.contains("pub struct Empty;"));
@@ -299,6 +398,7 @@ mod tests {
                 variants: vec!["admin".to_string(), "guest_user".to_string()],
             }],
             protocol: None,
+            ..Default::default()
         };
         let out = RustEmitter::new().emit(&schema);
         assert!(out.contains("#[serde(rename_all = \"snake_case\")]"));
@@ -329,6 +429,7 @@ mod tests {
                 ],
             }],
             protocol: None,
+            ..Default::default()
         };
         let out = RustEmitter::new().emit(&schema);
         assert!(out.contains("pub n: i64,"));
@@ -344,6 +445,8 @@ mod tests {
     fn emits_channel_request_returns_and_event_structs() {
         let schema = ir::Schema {
             types: vec![],
+            records: vec![],
+            relations: vec![],
             protocol: Some(ir::Protocol {
                 name: "ping-pong".to_string(),
                 version: "2.0.0".to_string(),
@@ -374,5 +477,101 @@ mod tests {
         assert!(out.contains("pub struct Ping {"));
         assert!(out.contains("pub struct Pong {"));
         assert!(out.contains("pub struct Tick;"));
+    }
+
+    // -------------------------------------------------------------------------
+    // Tier 1 — record / relation / link / union
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn record_becomes_struct_with_id_field() {
+        let schema = ir::Schema {
+            records: vec![ir::Record {
+                name: "Atlas".to_string(),
+                id_strategy: ir::IdStrategy::Uuidv7,
+                fields: vec![field("name", ir::Ty::Primitive(ir::Prim::String), true)],
+            }],
+            ..Default::default()
+        };
+        let out = RustEmitter::new().emit(&schema);
+        assert!(out.contains("pub struct Atlas {"));
+        assert!(out.contains("pub id: String,"), "record gets an id field");
+        assert!(out.contains("pub name: String,"));
+    }
+
+    #[test]
+    fn relation_becomes_edge_struct_with_in_out() {
+        let schema = ir::Schema {
+            relations: vec![ir::Relation {
+                name: "derivedFrom".to_string(),
+                from: "Memory".to_string(),
+                to: "Memory".to_string(),
+                unique: true,
+                fields: vec![field("reason", ir::Ty::Primitive(ir::Prim::String), false)],
+            }],
+            ..Default::default()
+        };
+        let out = RustEmitter::new().emit(&schema);
+        assert!(out.contains("pub struct DerivedFrom {"));
+        assert!(out.contains("pub id: String,"));
+        // `in` is a Rust keyword → escaped as a raw identifier.
+        assert!(out.contains("pub r#in: String,"));
+        assert!(out.contains("pub out: String,"));
+        assert!(out.contains("pub reason: Option<String>,"));
+    }
+
+    #[test]
+    fn link_field_becomes_string() {
+        let schema = ir::Schema {
+            records: vec![ir::Record {
+                name: "Atlas".to_string(),
+                id_strategy: ir::IdStrategy::Uuidv7,
+                fields: vec![field("parent", ir::Ty::Link("Atlas".to_string()), false)],
+            }],
+            ..Default::default()
+        };
+        let out = RustEmitter::new().emit(&schema);
+        assert!(out.contains("pub parent: Option<String>,"));
+    }
+
+    #[test]
+    fn literal_union_degrades_to_string() {
+        let schema = ir::Schema {
+            records: vec![ir::Record {
+                name: "Doc".to_string(),
+                id_strategy: ir::IdStrategy::Uuidv7,
+                fields: vec![field(
+                    "visibility",
+                    ir::Ty::Union(vec![
+                        ir::Ty::Literal("public".to_string()),
+                        ir::Ty::Literal("private".to_string()),
+                    ]),
+                    true,
+                )],
+            }],
+            ..Default::default()
+        };
+        let out = RustEmitter::new().emit(&schema);
+        assert!(out.contains("pub visibility: String,"));
+    }
+
+    #[test]
+    fn mixed_union_degrades_to_json_value() {
+        let schema = ir::Schema {
+            types: vec![ir::TypeDef::Struct {
+                name: "T".to_string(),
+                fields: vec![field(
+                    "v",
+                    ir::Ty::Union(vec![
+                        ir::Ty::Primitive(ir::Prim::String),
+                        ir::Ty::Primitive(ir::Prim::Int),
+                    ]),
+                    true,
+                )],
+            }],
+            ..Default::default()
+        };
+        let out = RustEmitter::new().emit(&schema);
+        assert!(out.contains("pub v: serde_json::Value,"));
     }
 }

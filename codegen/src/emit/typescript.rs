@@ -9,6 +9,9 @@
 //! - A fixed import / type-alias header (`Timestamp`, `UUID`, `LanguageCode`).
 //! - data dialect: every [`ir::TypeDef`] — `interface` for structs, string
 //!   `enum` for enums.
+//! - entity dialect: every [`ir::Record`] as an `interface` carrying an
+//!   `id: string` member; every [`ir::Relation`] as an edge `interface`
+//!   carrying `id` / `in` / `out: string` plus its edge properties.
 //! - protocol dialect: for every [`ir::Channel`], per club-unison's
 //!   `generate_channel`:
 //!   - one `interface` per event payload, request payload and `returns` message,
@@ -60,6 +63,23 @@ impl Emitter for TypeScriptEmitter {
             code.push_str("\n\n");
         }
 
+        // entity dialect — records and relations. Interface names are
+        // PascalCased so a camelCase relation name (`derivedFrom`) is idiomatic.
+        for record in &schema.records {
+            code.push_str(&render_interface(
+                &to_pascal_case(&record.name),
+                &record_members(record),
+            ));
+            code.push_str("\n\n");
+        }
+        for relation in &schema.relations {
+            code.push_str(&render_interface(
+                &to_pascal_case(&relation.name),
+                &relation_members(relation),
+            ));
+            code.push_str("\n\n");
+        }
+
         // protocol dialect — channel interfaces + metadata.
         if let Some(protocol) = &schema.protocol {
             if let Some(namespace) = &protocol.namespace {
@@ -107,12 +127,65 @@ fn render_field(field: &ir::Field) -> String {
     format!("  {}{}: {};", field.name, optional, ty_to_ts(&field.ty))
 }
 
+/// The synthetic `id: string` field shared by records and relations.
+fn id_member() -> ir::Field {
+    ir::Field {
+        name: "id".to_string(),
+        ty: ir::Ty::Primitive(ir::Prim::String),
+        required: true,
+        flexible: false,
+        default: None,
+    }
+}
+
+/// A record's interface members: a leading `id`, then its declared fields.
+fn record_members(record: &ir::Record) -> Vec<ir::Field> {
+    let mut members = Vec::with_capacity(record.fields.len() + 1);
+    members.push(id_member());
+    members.extend(record.fields.iter().cloned());
+    members
+}
+
+/// A relation's edge-interface members: `id` / `in` / `out`, then its
+/// declared edge-property fields.
+fn relation_members(relation: &ir::Relation) -> Vec<ir::Field> {
+    let endpoint = |name: &str| ir::Field {
+        name: name.to_string(),
+        ty: ir::Ty::Primitive(ir::Prim::String),
+        required: true,
+        flexible: false,
+        default: None,
+    };
+    let mut members = Vec::with_capacity(relation.fields.len() + 3);
+    members.push(id_member());
+    members.push(endpoint("in"));
+    members.push(endpoint("out"));
+    members.extend(relation.fields.iter().cloned());
+    members
+}
+
 /// Map an [`ir::Ty`] to its TypeScript type expression.
 fn ty_to_ts(ty: &ir::Ty) -> String {
     match ty {
         ir::Ty::Primitive(p) => prim_to_ts(*p).to_string(),
         ir::Ty::Array(inner) => format!("{}[]", ty_to_ts(inner)),
         ir::Ty::Named(name) => named_to_ts(name),
+        // a link is stored as the target record's id — a string.
+        ir::Ty::Link(_) => "string".to_string(),
+        // a string literal type maps 1:1 to a TS literal type.
+        ir::Ty::Literal(value) => format!("'{value}'"),
+        // a union maps to a TS union; members that map to the same TS type
+        // are de-duplicated (`link<X> | string` both become `string`).
+        ir::Ty::Union(members) => {
+            let mut parts: Vec<String> = Vec::new();
+            for m in members {
+                let t = ty_to_ts(m);
+                if !parts.contains(&t) {
+                    parts.push(t);
+                }
+            }
+            parts.join(" | ")
+        }
     }
 }
 
@@ -311,6 +384,8 @@ mod tests {
             name: name.to_string(),
             ty,
             required,
+            flexible: false,
+            default: None,
         }
     }
 
@@ -333,6 +408,7 @@ mod tests {
                 ],
             }],
             protocol: None,
+            ..Default::default()
         };
         let out = TypeScriptEmitter::new().emit(&schema);
         assert!(out.contains("export interface User {"));
@@ -348,6 +424,7 @@ mod tests {
                 variants: vec!["admin".to_string(), "guest_user".to_string()],
             }],
             protocol: None,
+            ..Default::default()
         };
         let out = TypeScriptEmitter::new().emit(&schema);
         assert!(out.contains("export enum Role {"));
@@ -374,6 +451,7 @@ mod tests {
                 ],
             }],
             protocol: None,
+            ..Default::default()
         };
         let out = TypeScriptEmitter::new().emit(&schema);
         assert!(out.contains("  n: number;"));
@@ -388,6 +466,8 @@ mod tests {
     fn emits_channel_interfaces_and_meta() {
         let schema = ir::Schema {
             types: vec![],
+            records: vec![],
+            relations: vec![],
             protocol: Some(ir::Protocol {
                 name: "ping-pong".to_string(),
                 version: "2.0.0".to_string(),
@@ -437,6 +517,8 @@ mod tests {
     fn datagram_channel_meta_carries_channel_id() {
         let schema = ir::Schema {
             types: vec![],
+            records: vec![],
+            relations: vec![],
             protocol: Some(ir::Protocol {
                 name: "telemetry".to_string(),
                 version: "1.0.0".to_string(),
@@ -461,5 +543,73 @@ mod tests {
         assert!(out.contains("  channelId: 7 as const,"));
         assert!(out.contains("  requests: {} as const,"));
         assert!(out.contains("export type MetricsChannelRequestTypes = Record<string, never>;"));
+    }
+
+    // -------------------------------------------------------------------------
+    // Tier 1 — record / relation / link / literal / union
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn record_becomes_interface_with_id() {
+        let schema = ir::Schema {
+            records: vec![ir::Record {
+                name: "Atlas".to_string(),
+                id_strategy: ir::IdStrategy::Uuidv7,
+                fields: vec![field("name", ir::Ty::Primitive(ir::Prim::String), true)],
+            }],
+            ..Default::default()
+        };
+        let out = TypeScriptEmitter::new().emit(&schema);
+        assert!(out.contains("export interface Atlas {"));
+        assert!(out.contains("  id: string;"));
+        assert!(out.contains("  name: string;"));
+    }
+
+    #[test]
+    fn relation_interface_is_pascal_cased_with_in_out() {
+        let schema = ir::Schema {
+            relations: vec![ir::Relation {
+                name: "derivedFrom".to_string(),
+                from: "Memory".to_string(),
+                to: "Memory".to_string(),
+                unique: true,
+                fields: vec![field("reason", ir::Ty::Primitive(ir::Prim::String), false)],
+            }],
+            ..Default::default()
+        };
+        let out = TypeScriptEmitter::new().emit(&schema);
+        assert!(out.contains("export interface DerivedFrom {"));
+        assert!(out.contains("  id: string;"));
+        assert!(out.contains("  in: string;"));
+        assert!(out.contains("  out: string;"));
+        assert!(out.contains("  reason?: string;"));
+    }
+
+    #[test]
+    fn link_literal_and_union_map_to_ts_types() {
+        let schema = ir::Schema {
+            records: vec![ir::Record {
+                name: "Doc".to_string(),
+                id_strategy: ir::IdStrategy::Uuidv7,
+                fields: vec![
+                    field("parent", ir::Ty::Link("Doc".to_string()), false),
+                    field(
+                        "visibility",
+                        ir::Ty::Union(vec![
+                            ir::Ty::Literal("public".to_string()),
+                            ir::Ty::Literal("private".to_string()),
+                        ]),
+                        true,
+                    ),
+                ],
+            }],
+            ..Default::default()
+        };
+        let out = TypeScriptEmitter::new().emit(&schema);
+        assert!(out.contains("  parent?: string;"), "link → string");
+        assert!(
+            out.contains("  visibility: 'public' | 'private';"),
+            "literal union → TS union of literals"
+        );
     }
 }
