@@ -115,8 +115,8 @@ fn surrealql_pipeline_emits_ddl_for_data_dialect_only() {
         "field DDL"
     );
     assert!(
-        out.contains("ASSERT $value INSIDE ['admin', 'member']"),
-        "enum field → ASSERT clause"
+        out.contains("ASSERT $value = NONE OR $value INSIDE ['admin', 'member']"),
+        "optional enum field → NONE-guarded ASSERT clause"
     );
     // the protocol dialect has no DB representation — payload structs must
     // not leak into the DDL.
@@ -264,8 +264,9 @@ fn surrealql_pipeline_emits_entity_ddl() {
     assert!(out.contains("DEFINE TABLE atlas TYPE NORMAL SCHEMAFULL;"));
     // self-link → record<atlas>.
     assert!(out.contains("DEFINE FIELD parent ON atlas TYPE option<record<atlas>>;"));
-    // literal union → string + ASSERT, plus a quoted DEFAULT.
-    assert!(out.contains("ASSERT $value INSIDE ['public', 'private']"));
+    // literal union → string + ASSERT (NONE-guarded, the field is optional),
+    // plus a quoted DEFAULT.
+    assert!(out.contains("ASSERT $value = NONE OR $value INSIDE ['public', 'private']"));
     assert!(out.contains("DEFAULT 'private'"));
     // flexible object — the field is optional, so the type is wrapped.
     assert!(out.contains("DEFINE FIELD metadata ON atlas FLEXIBLE TYPE option<object>;"));

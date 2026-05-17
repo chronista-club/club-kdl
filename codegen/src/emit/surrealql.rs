@@ -213,7 +213,17 @@ fn render_field(table: &str, field: &ir::Field, enums: &HashMap<&str, &[String]>
     conditions.extend(ty_assert);
     conditions.extend(constraint_conditions(&field.ty, &field.constraints));
     if !conditions.is_empty() {
-        line.push_str(&format!(" ASSERT {}", conditions.join(" AND ")));
+        let joined = conditions.join(" AND ");
+        // An optional field may hold NONE. Guard the assertion with
+        // `$value = NONE OR …` so an absent value always passes — SurrealDB's
+        // idiom for a constrained `option<T>` field. `AND` binds tighter than
+        // `OR`, so no parentheses are needed.
+        let assert = if field.required {
+            joined
+        } else {
+            format!("$value = NONE OR {joined}")
+        };
+        line.push_str(&format!(" ASSERT {assert}"));
     }
     if let Some(default) = &field.default {
         line.push_str(&format!(" DEFAULT {}", surql_default(&field.ty, default)));
