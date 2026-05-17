@@ -189,13 +189,26 @@ fn ty_to_rust(ty: &ir::Ty) -> String {
         ir::Ty::Link(_) => "String".to_string(),
         // a literal degrades to String (no per-field type name available).
         ir::Ty::Literal(_) => "String".to_string(),
-        // a union of string literals stays a String; any other union has no
-        // Rust anonymous-sum representation, so it degrades to a JSON value.
+        // a union of string literals stays a String. Otherwise, if every
+        // member maps to the same Rust type, collapse to it (`link<X> |
+        // string` → `String`); a genuinely heterogeneous union has no Rust
+        // anonymous-sum representation, so it degrades to a JSON value.
         ir::Ty::Union(members) => {
             if members.iter().all(|m| matches!(m, ir::Ty::Literal(_))) {
                 "String".to_string()
             } else {
-                "serde_json::Value".to_string()
+                let mut mapped: Vec<String> = Vec::new();
+                for m in members {
+                    let t = ty_to_rust(m);
+                    if !mapped.contains(&t) {
+                        mapped.push(t);
+                    }
+                }
+                if mapped.len() == 1 {
+                    mapped.into_iter().next().unwrap()
+                } else {
+                    "serde_json::Value".to_string()
+                }
             }
         }
     }

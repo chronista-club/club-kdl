@@ -174,8 +174,18 @@ fn ty_to_ts(ty: &ir::Ty) -> String {
         ir::Ty::Link(_) => "string".to_string(),
         // a string literal type maps 1:1 to a TS literal type.
         ir::Ty::Literal(value) => format!("'{value}'"),
-        // a union maps 1:1 to a TS union type.
-        ir::Ty::Union(members) => members.iter().map(ty_to_ts).collect::<Vec<_>>().join(" | "),
+        // a union maps to a TS union; members that map to the same TS type
+        // are de-duplicated (`link<X> | string` both become `string`).
+        ir::Ty::Union(members) => {
+            let mut parts: Vec<String> = Vec::new();
+            for m in members {
+                let t = ty_to_ts(m);
+                if !parts.contains(&t) {
+                    parts.push(t);
+                }
+            }
+            parts.join(" | ")
+        }
     }
 }
 

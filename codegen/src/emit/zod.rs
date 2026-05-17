@@ -187,8 +187,19 @@ fn ty_to_zod(ty: &ir::Ty) -> String {
                 let vs: Vec<String> = values.iter().map(|v| format!("\"{v}\"")).collect();
                 format!("z.enum([{}])", vs.join(", "))
             } else {
-                let parts: Vec<String> = members.iter().map(ty_to_zod).collect();
-                format!("z.union([{}])", parts.join(", "))
+                let mut parts: Vec<String> = Vec::new();
+                for m in members {
+                    let p = ty_to_zod(m);
+                    if !parts.contains(&p) {
+                        parts.push(p);
+                    }
+                }
+                // members collapsing to one schema need no `z.union` wrapper.
+                if parts.len() == 1 {
+                    parts.into_iter().next().unwrap()
+                } else {
+                    format!("z.union([{}])", parts.join(", "))
+                }
             }
         }
     }

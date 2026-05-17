@@ -223,9 +223,18 @@ fn ty_to_surql(ty: &ir::Ty, enums: &HashMap<&str, &[String]>) -> (String, Option
                     Some(assert_in(values.iter().map(String::as_str))),
                 )
             } else {
-                // A non-literal union has no faithful schemafull type;
-                // degrade to a flexible `object` (the safest superset).
-                ("object".to_string(), None)
+                // A non-literal union → a SurrealDB union type
+                // (`record<x> | string` etc.). Members mapping to the same
+                // type are de-duplicated; per-member `ASSERT`s are dropped
+                // (a mixed union has no single value set).
+                let mut parts: Vec<String> = Vec::new();
+                for m in members {
+                    let (t, _) = ty_to_surql(m, enums);
+                    if !parts.contains(&t) {
+                        parts.push(t);
+                    }
+                }
+                (parts.join(" | "), None)
             }
         }
     }
