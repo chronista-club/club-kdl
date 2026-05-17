@@ -7,6 +7,26 @@
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-05-17
+
+### 追加
+
+- **codegen: KDL spec v2 Tier 1** — `record`（実体テーブル）/ `relation`
+  （グラフエッジ）/ `link<T>`（レコード参照）/ union 型 / literal 型を追加。
+  「構造 + 繋がり」を持つデータモデルを KDL で第一級表現できる。
+- **codegen: KDL spec v2 Tier 2** — `field` および型定義の `description`
+  （→ doc コメント / `COMMENT` / `.describe()`）、`constraints`
+  （min / max / min_length / max_length / pattern → Zod `.min()` 等・
+  SurrealQL `ASSERT`）。
+
+### 変更
+
+- **codegen (BREAKING): `field` のデフォルトを required に反転** — 無印の
+  `field` は **required**。optional は `optional=#true` で opt-in
+  （従来は optional がデフォルト）。
+- **codegen: SurrealQL** — `ASSERT … IN` を `INSIDE` に統一。optional
+  field の `ASSERT` は `$value = NONE OR …` でガード。
+
 ## [0.7.0] - 2026-05-17
 
 ### 追加
