@@ -5,10 +5,33 @@
 フォーマットは [Keep a Changelog](https://keepachangelog.com/ja/1.0.0/) に基づいており、
 このプロジェクトは [セマンティックバージョニング](https://semver.org/lang/ja/) に準拠しています。
 
+## [Unreleased]
+
+### 修正
+
+- **codegen**: parser が未定義の型参照 (`field type="..."` が `struct` / `enum`
+  として未定義の名前を指す) を検証するように。 これまでは未定義型が emitter
+  まで素通りし、 生成コードのコンパイルエラーとして遠くで顕在化していた。
+- **codegen**: Rust 予約語 (`type` など) の field 名を raw identifier
+  (`r#type`) でエスケープ。 生成 Rust コードのコンパイル不能を防ぐ。
+
+### 追加
+
+- **codegen**: CLI 統合テストと parse→emit の end-to-end テストを追加
+  (`codegen/tests/integration.rs`)。
+
+### ドキュメント
+
+- **codegen**: `lib.rs` の対応ターゲット記述を実態 (Rust / TypeScript) に修正
+  (Zod / SurrealQL は planned)。
+
 ## [0.6.0] - 2026-05-17
 
 ### 追加
 
+- **`club-kdl-codegen` crate を新設**: KDL schema ファイルから Rust /
+  TypeScript のコードを生成する crate。 IR (data / protocol の 2 方言) +
+  parser + emitter + CLI で構成。 workspace の 3 つ目の member。 (PR #12)
 - **NDKDL — `append_node`**: 値を 1 つの KDL ノードとしてファイル末尾に追記する
   ヘルパー (`club_kdl::append_node`)。 KDL を 1 ノード = 1 レコードのストリーム
   (ログ・メトリクス・イベント) として扱うための入口。 `to_string_pretty` が

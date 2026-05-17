@@ -15,6 +15,8 @@
 
 mod raw;
 
+use std::collections::HashSet;
+
 use crate::ir;
 
 /// An error produced while parsing a KDL schema.
@@ -54,7 +56,61 @@ fn lower_schema(raw: raw::RawSchema) -> Result<ir::Schema, ParseError> {
         types.push(lower_enum(e));
     }
     let protocol = raw.protocol.map(lower_protocol).transpose()?;
-    Ok(ir::Schema { types, protocol })
+    let schema = ir::Schema { types, protocol };
+    validate_type_refs(&schema)?;
+    Ok(schema)
+}
+
+/// Check that every [`ir::Ty::Named`] reference resolves to a defined
+/// `struct` / `enum`. Without this, an unknown type name silently flows
+/// through to an emitter and produces source that fails to compile.
+fn validate_type_refs(schema: &ir::Schema) -> Result<(), ParseError> {
+    let defined: HashSet<&str> = schema
+        .types
+        .iter()
+        .map(|t| match t {
+            ir::TypeDef::Struct { name, .. } | ir::TypeDef::Enum { name, .. } => name.as_str(),
+        })
+        .collect();
+
+    for ty in &schema.types {
+        if let ir::TypeDef::Struct { fields, .. } = ty {
+            check_fields(fields, &defined)?;
+        }
+    }
+    if let Some(protocol) = &schema.protocol {
+        for channel in &protocol.channels {
+            for request in &channel.requests {
+                check_fields(&request.fields, &defined)?;
+                if let Some(returns) = &request.returns {
+                    check_fields(&returns.fields, &defined)?;
+                }
+            }
+            for event in &channel.events {
+                check_fields(&event.fields, &defined)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+fn check_fields(fields: &[ir::Field], defined: &HashSet<&str>) -> Result<(), ParseError> {
+    for field in fields {
+        check_ty(&field.ty, &field.name, defined)?;
+    }
+    Ok(())
+}
+
+fn check_ty(ty: &ir::Ty, field: &str, defined: &HashSet<&str>) -> Result<(), ParseError> {
+    match ty {
+        ir::Ty::Primitive(_) => Ok(()),
+        ir::Ty::Array(inner) => check_ty(inner, field, defined),
+        ir::Ty::Named(name) if defined.contains(name.as_str()) => Ok(()),
+        ir::Ty::Named(name) => Err(ParseError::Validation(format!(
+            "field {field:?} references unknown type {name:?}; \
+             define it as a `struct` or `enum`"
+        ))),
+    }
 }
 
 fn lower_struct(raw: raw::RawStruct) -> Result<ir::TypeDef, ParseError> {
@@ -414,5 +470,31 @@ mod tests {
             parse_ty("timestamp").unwrap(),
             ir::Ty::Primitive(ir::Prim::Datetime)
         );
+    }
+
+    #[test]
+    fn rejects_unknown_type_reference() {
+        let src = r#"
+            struct "User" {
+                field "role" type="Role"
+            }
+        "#;
+        // `Role` is never defined as a struct/enum.
+        let err = parse(src).expect_err("unknown type reference is invalid");
+        assert!(matches!(err, ParseError::Validation(_)));
+    }
+
+    #[test]
+    fn accepts_array_of_defined_type() {
+        let src = r#"
+            struct "Team" {
+                field "members" type="array<User>"
+            }
+            struct "User" {
+                field "id" type="string" required=#true
+            }
+        "#;
+        // `array<User>` resolves because `User` is defined; order-independent.
+        parse(src).expect("array<User> with User defined should parse");
     }
 }

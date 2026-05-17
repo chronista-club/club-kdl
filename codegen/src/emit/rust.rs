@@ -128,8 +128,33 @@ fn render_field(field: &ir::Field) -> String {
         format!("Option<{base}>")
     };
 
-    out.push_str(&format!("    pub {}: {rust_ty},\n", field.name));
+    out.push_str(&format!(
+        "    pub {}: {rust_ty},\n",
+        field_ident(&field.name)
+    ));
     out
+}
+
+/// Render a field name as a valid Rust identifier. A name that collides with
+/// a Rust keyword is escaped as a raw identifier (`r#type`) so the generated
+/// source compiles. `serde` strips the `r#` prefix, so the wire name is
+/// unaffected.
+///
+/// `crate` / `self` / `Self` / `super` cannot be raw identifiers; they are
+/// left as-is (a KDL schema field is extremely unlikely to use them).
+fn field_ident(name: &str) -> String {
+    const KEYWORDS: &[&str] = &[
+        "as", "break", "const", "continue", "dyn", "else", "enum", "extern", "false", "fn", "for",
+        "if", "impl", "in", "let", "loop", "match", "mod", "move", "mut", "pub", "ref", "return",
+        "static", "struct", "trait", "true", "type", "unsafe", "use", "where", "while", "async",
+        "await", "gen", "abstract", "become", "box", "do", "final", "macro", "override", "priv",
+        "try", "typeof", "unsized", "virtual", "yield",
+    ];
+    if KEYWORDS.contains(&name) {
+        format!("r#{name}")
+    } else {
+        name.to_string()
+    }
 }
 
 /// Map an [`ir::Ty`] to its Rust type expression.
@@ -204,6 +229,21 @@ mod tests {
         assert!(out.contains("#[derive(Debug, Clone, Serialize, Deserialize)]"));
         assert!(out.contains("pub struct User {"));
         assert!(out.contains("    pub name: String,"));
+    }
+
+    #[test]
+    fn keyword_field_name_is_raw_identifier() {
+        let schema = ir::Schema {
+            types: vec![ir::TypeDef::Struct {
+                name: "Node".to_string(),
+                fields: vec![field("type", ir::Ty::Primitive(ir::Prim::String), true)],
+            }],
+            protocol: None,
+        };
+        let out = RustEmitter::new().emit(&schema);
+        // `type` is a Rust keyword — it must be escaped as a raw identifier
+        // so the generated source compiles.
+        assert!(out.contains("pub r#type: String,"));
     }
 
     #[test]
