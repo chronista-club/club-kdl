@@ -6,16 +6,40 @@
 //! plain data structure (no behaviour) lets the parser and emitters evolve
 //! independently.
 //!
-//! Currently this models the **data dialect** (`struct` / `enum` / `field`).
-//! The **protocol dialect** (`protocol` / `channel` / `request`) will extend
-//! this — see design memory `mem_1Cb5mWnMTdzXfJVoNGFwup`.
+//! The IR spans two dialects, both reachable from a single [`Schema`]:
+//!
+//! - **data dialect** — [`TypeDef`] (`struct` / `enum`) built from [`Field`]
+//!   and [`Ty`]. Models standalone named types.
+//! - **protocol dialect** — [`Protocol`] / [`Channel`] / [`Request`] /
+//!   [`Event`], modelling KDL channel schemas. Payload definitions reuse the
+//!   data dialect's [`Field`], so an emitter writes field-rendering logic once
+//!   and it applies to both standalone types and channel payloads.
+//!
+//! Legacy constructs (`service` / `method` / `stream` / `send` / `recv`) are
+//! intentionally **not** modelled — see CLAUDE.md "Legacy は残さない". The IR
+//! describes only the modern channel dialect.
+//!
+//! See the design memory `mem_1Cb5mWnMTdzXfJVoNGFwup` and `ROADMAP.md`
+//! (Phase 1) for the full plan.
 
-/// A whole KDL schema file: an ordered set of type definitions.
+// =============================================================================
+// Schema root
+// =============================================================================
+
+/// A whole KDL schema file: standalone type definitions plus an optional
+/// protocol definition.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Schema {
-    /// Type definitions in source order.
+    /// Standalone type definitions (`struct` / `enum`) in source order.
     pub types: Vec<TypeDef>,
+    /// The protocol definition, if the file declares one. A file may contain
+    /// only data types, only a protocol, or both.
+    pub protocol: Option<Protocol>,
 }
+
+// =============================================================================
+// Data dialect — standalone named types
+// =============================================================================
 
 /// A single named type definition.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -36,7 +60,8 @@ pub enum TypeDef {
     },
 }
 
-/// A field of a [`TypeDef::Struct`].
+/// A field of a [`TypeDef::Struct`] or of a protocol-dialect payload
+/// ([`Request`] / [`Event`] / [`Message`]).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Field {
     /// Field name.
@@ -74,4 +99,104 @@ pub enum Prim {
     Datetime,
     /// Arbitrary JSON value.
     Json,
+}
+
+// =============================================================================
+// Protocol dialect — channel schemas
+// =============================================================================
+
+/// A protocol definition: the top-level grouping of [`Channel`]s.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Protocol {
+    /// Protocol name (e.g. `"ping-pong"`).
+    pub name: String,
+    /// Protocol version string (e.g. `"2.0.0"`).
+    pub version: String,
+    /// Optional namespace, used by emitters for module / package placement.
+    pub namespace: Option<String>,
+    /// Optional human-readable description.
+    pub description: Option<String>,
+    /// Channels in source order.
+    pub channels: Vec<Channel>,
+}
+
+/// A communication channel — the unit of request/response and event traffic.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Channel {
+    /// Channel name (e.g. `"ping-pong"`).
+    pub name: String,
+    /// Which peer opens the channel.
+    pub from: ChannelFrom,
+    /// How long the channel lives.
+    pub lifetime: ChannelLifetime,
+    /// Wire backend. Defaults to [`ChannelBackend::Stream`].
+    pub backend: ChannelBackend,
+    /// Demux identifier, required when [`Self::backend`] is
+    /// [`ChannelBackend::Datagram`]. A positive integer (`1..`).
+    pub channel_id: Option<u64>,
+    /// Request/response definitions in source order. Always empty for a
+    /// datagram channel (datagram channels carry events only).
+    pub requests: Vec<Request>,
+    /// Event definitions in source order.
+    pub events: Vec<Event>,
+}
+
+/// Which peer initiates (opens) a [`Channel`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ChannelFrom {
+    /// The client opens the channel.
+    Client,
+    /// The server opens the channel.
+    Server,
+    /// Either peer may open the channel.
+    Either,
+}
+
+/// How long a [`Channel`] lives.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ChannelLifetime {
+    /// Opened and closed per request.
+    Transient,
+    /// Held open for the duration of the connection.
+    Persistent,
+}
+
+/// The wire backend a [`Channel`] runs over.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ChannelBackend {
+    /// QUIC bidirectional stream — ordered and reliable. The default.
+    #[default]
+    Stream,
+    /// QUIC datagram — unordered, unreliable, bounded by the MTU. Requires a
+    /// [`Channel::channel_id`].
+    Datagram,
+}
+
+/// A request/response pair within a [`Channel`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Request {
+    /// Request name (e.g. `"Ping"`).
+    pub name: String,
+    /// Request payload fields in source order.
+    pub fields: Vec<Field>,
+    /// The response payload, if the request returns one.
+    pub returns: Option<Message>,
+}
+
+/// A push event within a [`Channel`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Event {
+    /// Event name (e.g. `"MetricUpdate"`).
+    pub name: String,
+    /// Event payload fields in source order.
+    pub fields: Vec<Field>,
+}
+
+/// A named payload message — the `returns` block of a [`Request`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Message {
+    /// Message name (e.g. `"Pong"`).
+    pub name: String,
+    /// Payload fields in source order.
+    pub fields: Vec<Field>,
 }
