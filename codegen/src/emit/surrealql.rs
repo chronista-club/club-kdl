@@ -4,15 +4,27 @@
 //! types and validators), this emitter produces **database schema** —
 //! `DEFINE TABLE` / `DEFINE FIELD` statements. The protocol dialect
 //! (`channel` / `request` / `event`) has no database representation, so this
-//! emitter consumes the **data dialect only**; a protocol-only schema yields
-//! just the header.
+//! emitter consumes the **data and entity dialects only**; a protocol-only
+//! schema yields just the header.
 //!
 //! ## Type mapping decisions (派生 todo `mem_1Cb5kAE5aAqYimBRfBnzVj`)
 //!
+//! - **struct**: an embedded value type — a `DEFINE TABLE ... SCHEMAFULL`
+//!   with no explicit `TYPE`. A struct reference is rendered as an embedded
+//!   `object` is *not* used; instead a named struct becomes a `record<table>`
+//!   link, matching the prior behaviour.
+//! - **record**: a first-class entity — `DEFINE TABLE <t> TYPE NORMAL
+//!   SCHEMAFULL`. Each `record` is one table; its `id` is the table id.
+//! - **relation**: a graph edge — `DEFINE TABLE <t> TYPE RELATION IN <from>
+//!   OUT <to> SCHEMAFULL`. A `unique=#true` relation also emits a
+//!   `DEFINE INDEX ... UNIQUE` on `(in, out)`.
 //! - **enum**: SurrealDB has no enum type. An enum-typed field becomes
 //!   `string` with an `ASSERT $value IN [...]` clause listing the variants.
-//! - **struct reference**: a named struct becomes a `record<table>` link
-//!   (each `struct` is one `DEFINE TABLE`).
+//! - **`link<Record>`**: a `record<table>` link.
+//! - **literal / literal union**: `'a' | 'b'` becomes `string` with an
+//!   `ASSERT $value IN ['a', 'b']` clause.
+//! - **`object` + `flexible=#true`**: rendered as `FLEXIBLE TYPE object`
+//!   (schemaless nested object).
 //! - **optional**: a non-required field is wrapped in `option<T>`.
 
 use std::collections::HashMap;
@@ -46,14 +58,40 @@ impl Emitter for SurrealQlEmitter {
             .collect();
 
         let mut code = String::from(HEADER);
+        // data dialect — `struct` tables (embedded value types).
         for ty in &schema.types {
             if let ir::TypeDef::Struct { name, fields } = ty {
                 code.push('\n');
-                code.push_str(&render_table(name, fields, &enums));
+                code.push_str(&render_table(name, fields, TableKind::Struct, &enums));
             }
+        }
+        // entity dialect — `record` tables.
+        for record in &schema.records {
+            code.push('\n');
+            code.push_str(&render_table(
+                &record.name,
+                &record.fields,
+                TableKind::Record,
+                &enums,
+            ));
+        }
+        // entity dialect — `relation` (edge) tables.
+        for relation in &schema.relations {
+            code.push('\n');
+            code.push_str(&render_relation(relation, &enums));
         }
         code
     }
+}
+
+/// Which flavour of `DEFINE TABLE` to emit.
+#[derive(Clone, Copy)]
+enum TableKind {
+    /// A `struct` — an embedded value type. No explicit `TYPE` clause, to
+    /// keep the prior behaviour byte-stable.
+    Struct,
+    /// A `record` — a first-class entity. `TYPE NORMAL`.
+    Record,
 }
 
 /// Fixed header block.
@@ -62,12 +100,40 @@ const HEADER: &str = "\
 -- DO NOT EDIT MANUALLY
 ";
 
-/// Render one `struct` as a `DEFINE TABLE` plus its `DEFINE FIELD`s.
-fn render_table(name: &str, fields: &[ir::Field], enums: &HashMap<&str, &[String]>) -> String {
+/// Render one `struct` / `record` as a `DEFINE TABLE` plus its `DEFINE FIELD`s.
+fn render_table(
+    name: &str,
+    fields: &[ir::Field],
+    kind: TableKind,
+    enums: &HashMap<&str, &[String]>,
+) -> String {
     let table = to_snake_case(name);
-    let mut out = format!("DEFINE TABLE {table} SCHEMAFULL;\n");
+    let type_clause = match kind {
+        TableKind::Struct => "",
+        TableKind::Record => "TYPE NORMAL ",
+    };
+    let mut out = format!("DEFINE TABLE {table} {type_clause}SCHEMAFULL;\n");
     for field in fields {
         out.push_str(&render_field(&table, field, enums));
+    }
+    out
+}
+
+/// Render one `relation` as a `DEFINE TABLE ... TYPE RELATION` plus its edge
+/// `DEFINE FIELD`s and, when `unique`, a `DEFINE INDEX ... UNIQUE` on
+/// `(in, out)`.
+fn render_relation(relation: &ir::Relation, enums: &HashMap<&str, &[String]>) -> String {
+    let table = to_snake_case(&relation.name);
+    let in_t = to_snake_case(&relation.from);
+    let out_t = to_snake_case(&relation.to);
+    let mut out = format!("DEFINE TABLE {table} TYPE RELATION IN {in_t} OUT {out_t} SCHEMAFULL;\n");
+    for field in &relation.fields {
+        out.push_str(&render_field(&table, field, enums));
+    }
+    if relation.unique {
+        out.push_str(&format!(
+            "DEFINE INDEX {table}_unique_edge ON {table} FIELDS in, out UNIQUE;\n"
+        ));
     }
     out
 }
@@ -80,17 +146,52 @@ fn render_field(table: &str, field: &ir::Field, enums: &HashMap<&str, &[String]>
     } else {
         format!("option<{base}>")
     };
-    let mut line = format!("DEFINE FIELD {} ON {table} TYPE {full}", field.name);
+    // `flexible=#true` on an `object` field → schemaless nested object.
+    let flexible = if field.flexible && is_object_ty(&field.ty) {
+        "FLEXIBLE "
+    } else {
+        ""
+    };
+    let mut line = format!(
+        "DEFINE FIELD {} ON {table} {flexible}TYPE {full}",
+        field.name
+    );
     if let Some(clause) = assert {
         line.push(' ');
         line.push_str(&clause);
+    }
+    if let Some(default) = &field.default {
+        line.push_str(&format!(" DEFAULT {}", surql_default(&field.ty, default)));
     }
     line.push_str(";\n");
     line
 }
 
+/// Whether a type is the `object` primitive (so `flexible=` applies).
+fn is_object_ty(ty: &ir::Ty) -> bool {
+    matches!(ty, ir::Ty::Primitive(ir::Prim::Json))
+}
+
+/// Render a field default for SurrealQL. String-ish types are single-quoted;
+/// numeric / boolean defaults are passed through verbatim.
+fn surql_default(ty: &ir::Ty, raw: &str) -> String {
+    let quote = matches!(
+        ty,
+        ir::Ty::Primitive(ir::Prim::String)
+            | ir::Ty::Primitive(ir::Prim::Datetime)
+            | ir::Ty::Literal(_)
+            | ir::Ty::Named(_)
+    ) || matches!(ty, ir::Ty::Union(members)
+        if members.iter().all(|m| matches!(m, ir::Ty::Literal(_))));
+    if quote {
+        format!("'{raw}'")
+    } else {
+        raw.to_string()
+    }
+}
+
 /// Map an [`ir::Ty`] to a SurrealQL type, plus an optional `ASSERT` clause
-/// (used to constrain enum-typed fields to their variant set).
+/// (used to constrain enum-typed and literal-union fields to their value set).
 fn ty_to_surql(ty: &ir::Ty, enums: &HashMap<&str, &[String]>) -> (String, Option<String>) {
     match ty {
         ir::Ty::Primitive(p) => (prim_to_surql(*p).to_string(), None),
@@ -100,17 +201,51 @@ fn ty_to_surql(ty: &ir::Ty, enums: &HashMap<&str, &[String]>) -> (String, Option
         }
         ir::Ty::Named(name) => match enums.get(name.as_str()) {
             // enum → string constrained by an ASSERT clause.
-            Some(variants) => {
-                let list: Vec<String> = variants.iter().map(|v| format!("'{v}'")).collect();
-                (
-                    "string".to_string(),
-                    Some(format!("ASSERT $value IN [{}]", list.join(", "))),
-                )
-            }
+            Some(variants) => (
+                "string".to_string(),
+                Some(assert_in(variants.iter().map(String::as_str))),
+            ),
             // struct → a record link to that struct's table.
             None => (format!("record<{}>", to_snake_case(name)), None),
         },
+        // a `link<Record>` → a SurrealDB record link.
+        ir::Ty::Link(name) => (format!("record<{}>", to_snake_case(name)), None),
+        // a bare literal → string constrained to that single value.
+        ir::Ty::Literal(value) => (
+            "string".to_string(),
+            Some(assert_in(std::iter::once(value.as_str()))),
+        ),
+        ir::Ty::Union(members) => {
+            // A union of string literals → `string` with an `ASSERT IN [...]`.
+            if let Some(values) = literal_union_values(members) {
+                (
+                    "string".to_string(),
+                    Some(assert_in(values.iter().map(String::as_str))),
+                )
+            } else {
+                // A non-literal union has no faithful schemafull type;
+                // degrade to a flexible `object` (the safest superset).
+                ("object".to_string(), None)
+            }
+        }
     }
+}
+
+/// If every union member is a [`ir::Ty::Literal`], return their values.
+fn literal_union_values(members: &[ir::Ty]) -> Option<Vec<String>> {
+    members
+        .iter()
+        .map(|m| match m {
+            ir::Ty::Literal(v) => Some(v.clone()),
+            _ => None,
+        })
+        .collect()
+}
+
+/// Build an `ASSERT $value IN ['a', 'b', ...]` clause.
+fn assert_in<'a>(values: impl Iterator<Item = &'a str>) -> String {
+    let list: Vec<String> = values.map(|v| format!("'{v}'")).collect();
+    format!("ASSERT $value IN [{}]", list.join(", "))
 }
 
 /// Map an [`ir::Prim`] to its SurrealQL type.
@@ -134,6 +269,8 @@ mod tests {
             name: name.to_string(),
             ty,
             required,
+            flexible: false,
+            default: None,
         }
     }
 
@@ -154,6 +291,7 @@ mod tests {
                 ],
             }],
             protocol: None,
+            ..Default::default()
         };
         let out = SurrealQlEmitter::new().emit(&schema);
         assert!(out.contains("DEFINE TABLE user SCHEMAFULL;"));
@@ -169,6 +307,7 @@ mod tests {
                 fields: vec![field("nick", ir::Ty::Primitive(ir::Prim::String), false)],
             }],
             protocol: None,
+            ..Default::default()
         };
         let out = SurrealQlEmitter::new().emit(&schema);
         assert!(out.contains("DEFINE FIELD nick ON user TYPE option<string>;"));
@@ -188,6 +327,7 @@ mod tests {
                 },
             ],
             protocol: None,
+            ..Default::default()
         };
         let out = SurrealQlEmitter::new().emit(&schema);
         assert!(out.contains(
@@ -209,6 +349,7 @@ mod tests {
                 },
             ],
             protocol: None,
+            ..Default::default()
         };
         let out = SurrealQlEmitter::new().emit(&schema);
         assert!(out.contains("DEFINE FIELD author ON post TYPE record<user>;"));
@@ -232,6 +373,7 @@ mod tests {
                 ],
             }],
             protocol: None,
+            ..Default::default()
         };
         let out = SurrealQlEmitter::new().emit(&schema);
         assert!(out.contains("TYPE float;"));
@@ -247,6 +389,8 @@ mod tests {
         // schema produces just the header, no DEFINE statements.
         let schema = ir::Schema {
             types: vec![],
+            records: vec![],
+            relations: vec![],
             protocol: Some(ir::Protocol {
                 name: "p".to_string(),
                 version: "1.0.0".to_string(),
@@ -258,5 +402,157 @@ mod tests {
         let out = SurrealQlEmitter::new().emit(&schema);
         assert!(out.contains("-- Auto-generated SurrealDB schema"));
         assert!(!out.contains("DEFINE TABLE"));
+    }
+
+    // -------------------------------------------------------------------------
+    // Tier 1 — record / relation / link / union / flexible / default
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn record_becomes_define_table_type_normal() {
+        let schema = ir::Schema {
+            records: vec![ir::Record {
+                name: "Atlas".to_string(),
+                id_strategy: ir::IdStrategy::Uuidv7,
+                fields: vec![field("name", ir::Ty::Primitive(ir::Prim::String), true)],
+            }],
+            ..Default::default()
+        };
+        let out = SurrealQlEmitter::new().emit(&schema);
+        assert!(out.contains("DEFINE TABLE atlas TYPE NORMAL SCHEMAFULL;"));
+        assert!(out.contains("DEFINE FIELD name ON atlas TYPE string;"));
+    }
+
+    #[test]
+    fn struct_table_keeps_no_type_clause() {
+        // A `struct` must stay byte-stable with the pre-Tier-1 output:
+        // `DEFINE TABLE <t> SCHEMAFULL;` with no `TYPE`.
+        let schema = ir::Schema {
+            types: vec![ir::TypeDef::Struct {
+                name: "GeoPoint".to_string(),
+                fields: vec![field("lat", ir::Ty::Primitive(ir::Prim::Float), true)],
+            }],
+            ..Default::default()
+        };
+        let out = SurrealQlEmitter::new().emit(&schema);
+        assert!(out.contains("DEFINE TABLE geo_point SCHEMAFULL;"));
+        assert!(!out.contains("TYPE NORMAL"));
+    }
+
+    #[test]
+    fn relation_becomes_define_table_type_relation_with_index() {
+        let schema = ir::Schema {
+            relations: vec![ir::Relation {
+                name: "derivedFrom".to_string(),
+                from: "Memory".to_string(),
+                to: "Memory".to_string(),
+                unique: true,
+                fields: vec![field(
+                    "confidence",
+                    ir::Ty::Primitive(ir::Prim::Float),
+                    false,
+                )],
+            }],
+            ..Default::default()
+        };
+        let out = SurrealQlEmitter::new().emit(&schema);
+        assert!(
+            out.contains(
+                "DEFINE TABLE derived_from TYPE RELATION IN memory OUT memory SCHEMAFULL;"
+            )
+        );
+        assert!(out.contains("DEFINE FIELD confidence ON derived_from TYPE option<float>;"));
+        assert!(out.contains(
+            "DEFINE INDEX derived_from_unique_edge ON derived_from FIELDS in, out UNIQUE;"
+        ));
+    }
+
+    #[test]
+    fn non_unique_relation_omits_index() {
+        let schema = ir::Schema {
+            relations: vec![ir::Relation {
+                name: "tagged".to_string(),
+                from: "Note".to_string(),
+                to: "Tag".to_string(),
+                unique: false,
+                fields: vec![],
+            }],
+            ..Default::default()
+        };
+        let out = SurrealQlEmitter::new().emit(&schema);
+        assert!(out.contains("TYPE RELATION IN note OUT tag"));
+        assert!(!out.contains("DEFINE INDEX"));
+    }
+
+    #[test]
+    fn link_field_becomes_record_link() {
+        let schema = ir::Schema {
+            records: vec![ir::Record {
+                name: "Atlas".to_string(),
+                id_strategy: ir::IdStrategy::Uuidv7,
+                fields: vec![field("parent", ir::Ty::Link("Atlas".to_string()), false)],
+            }],
+            ..Default::default()
+        };
+        let out = SurrealQlEmitter::new().emit(&schema);
+        assert!(out.contains("DEFINE FIELD parent ON atlas TYPE option<record<atlas>>;"));
+    }
+
+    #[test]
+    fn literal_union_becomes_string_with_assert() {
+        let schema = ir::Schema {
+            records: vec![ir::Record {
+                name: "Doc".to_string(),
+                id_strategy: ir::IdStrategy::Uuidv7,
+                fields: vec![field(
+                    "visibility",
+                    ir::Ty::Union(vec![
+                        ir::Ty::Literal("public".to_string()),
+                        ir::Ty::Literal("private".to_string()),
+                    ]),
+                    true,
+                )],
+            }],
+            ..Default::default()
+        };
+        let out = SurrealQlEmitter::new().emit(&schema);
+        assert!(out.contains(
+            "DEFINE FIELD visibility ON doc TYPE string ASSERT $value IN ['public', 'private'];"
+        ));
+    }
+
+    #[test]
+    fn flexible_object_field_emits_flexible_keyword() {
+        let mut f = field("metadata", ir::Ty::Primitive(ir::Prim::Json), true);
+        f.flexible = true;
+        let schema = ir::Schema {
+            records: vec![ir::Record {
+                name: "Atlas".to_string(),
+                id_strategy: ir::IdStrategy::Uuidv7,
+                fields: vec![f],
+            }],
+            ..Default::default()
+        };
+        let out = SurrealQlEmitter::new().emit(&schema);
+        assert!(out.contains("DEFINE FIELD metadata ON atlas FLEXIBLE TYPE object;"));
+    }
+
+    #[test]
+    fn default_value_is_quoted_for_string_types() {
+        let mut f = field("visibility", ir::Ty::Primitive(ir::Prim::String), true);
+        f.default = Some("private".to_string());
+        let mut g = field("count", ir::Ty::Primitive(ir::Prim::Int), true);
+        g.default = Some("0".to_string());
+        let schema = ir::Schema {
+            records: vec![ir::Record {
+                name: "Doc".to_string(),
+                id_strategy: ir::IdStrategy::Uuidv7,
+                fields: vec![f, g],
+            }],
+            ..Default::default()
+        };
+        let out = SurrealQlEmitter::new().emit(&schema);
+        assert!(out.contains("DEFAULT 'private'"), "string default quoted");
+        assert!(out.contains("DEFAULT 0"), "numeric default unquoted");
     }
 }

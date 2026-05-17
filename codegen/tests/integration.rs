@@ -223,3 +223,80 @@ fn write_temp_schema(name: &str) -> std::path::PathBuf {
     std::fs::write(&path, SCHEMA).expect("write temp schema");
     path
 }
+
+// =============================================================================
+// Tier 1 — entity dialect (record / relation / link / union) end-to-end
+// =============================================================================
+
+/// A schema exercising the Tier 1 entity dialect: a `record` with a
+/// self-link, a literal-union field and a flexible object, plus a
+/// property-carrying `relation`.
+const ENTITY_SCHEMA: &str = r#"
+    record "Atlas" {
+        id strategy="uuidv7"
+        field "name"       type="string" required=#true
+        field "parent"     type="link<Atlas>"
+        field "visibility" type="'public' | 'private'" default="private"
+        field "metadata"   type="object" flexible=#true
+    }
+    record "Memory" {
+        field "body" type="string" required=#true
+    }
+    relation "derivedFrom" from="Memory" to="Memory" unique=#true {
+        field "confidence" type="float"
+        field "reason"     type="string"
+    }
+"#;
+
+#[test]
+fn entity_schema_parses_into_records_and_relations() {
+    let schema = parse(ENTITY_SCHEMA).expect("entity schema parses");
+    assert_eq!(schema.records.len(), 2);
+    assert_eq!(schema.relations.len(), 1);
+    assert_eq!(schema.relations[0].from, "Memory");
+}
+
+#[test]
+fn surrealql_pipeline_emits_entity_ddl() {
+    let schema = parse(ENTITY_SCHEMA).expect("entity schema parses");
+    let out = SurrealQlEmitter::new().emit(&schema);
+    // record → TYPE NORMAL table.
+    assert!(out.contains("DEFINE TABLE atlas TYPE NORMAL SCHEMAFULL;"));
+    // self-link → record<atlas>.
+    assert!(out.contains("DEFINE FIELD parent ON atlas TYPE option<record<atlas>>;"));
+    // literal union → string + ASSERT, plus a quoted DEFAULT.
+    assert!(out.contains("ASSERT $value IN ['public', 'private']"));
+    assert!(out.contains("DEFAULT 'private'"));
+    // flexible object — the field is optional, so the type is wrapped.
+    assert!(out.contains("DEFINE FIELD metadata ON atlas FLEXIBLE TYPE option<object>;"));
+    // relation → TYPE RELATION table + UNIQUE index.
+    assert!(
+        out.contains("DEFINE TABLE derived_from TYPE RELATION IN memory OUT memory SCHEMAFULL;")
+    );
+    assert!(
+        out.contains(
+            "DEFINE INDEX derived_from_unique_edge ON derived_from FIELDS in, out UNIQUE;"
+        )
+    );
+}
+
+#[test]
+fn rust_typescript_zod_pipelines_emit_entity_types() {
+    let schema = parse(ENTITY_SCHEMA).expect("entity schema parses");
+
+    let rust = RustEmitter::new().emit(&schema);
+    assert!(rust.contains("pub struct Atlas {"));
+    assert!(rust.contains("pub struct DerivedFrom {"));
+    assert!(rust.contains("pub id: String,"));
+
+    let ts = TypeScriptEmitter::new().emit(&schema);
+    assert!(ts.contains("export interface Atlas {"));
+    assert!(ts.contains("export interface DerivedFrom {"));
+    // `visibility` has no `required=`, so it is optional in the interface.
+    assert!(ts.contains("  visibility?: 'public' | 'private';"));
+
+    let zod = ZodEmitter::new().emit(&schema);
+    assert!(zod.contains("export const Atlas = z.object({"));
+    assert!(zod.contains("export const DerivedFrom = z.object({"));
+    assert!(zod.contains("z.enum([\"public\", \"private\"])"));
+}

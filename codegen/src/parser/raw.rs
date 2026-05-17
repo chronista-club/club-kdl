@@ -25,6 +25,15 @@ pub struct RawSchema {
     /// Standalone `enum` definitions (data dialect).
     #[kdl(children, name = "enum")]
     pub enums: Vec<RawEnum>,
+
+    // entity dialect.
+    /// `record` definitions (entity dialect).
+    #[kdl(children, name = "record")]
+    pub records: Vec<RawRecord>,
+
+    /// `relation` definitions (entity dialect).
+    #[kdl(children, name = "relation")]
+    pub relations: Vec<RawRelation>,
 }
 
 /// A `protocol "name" version="x" { ... }` node.
@@ -135,13 +144,74 @@ pub struct RawField {
     #[kdl(argument)]
     pub name: String,
 
-    /// Field type as written in KDL (e.g. `"string"`, `"array<int>"`, `"User"`).
+    /// Field type as written in KDL (e.g. `"string"`, `"array<int>"`,
+    /// `"link<Atlas>"`, `"'a' | 'b'"`).
     #[kdl(property, rename = "type")]
     pub type_str: String,
 
     /// Whether the field is required. Absent property defaults to `false`.
     #[kdl(property, default)]
     pub required: bool,
+
+    /// Whether an `object`-typed field is schemaless. Absent defaults to
+    /// `false`.
+    #[kdl(property, default)]
+    pub flexible: bool,
+
+    /// An optional default value (`default="..."`).
+    #[kdl(property)]
+    pub default: Option<String>,
+}
+
+/// An `id strategy="..."` node within a [`RawRecord`].
+#[derive(Debug, KdlDeserialize)]
+#[kdl(name = "id")]
+pub struct RawId {
+    /// Id generation strategy: `"uuidv7"` (default) / `"ulid"` / `"manual"`.
+    #[kdl(property)]
+    pub strategy: Option<String>,
+}
+
+/// A `record "Name" { id ...; field ... }` node (entity dialect).
+#[derive(Debug, KdlDeserialize)]
+#[kdl(name = "record")]
+pub struct RawRecord {
+    /// Record name.
+    #[kdl(argument)]
+    pub name: String,
+
+    /// Optional `id strategy="..."` child. Absent ⇒ default strategy.
+    #[kdl(child)]
+    pub id: Option<RawId>,
+
+    /// `field` children.
+    #[kdl(children, name = "field")]
+    pub fields: Vec<RawField>,
+}
+
+/// A `relation "Name" from="..." to="..." unique=#true { field ... }` node.
+#[derive(Debug, KdlDeserialize)]
+#[kdl(name = "relation")]
+pub struct RawRelation {
+    /// Relation name.
+    #[kdl(argument)]
+    pub name: String,
+
+    /// The record name at the `in` end of the edge.
+    #[kdl(property)]
+    pub from: String,
+
+    /// The record name at the `out` end of the edge.
+    #[kdl(property)]
+    pub to: String,
+
+    /// Whether each `(from, to)` pair is unique. Absent defaults to `false`.
+    #[kdl(property, default)]
+    pub unique: bool,
+
+    /// Edge-property `field` children.
+    #[kdl(children, name = "field")]
+    pub fields: Vec<RawField>,
 }
 
 /// A `struct "Name" { field ... }` node (data dialect).
