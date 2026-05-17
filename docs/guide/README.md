@@ -1,12 +1,16 @@
-# club-kdl ガイド
+# club-kdl Guides
 
-**[English](./README.en.md)** | 日本語
+English | **[日本語](./README.ja.md)**
 
-club-kdl の使い方を深掘りするガイド集。 トップの `README.md` が「概観」 なのに対し、
-ここは「特定タスクの手順・判断基準」 を扱う。
+In-depth guides for using club-kdl. While the top-level `README.md` is an
+"overview", these cover "procedures and decision criteria for specific tasks".
 
-| ガイド | 内容 |
-|--------|------|
-| [カスタム型ガイド](./custom-types.md) | `FromKdlValue` / `ToKdlValue` を実装して独自型 (chrono 型・newtype・外部 crate の型) を KDL 値にマッピングする |
-| [KDL 設計ベストプラクティス](./best-practices.md) | argument / property / children の使い分け、 idiomatic な KDL スキーマ設計とアンチパターン |
-| [トラブルシュート](./troubleshooting.md) | よくあるエラー (ライフタイム・子ノード解決・型不一致など) の原因と対処 |
+| Guide | Contents |
+|-------|----------|
+| [Custom Types Guide](./custom-types.md) | Implement `FromKdlValue` / `ToKdlValue` to map your own types (chrono types, newtypes, external crate types) to KDL values |
+| [KDL Design Best Practices](./best-practices.md) | Choosing between argument / property / children, and idiomatic KDL schema design with anti-patterns |
+| [Troubleshooting](./troubleshooting.md) | Causes and fixes for common errors (lifetimes, child node resolution, type mismatches, etc.) |
+
+---
+
+> 📝 This English document is translated from the Japanese original. [`README.ja.md`](README.ja.md) is the source of truth.

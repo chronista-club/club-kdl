@@ -1,25 +1,26 @@
-# カスタム型ガイド
+# Custom Types Guide
 
-**[English](./custom-types.en.md)** | 日本語
+English | **[日本語](./custom-types.ja.md)**
 
-club-kdl が標準で対応しない型 (外部 crate の型・独自 newtype など) を KDL 値にマッピングする方法。
+How to map types that club-kdl does not support out of the box (external crate
+types, your own newtypes, etc.) to KDL values.
 
 ## Overview
 
-club-kdl は以下の型を標準でサポートします:
+club-kdl supports the following types out of the box:
 
-- 整数 (`i32` `i64` `i128` `u16` `u32` `u64` `usize`) / 浮動小数 (`f64`) / 真偽値 (`bool`)
-- 文字列 (`String` `&str`) / パス (`PathBuf`)
-- コレクション (`Vec<T>` `HashMap<String, String>`) / `Option<T>`
+- Integers (`i32` `i64` `i128` `u16` `u32` `u64` `usize`) / floats (`f64`) / booleans (`bool`)
+- Strings (`String` `&str`) / paths (`PathBuf`)
+- Collections (`Vec<T>` `HashMap<String, String>`) / `Option<T>`
 
-これ以外の型 ―― 例えば `chrono::NaiveDate`、 独自の `UserId(u64)`、 外部 crate の列挙型 ―― を
-`#[kdl(argument)]` / `#[kdl(property)]` フィールドで使いたい場合、 その型に
-**`FromKdlValue` / `ToKdlValue` trait を実装**します。
+To use any other type ―― for example `chrono::NaiveDate`, your own `UserId(u64)`,
+or an enum from an external crate ―― in a `#[kdl(argument)]` / `#[kdl(property)]`
+field, **implement the `FromKdlValue` / `ToKdlValue` traits** for that type.
 
 ## Prerequisites
 
-- club-kdl の基本 (`#[derive(KdlDeserialize, KdlSerialize)]` と `#[kdl(...)]` 属性) を理解していること
-- 対象は argument / property にマッピングされる「スカラー値」 としての型。 子ノード構造を持つ型は通常の struct + derive で表現します
+- Familiarity with club-kdl basics (`#[derive(KdlDeserialize, KdlSerialize)]` and `#[kdl(...)]` attributes)
+- The target is a type used as a "scalar value" mapped to an argument / property. Types with child-node structure are expressed as ordinary structs with derive.
 
 ## The traits
 
@@ -35,14 +36,14 @@ pub trait ToKdlValue {
 }
 ```
 
-- デシリアライズには `FromKdlValue`、 シリアライズには `ToKdlValue` が必要。 片方だけの実装も可
-- `'de` ライフタイムは KDL ソースからの借用 (zero-copy) を可能にする。 値を所有したい場合は `.to_owned()` する
+- `FromKdlValue` is needed for deserialization, `ToKdlValue` for serialization. Implementing only one is fine.
+- The `'de` lifetime enables zero-copy borrowing from the KDL source. Call `.to_owned()` if you need to own the value.
 
 ## Usage
 
-### 例 1: newtype ―― 既存型に薄いラッパ
+### Example 1: newtype ―― a thin wrapper over an existing type
 
-`UserId(u64)` のような newtype は、 内部型の実装にデリゲートするだけです。
+A newtype like `UserId(u64)` simply delegates to the inner type's implementation.
 
 ```rust
 use club_kdl::{FromKdlValue, ToKdlValue, KdlValue, Result};
@@ -62,11 +63,11 @@ impl ToKdlValue for UserId {
 }
 ```
 
-### 例 2: 外部型 ―― `chrono::NaiveDate` を文字列にマッピング
+### Example 2: external type ―― mapping `chrono::NaiveDate` to a string
 
-外部 crate の型 (`chrono::NaiveDate`) に club-kdl の trait を直接実装することは
-**orphan rule によりできません** (型も trait も自分の crate の外にあるため)。
-**newtype でラップ**して回避します。
+You **cannot** implement club-kdl's traits directly on an external crate's type
+(`chrono::NaiveDate`) because of the **orphan rule** (both the type and the trait
+live outside your crate). Work around it by **wrapping in a newtype**.
 
 ```rust
 use club_kdl::{FromKdlValue, ToKdlValue, KdlValue, Error, Result};
@@ -76,7 +77,7 @@ struct Date(NaiveDate);
 
 impl<'de> FromKdlValue<'de> for Date {
     fn from_kdl_value(value: &'de KdlValue) -> Result<Self> {
-        // まず &str として取り出し、 chrono でパース
+        // First extract as &str, then parse with chrono
         let s = <&str>::from_kdl_value(value)?;
         NaiveDate::parse_from_str(s, "%Y-%m-%d")
             .map(Date)
@@ -91,15 +92,15 @@ impl ToKdlValue for Date {
 }
 ```
 
-これで `#[kdl(property)] created: Date` のように使えます:
+Now you can use it as `#[kdl(property)] created: Date`:
 
 ```kdl
 record created="2026-05-17"
 ```
 
-### 例 3: 値の検証を挟む
+### Example 3: validating the value
 
-`from_kdl_value` は `Result` を返すので、 パースと同時にバリデーションできます。
+`from_kdl_value` returns a `Result`, so you can validate while parsing.
 
 ```rust
 struct Port(u16);
@@ -117,13 +118,17 @@ impl<'de> FromKdlValue<'de> for Port {
 
 ## Troubleshooting
 
-| 症状 | 原因 | 対処 |
-|------|------|------|
-| `only traits defined in the current crate can be implemented for types defined outside of the crate` | orphan rule ―― 外部型に外部 trait を実装しようとした | newtype でラップする (例 2) |
-| `borrowed value does not live long enough` | `&'de str` を借用したまま型変換しようとした | 所有が必要なら `String` 経由で `.to_owned()` |
-| 型不一致を返したい | KDL 値の種類が期待と違う | `Error::type_mismatch("expected", value)` を返す |
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| `only traits defined in the current crate can be implemented for types defined outside of the crate` | orphan rule ―― tried to implement an external trait on an external type | Wrap in a newtype (Example 2) |
+| `borrowed value does not live long enough` | tried to convert while borrowing `&'de str` | If ownership is needed, go through `String` with `.to_owned()` |
+| Want to return a type mismatch | The KDL value kind differs from what you expect | Return `Error::type_mismatch("expected", value)` |
 
-## 関連
+## See also
 
-- README の「サポートする型」 セクション
-- enum のスカラーマッピングは derive が自動対応 (`#[kdl(rename = "...")]`) ―― 手書き実装は不要
+- The "Supported types" section of the README
+- Scalar enum mapping is handled automatically by derive (`#[kdl(rename = "...")]`) ―― no manual implementation needed
+
+---
+
+> 📝 This English document is translated from the Japanese original. [`custom-types.ja.md`](custom-types.ja.md) is the source of truth.
