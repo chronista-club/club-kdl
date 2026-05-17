@@ -3,8 +3,8 @@
 //! Parsing happens in two stages:
 //!
 //! 1. **deserialize** — `club-kdl`'s `KdlDeserialize` derive fills the
-//!    KDL-shaped [`raw`] structs from the document.
-//! 2. **lower** — [`raw`] structs are converted into the validated
+//!    KDL-shaped `raw` structs from the document.
+//! 2. **lower** — `raw` structs are converted into the validated
 //!    [`crate::ir`] representation: enum-like strings become real enums, the
 //!    flat `type` string becomes a [`crate::ir::Ty`], and channel semantics
 //!    (datagram `channel_id` requirements) are checked.

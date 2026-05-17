@@ -8,7 +8,7 @@
 //! - `zod` / `surrealql` — new (Phase 1 Step 5).
 //!
 //! Emitters are pure `ir::Schema -> String` functions and depend only on
-//! `std` (the case-conversion helpers in [`case`] replace the `convert_case`
+//! `std` (the case-conversion helpers in `case` replace the `convert_case`
 //! crate used by club-unison).
 
 mod case;

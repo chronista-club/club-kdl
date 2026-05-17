@@ -1,7 +1,7 @@
 //! Rust emitter — renders [`ir::Schema`] into Rust source text.
 //!
 //! Ported from club-unison's `codegen/rust.rs`. The original used
-//! `proc_macro2` + `quote` to build a [`TokenStream`] and a hand-rolled
+//! `proc_macro2` + `quote` to build a `TokenStream` and a hand-rolled
 //! `format_code` pass; this port writes pre-formatted Rust text directly so
 //! `club-kdl-codegen` stays dependency-free during Phase 1.
 //!
