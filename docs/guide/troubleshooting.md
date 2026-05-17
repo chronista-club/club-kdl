@@ -1,14 +1,14 @@
-# トラブルシュート
+# Troubleshooting
 
-**[English](./troubleshooting.en.md)** | 日本語
+English | **[日本語](./troubleshooting.ja.md)**
 
-club-kdl でよく遭遇するエラーと、 その原因・対処。
+Common errors encountered with club-kdl, and their causes and fixes.
 
-## ライフタイム
+## Lifetimes
 
 ### `implicit elided lifetime not allowed here` (E0726)
 
-借用フィールド (`&'a str`) を持つ struct を変数に束縛するとき:
+When binding a struct that has borrowed fields (`&'a str`) to a variable:
 
 ```rust
 #[derive(KdlDeserialize)]
@@ -19,22 +19,22 @@ struct Service<'a> {
 }
 
 let s: Service = club_kdl::from_str(r#"service "api""#).unwrap();
-//     ^^^^^^^ error: ライフタイムパラメータが省略できない
+//     ^^^^^^^ error: the lifetime parameter cannot be elided
 ```
 
-**原因**: edition 2024 では型のライフタイムを省略すると E0726。
+**Cause**: In edition 2024, eliding a type's lifetime triggers E0726.
 
-**対処**: `Service<'_>` と匿名ライフタイムを明示する。
+**Fix**: Spell the anonymous lifetime explicitly as `Service<'_>`.
 
 ```rust
 let s: Service<'_> = club_kdl::from_str(r#"service "api""#).unwrap();
 ```
 
-借用が不要なら、 フィールドを `String` にすればライフタイムごと消えます。
+If you do not need borrowing, making the field a `String` removes the lifetime altogether.
 
-## 子ノードのマッピング
+## Child node mapping
 
-### `#[kdl(children)]` で子が収集されない
+### `#[kdl(children)]` does not collect children
 
 ```rust
 #[derive(KdlDeserialize)]
@@ -45,26 +45,26 @@ struct Config {
 }
 ```
 
-**原因**: `#[kdl(children)]` は子型の `#[kdl(name = "...")]` でノード名を解決します。
-子型に `#[kdl(name)]` が無いとフィールド名 (`stages`) にフォールバックし、
-実際の KDL ノード名 (`stage`) と一致しません。
+**Cause**: `#[kdl(children)]` resolves the node name via the child type's
+`#[kdl(name = "...")]`. Without `#[kdl(name)]` on the child type, it falls back to
+the field name (`stages`), which does not match the actual KDL node name (`stage`).
 
-**対処**: 子型に `#[kdl(name)]` を付ける ―― または収集側で明示する:
+**Fix**: Add `#[kdl(name)]` to the child type ―― or specify it explicitly at the collection site:
 
 ```rust
 #[kdl(children(name = "stage"))]
 stages: Vec<Stage>,
 ```
 
-### `#[kdl(child)]` に `Vec<T>` を指定してしまう
+### Specifying `Vec<T>` on `#[kdl(child)]`
 
-**原因**: `child` は単一の子 (0..1) 用。 繰り返しには使えません。
+**Cause**: `child` is for a single child (0..1). It cannot be used for repetition.
 
-**対処**: 繰り返しは `#[kdl(children)]` + `Vec<T>`、 任意単一は `#[kdl(child)]` + `Option<T>`。
+**Fix**: Use `#[kdl(children)]` + `Vec<T>` for repetition, and `#[kdl(child)]` + `Option<T>` for an optional single child.
 
-## ドキュメント全体
+## Whole documents
 
-### トップレベルに複数ノードがある KDL が読めない
+### A KDL with multiple top-level nodes cannot be read
 
 ```kdl
 stage "build"
@@ -72,10 +72,10 @@ stage "deploy"
 service "api"
 ```
 
-**原因**: 既定では「単一ノード = 単一 struct」。 複数のトップレベルノードを
-1 つの struct にまとめるには `#[kdl(document)]` が必要です。
+**Cause**: By default it is "one node = one struct". To collect multiple top-level
+nodes into a single struct, you need `#[kdl(document)]`.
 
-**対処**:
+**Fix**:
 
 ```rust
 #[derive(KdlDeserialize)]
@@ -88,43 +88,50 @@ struct Config {
 }
 ```
 
-## 値型
+## Value types
 
 ### `type mismatch: expected ...`
 
-**原因**: KDL の値の種類 (string / integer / float / bool) と Rust のフィールド型が不一致。
-例えば `port="8080"` (文字列) を `u16` で受けようとした。
+**Cause**: The KDL value kind (string / integer / float / bool) does not match the
+Rust field type. For example, trying to receive `port="8080"` (a string) into a `u16`.
 
-**対処**: KDL 側を `port=8080` (整数) にする、 または Rust 側の型を合わせる。
-カスタム変換が必要なら [カスタム型ガイド](./custom-types.md) を参照。
+**Fix**: Make the KDL side `port=8080` (an integer), or align the Rust-side type.
+If you need a custom conversion, see the [Custom Types Guide](./custom-types.md).
 
-### property 名がフィールド名と違う
+### A property name differs from the field name
 
 ```kdl
 service "api" image-name="myapp"
 ```
 
-**原因**: KDL の property 名 (`image-name`) と Rust のフィールド名 (`image_name`) は
-ハイフン/アンダースコアの違いで一致しません。
+**Cause**: The KDL property name (`image-name`) and the Rust field name
+(`image_name`) do not match due to the hyphen/underscore difference.
 
-**対処**: `#[kdl(property(rename = "image-name"))]` で明示的に対応付ける。
+**Fix**: Map them explicitly with `#[kdl(property(rename = "image-name"))]`.
 
-## カスタム型
+## Custom types
 
 ### `only traits defined in the current crate can be implemented...`
 
-**原因**: 外部 crate の型に club-kdl の trait を直接実装した (orphan rule 違反)。
+**Cause**: Implemented a club-kdl trait directly on an external crate's type
+(orphan rule violation).
 
-**対処**: newtype でラップする。 詳細は [カスタム型ガイド](./custom-types.md) を参照。
+**Fix**: Wrap in a newtype. See the [Custom Types Guide](./custom-types.md) for details.
 
-## 切り分けのヒント
+## Debugging tips
 
-- **デシリアライズ結果がおかしい**: まず `club_kdl::from_str` の戻り値の `Err` を確認。
-  club-kdl のエラーは `Error::InContext` でどのノード/フィールドかの文脈を持つ
-- **シリアライズ結果が期待と違う**: `to_string_pretty` の出力を直接 print して KDL を目視確認
-- **derive の展開を見たい**: `cargo expand` で derive マクロの生成コードを確認できる
+- **Deserialization result looks wrong**: First check the `Err` returned by
+  `club_kdl::from_str`. club-kdl errors carry context via `Error::InContext`
+  indicating which node/field is involved
+- **Serialization result differs from expectation**: Print the output of
+  `to_string_pretty` directly and inspect the KDL visually
+- **Want to see the derive expansion**: `cargo expand` shows the code generated by the derive macro
 
-## 関連
+## See also
 
-- [カスタム型ガイド](./custom-types.md)
-- [KDL 設計ベストプラクティス](./best-practices.md)
+- [Custom Types Guide](./custom-types.md)
+- [KDL Design Best Practices](./best-practices.md)
+
+---
+
+> 📝 This English document is translated from the Japanese original. [`troubleshooting.ja.md`](troubleshooting.ja.md) is the source of truth.

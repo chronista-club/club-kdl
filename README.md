@@ -7,41 +7,41 @@
 [![MSRV](https://img.shields.io/badge/MSRV-1.94-orange.svg)](https://github.com/chronista-club/club-kdl/blob/main/Cargo.toml)
 [![Downloads](https://img.shields.io/crates/d/club-kdl.svg)](https://crates.io/crates/club-kdl)
 
-**[English](README.en.md)** | 日本語
+English | **[日本語](README.ja.md)**
 
-Rust 構造体に derive マクロを付けるだけで KDL の読み書きができるライブラリ。
+Read and write KDL just by adding a derive macro to your Rust structs.
 
 ```toml
 [dependencies]
 club-kdl = "0.5"
 ```
 
-## なぜ club-kdl？
+## Why club-kdl?
 
-KDL の公式 Rust 実装 [`kdl-rs`](https://crates.io/crates/kdl) は **AST レベル** の操作に集中したライブラリで、 Rust 構造体との往復は手書きが必要。 club-kdl は kdl-rs の上に **属性ベースの derive 層** を載せて、 `#[derive(KdlDeserialize, KdlSerialize)]` だけで struct ↔ KDL の往復を完結させる。
+The official Rust implementation of KDL, [`kdl-rs`](https://crates.io/crates/kdl), focuses on **AST-level** manipulation — converting to and from Rust structs is left to you. club-kdl adds an **attribute-based derive layer** on top of kdl-rs, so `#[derive(KdlDeserialize, KdlSerialize)]` is all you need for a full struct ↔ KDL round trip.
 
-| ライブラリ | 立ち位置 | 適性 |
-|-----------|---------|------|
-| [`kdl`](https://crates.io/crates/kdl) | KDL parser / AST | 動的に KDL を構築・編集 / spec 準拠の low-level 操作 |
-| [`knuffel`](https://crates.io/crates/knuffel) / [`knus`](https://crates.io/crates/knus) | derive ベースの parser | spec 準拠重視 / parse 側に偏る |
-| **`club-kdl`** | **derive ベースの ser/de** | **struct ↔ KDL 双方向 / 親子ノード名自動解決 / enum data variants** |
+| Library | Role | Best for |
+|---------|------|----------|
+| [`kdl`](https://crates.io/crates/kdl) | KDL parser / AST | Building and editing KDL dynamically / spec-compliant low-level work |
+| [`knuffel`](https://crates.io/crates/knuffel) / [`knus`](https://crates.io/crates/knus) | derive-based parser | Spec-compliance focused / parsing-oriented |
+| **`club-kdl`** | **derive-based ser/de** | **Bidirectional struct ↔ KDL / automatic parent-child node name resolution / enum data variants** |
 
-club-kdl は内部で `kdl` crate (v6) の AST を使うので、 spec 準拠は kdl-rs に委譲されている。
+club-kdl uses the `kdl` crate (v6) AST internally, so spec compliance is delegated to kdl-rs.
 
 ---
 
-## derive を付けると何が起こるか
+## What the derive does
 
 ```mermaid
 flowchart LR
-    A["Rust 構造体\n+ #[derive(KdlDeserialize)]"] --> B["from_str()"]
-    C["KDL テキスト"] --> B
-    B --> D["Rust 構造体の値"]
+    A["Rust struct\n+ #[derive(KdlDeserialize)]"] --> B["from_str()"]
+    C["KDL text"] --> B
+    B --> D["Rust struct value"]
     D --> E["to_string_pretty()"]
-    E --> F["KDL テキスト"]
+    E --> F["KDL text"]
 ```
 
-構造体のフィールドと KDL のノード構造が `#[kdl(...)]` 属性で対応付けられる。
+Struct fields are mapped to KDL node structure via `#[kdl(...)]` attributes.
 
 ```rust
 use club_kdl::{KdlDeserialize, KdlSerialize};
@@ -49,13 +49,13 @@ use club_kdl::{KdlDeserialize, KdlSerialize};
 #[derive(Debug, KdlDeserialize, KdlSerialize)]
 #[kdl(name = "service")]
 struct Service {
-    #[kdl(argument)]       // 位置引数 → "api"
+    #[kdl(argument)]       // positional argument → "api"
     name: String,
 
-    #[kdl(property)]       // プロパティ → image="myapp"
+    #[kdl(property)]       // property → image="myapp"
     image: String,
 
-    #[kdl(children)]       // 子ノード → Port::kdl_node_name() で自動解決
+    #[kdl(children)]       // child nodes → resolved via Port::kdl_node_name()
     ports: Vec<Port>,
 }
 
@@ -69,7 +69,7 @@ struct Port {
 }
 ```
 
-この構造体で以下の KDL を読み書きできる:
+This struct can read and write the following KDL:
 
 ```kdl
 service "api" image="myapp" {
@@ -79,59 +79,59 @@ service "api" image="myapp" {
 ```
 
 ```rust
-// デシリアライズ（KDL → Rust）
+// Deserialize (KDL → Rust)
 let service: Service = club_kdl::from_str(kdl_text).unwrap();
 
-// シリアライズ（Rust → KDL）
+// Serialize (Rust → KDL)
 let kdl_text = club_kdl::to_string_pretty(&service).unwrap();
 ```
 
 ---
 
-## 属性リファレンス
+## Attribute reference
 
-### 構造体属性
+### Container attributes
 
-| 属性 | 説明 |
-|------|------|
-| `#[kdl(name = "...")]` | KDL ノード名（省略時は構造体名の snake_case） |
-| `#[kdl(alias = "...")]` | ノード名の別名（複数指定可、デシリアライズ時に受け入れる） |
-| `#[kdl(document)]` | KDL ドキュメント全体（複数トップレベルノード）として扱う |
+| Attribute | Description |
+|-----------|-------------|
+| `#[kdl(name = "...")]` | KDL node name (defaults to the struct name in snake_case) |
+| `#[kdl(alias = "...")]` | Alternative node name (multiple allowed; accepted during deserialization) |
+| `#[kdl(document)]` | Treat as a whole KDL document (multiple top-level nodes) |
 
-### フィールド属性
+### Field attributes
 
-| 属性 | 説明 |
-|------|------|
-| `#[kdl(argument)]` | 位置引数にマッピング（自動インデックス） |
-| `#[kdl(argument(index = N))]` | 特定インデックスの引数にマッピング |
-| `#[kdl(arguments)]` | 全引数を `Vec<T>` に収集 |
-| `#[kdl(property)]` | 名前付きプロパティ（`key=value`） |
-| `#[kdl(property(rename = "...")]` | 別名のプロパティにマッピング |
-| `#[kdl(child)]` | 単一の子ノード（子型の `#[kdl(name)]` を自動参照） |
-| `#[kdl(child(name = "...")]` | 明示名で子ノードを検索 |
-| `#[kdl(child, unwrap_arg)]` | 子ノードの第1引数を値として取得 |
-| `#[kdl(child, unwrap_args)]` | 子ノードの全引数を `Vec<T>` として取得 |
-| `#[kdl(children)]` | 子ノードを `Vec<T>` に収集（子型の `#[kdl(name)]` を自動参照） |
-| `#[kdl(children(name = "...")]` | 明示名で子ノードをフィルタして収集 |
-| `#[kdl(child_map)]` | 子ノードを `HashMap<String, String>` に収集 |
-| `#[kdl(child_map(name = "...")]` | ラッパーノード内の子を HashMap に収集 |
-| `#[kdl(flatten)]` | 子構造体のフィールドを親ノードに展開 |
-| `#[kdl(default)]` | 欠落時に `Default::default()` を使用 |
-| `#[kdl(skip)]` | シリアライズ / デシリアライズをスキップ |
+| Attribute | Description |
+|-----------|-------------|
+| `#[kdl(argument)]` | Map to a positional argument (auto-indexed) |
+| `#[kdl(argument(index = N))]` | Map to the argument at a specific index |
+| `#[kdl(arguments)]` | Collect all arguments into a `Vec<T>` |
+| `#[kdl(property)]` | Named property (`key=value`) |
+| `#[kdl(property(rename = "...")]` | Map to a property with a different name |
+| `#[kdl(child)]` | Single child node (resolves the child type's `#[kdl(name)]`) |
+| `#[kdl(child(name = "...")]` | Look up a child node by explicit name |
+| `#[kdl(child, unwrap_arg)]` | Take the child node's first argument as the value |
+| `#[kdl(child, unwrap_args)]` | Take all of the child node's arguments as a `Vec<T>` |
+| `#[kdl(children)]` | Collect child nodes into a `Vec<T>` (resolves the child type's `#[kdl(name)]`) |
+| `#[kdl(children(name = "...")]` | Filter and collect child nodes by explicit name |
+| `#[kdl(child_map)]` | Collect child nodes into a `HashMap<String, String>` |
+| `#[kdl(child_map(name = "...")]` | Collect children inside a wrapper node into a HashMap |
+| `#[kdl(flatten)]` | Expand a child struct's fields into the parent node |
+| `#[kdl(default)]` | Use `Default::default()` when missing |
+| `#[kdl(skip)]` | Skip this field during serialization / deserialization |
 
-### Enum 属性
+### Enum attributes
 
-| 属性 | 用途 | 説明 |
-|------|------|------|
-| `#[kdl(rename = "...")]` | スカラー / データ | バリアント名の KDL 表現（省略時は snake_case） |
+| Attribute | Applies to | Description |
+|-----------|------------|-------------|
+| `#[kdl(rename = "...")]` | scalar / data | KDL representation of the variant name (defaults to snake_case) |
 
 ---
 
-## Enum サポート
+## Enum support
 
-### スカラー Enum（プロパティ / 引数の値として使う）
+### Scalar enums (used as property / argument values)
 
-全バリアントが unit（データなし）の enum は、文字列として KDL の引数やプロパティにマッピングされる。
+An enum where all variants are unit (no data) is mapped to a string in a KDL argument or property.
 
 ```rust
 #[derive(KdlDeserialize, KdlSerialize)]
@@ -156,14 +156,14 @@ struct Channel {
 channel "events" from="server"
 ```
 
-### データ Enum（ノード名でバリアントを判別）
+### Data enums (variant identified by node name)
 
-struct / newtype / unit バリアントを含む enum は、KDL ノード名でバリアントを判別する。
+An enum containing struct / newtype / unit variants identifies the variant by the KDL node name.
 
 ```rust
 #[derive(KdlDeserialize, KdlSerialize)]
 enum Command {
-    // struct variant — フィールドはargument/property/childにマッピング
+    // struct variant — fields map to argument/property/child
     #[kdl(rename = "move")]
     Move {
         #[kdl(property)]
@@ -172,11 +172,11 @@ enum Command {
         y: f64,
     },
 
-    // newtype variant — 内部型にデリゲート
+    // newtype variant — delegates to the inner type
     #[kdl(rename = "configure")]
     Configure(InnerConfig),
 
-    // unit variant — ノード名のみ
+    // unit variant — node name only
     #[kdl(rename = "quit")]
     Quit,
 }
@@ -188,9 +188,9 @@ configure key="debug" value="true"
 quit
 ```
 
-### Vec<DataEnum> で子ノードを収集
+### Collecting child nodes with `Vec<DataEnum>`
 
-データ enum は `#[kdl(children)]` と組み合わせて、異なるノード名の子を一括収集できる。
+Combined with `#[kdl(children)]`, a data enum can collect children with different node names in one go.
 
 ```rust
 #[derive(KdlDeserialize, KdlSerialize)]
@@ -199,7 +199,7 @@ struct Pipeline {
     #[kdl(argument)]
     name: String,
     #[kdl(children)]
-    steps: Vec<Command>,  // move, configure, quit を全て収集
+    steps: Vec<Command>,  // collects all of move, configure, quit
 }
 ```
 
@@ -213,10 +213,9 @@ pipeline "deploy" {
 
 ---
 
-## 子ノードの名前自動解決
+## Automatic child node name resolution
 
-`#[kdl(child)]` / `#[kdl(children)]` は、子構造体の `#[kdl(name = "...")]` を自動参照する。
-フィールド名と KDL ノード名が異なる場合でも、明示指定なしで正しくマッピングされる。
+`#[kdl(child)]` / `#[kdl(children)]` automatically resolve the child struct's `#[kdl(name = "...")]`. Even when the field name differs from the KDL node name, the mapping is correct without an explicit name.
 
 ```rust
 #[derive(KdlDeserialize)]
@@ -230,7 +229,7 @@ struct PostSetup {
 #[kdl(document)]
 struct Config {
     #[kdl(child)]                    // ← PostSetup::kdl_node_name() → "post-setup"
-    post_setup: Option<PostSetup>,   //    フィールド名 "post_setup" ではなく "post-setup" で検索
+    post_setup: Option<PostSetup>,   //    looked up as "post-setup", not the field name "post_setup"
 }
 ```
 
@@ -238,13 +237,13 @@ struct Config {
 post-setup "bun install"
 ```
 
-子構造体に `#[kdl(name)]` がない場合はフィールド名にフォールバックする。
+If the child struct has no `#[kdl(name)]`, it falls back to the field name.
 
 ---
 
-## エイリアス
+## Aliases
 
-構造体に `#[kdl(alias = "...")]` を付けると、デシリアライズ時に別名も受け入れる。
+Adding `#[kdl(alias = "...")]` to a struct makes deserialization accept the alternative name too.
 
 ```rust
 #[derive(KdlDeserialize)]
@@ -255,32 +254,31 @@ struct Database {
 }
 ```
 
-`database "pg://..."` でも `db "pg://..."` でもデシリアライズ可能。
-`kdl_node_name()` は常に primary name（`"database"`）を返す。
+Both `database "pg://..."` and `db "pg://..."` deserialize successfully. `kdl_node_name()` always returns the primary name (`"database"`).
 
 ---
 
-## 使い方の例
+## Usage examples
 
-### ドキュメント全体をパースする
+### Parsing a whole document
 
-KDL ファイルにトップレベルノードが複数ある場合は `#[kdl(document)]` を使う:
+When a KDL file has multiple top-level nodes, use `#[kdl(document)]`:
 
 ```rust
 #[derive(KdlDeserialize)]
 #[kdl(document)]
 struct Config {
-    #[kdl(children)]    // Stage::kdl_node_name() で自動解決
+    #[kdl(children)]    // resolved via Stage::kdl_node_name()
     stages: Vec<Stage>,
 
-    #[kdl(children)]    // Service::kdl_node_name() で自動解決
+    #[kdl(children)]    // resolved via Service::kdl_node_name()
     services: Vec<Service>,
 }
 
 let config: Config = club_kdl::from_str(kdl_text).unwrap();
 ```
 
-### 全引数を収集する
+### Collecting all arguments
 
 ```rust
 #[derive(KdlDeserialize, KdlSerialize)]
@@ -295,7 +293,7 @@ struct DependsOn {
 depends_on "db" "redis" "cache"
 ```
 
-### 子ノードマップ
+### Child node map
 
 ```rust
 #[derive(KdlDeserialize, KdlSerialize)]
@@ -320,7 +318,7 @@ service "api" {
 
 ### unwrap_arg / unwrap_args
 
-子ノードの引数だけを値として取得する:
+Take only a child node's arguments as the value:
 
 ```rust
 #[derive(KdlDeserialize, KdlSerialize)]
@@ -343,7 +341,7 @@ app {
 
 ### flatten
 
-子構造体のフィールドを親ノードに展開する:
+Expand a child struct's fields into the parent node:
 
 ```rust
 #[derive(KdlDeserialize, KdlSerialize)]
@@ -371,63 +369,67 @@ service "api" interval=30 timeout=5
 
 ---
 
-## サポートする型
+## Supported types
 
-- 整数: `i32`, `i64`, `i128`, `u16`, `u32`, `u64`, `usize`
-- 浮動小数点: `f64`
-- 真偽値: `bool`
-- 文字列: `String`, `&str`（ゼロコピー）
-- パス: `PathBuf`
-- コレクション: `Vec<T>`, `HashMap<String, String>`
-- オプショナル: `Option<T>`
-- カスタム型: `FromKdlValue` / `ToKdlValue` を実装
+- Integers: `i32`, `i64`, `i128`, `u16`, `u32`, `u64`, `usize`
+- Floating point: `f64`
+- Boolean: `bool`
+- Strings: `String`, `&str` (zero-copy)
+- Path: `PathBuf`
+- Collections: `Vec<T>`, `HashMap<String, String>`
+- Optional: `Option<T>`
+- Custom types: implement `FromKdlValue` / `ToKdlValue`
 
-## ガイド
+## Guides
 
-より詳しい使い方は [`docs/guide/`](docs/guide/) を参照:
+For more detailed usage, see [`docs/guide/`](docs/guide/README.md):
 
-- [カスタム型ガイド](docs/guide/custom-types.md) — 独自型 (chrono 型・newtype など) を KDL 値にマッピング
-- [KDL 設計ベストプラクティス](docs/guide/best-practices.md) — argument / property / children の使い分けとアンチパターン
-- [トラブルシュート](docs/guide/troubleshooting.md) — よくあるエラーの原因と対処
+- [Custom Types Guide](docs/guide/custom-types.md) — map your own types (chrono types, newtypes, etc.) to KDL values
+- [KDL Design Best Practices](docs/guide/best-practices.md) — choosing between argument / property / children, and anti-patterns
+- [Troubleshooting](docs/guide/troubleshooting.md) — common errors and their fixes
 
-## ベンチマーク
+## Benchmarks
 
-`benches/kdl_vs_json.rs` に同等の docker-compose 風データを KDL と JSON で読み書きするマイクロベンチがあります。
+`benches/kdl_vs_json.rs` contains a micro-benchmark that reads and writes equivalent docker-compose-like data in both KDL and JSON.
 
-実測値 (Apple Silicon, Rust 1.95, criterion 中央値):
+Measured values (Apple Silicon, Rust 1.95, criterion median):
 
-| operation | KDL (club-kdl) | JSON (serde_json) | 倍率 |
-|-----------|----------------|-------------------|------|
-| read  | 486 µs | 4.2 µs | KDL は ~115x 遅い |
-| write |  8.8 µs | 1.7 µs | KDL は ~5x 遅い |
+| operation | KDL (club-kdl) | JSON (serde_json) | ratio |
+|-----------|----------------|-------------------|-------|
+| read  | 486 µs | 4.2 µs | KDL is ~115x slower |
+| write |  8.8 µs | 1.7 µs | KDL is ~5x slower |
 
-実行:
+Run it with:
 
 ```sh
 cargo bench --bench kdl_vs_json
 ```
 
-結果は HTML レポート (`target/criterion/report/index.html`) で詳細を確認できます。
+Detailed results are available in the HTML report (`target/criterion/report/index.html`).
 
-**用途のガイド**: KDL は人間可読性に最適化されたフォーマットで、 read は JSON より明確に重いです。 hot-path での頻繁な再パースには JSON / binary フォーマット (rkyv 等) を選び、 **設定ファイル / 宣言的 schema / human-edited DSL** に club-kdl を使ってください。
+**Usage guidance**: KDL is a format optimized for human readability, and reads are clearly heavier than JSON. For frequent re-parsing on a hot path, choose JSON or a binary format (such as rkyv); use club-kdl for **configuration files, declarative schemas, and human-edited DSLs**.
 
 ## MSRV (Minimum Supported Rust Version)
 
-現在の MSRV は **Rust 1.94** です。 `Cargo.toml` の `rust-version` フィールドで管理し、 CI で継続的に検証しています。
+The current MSRV is **Rust 1.94**. It is managed via the `rust-version` field in `Cargo.toml` and continuously verified in CI.
 
-MSRV の引き上げは **patch リリースで行うことがあります** (semver の慣習に準拠)。
+MSRV bumps **may happen in a patch release** (following the semver convention).
 
 ## Contributing
 
-[CONTRIBUTING.md](./CONTRIBUTING.md) を参照してください。 セキュリティ問題は [SECURITY.md](./SECURITY.md) の手順で報告をお願いします。
+See [CONTRIBUTING.md](./CONTRIBUTING.md). Please report security issues following the procedure in [SECURITY.md](./SECURITY.md).
 
 ## License
 
-このプロジェクトはあなたの選択により以下のいずれかでライセンスされています:
+This project is licensed under either of the following, at your option:
 
 - Apache License, Version 2.0, ([LICENSE-APACHE](./LICENSE-APACHE) or <https://www.apache.org/licenses/LICENSE-2.0>)
 - MIT license ([LICENSE-MIT](./LICENSE-MIT) or <https://opensource.org/licenses/MIT>)
 
 ### Contribution
 
-特に明示的に別段の定めがない限り、 あなたが意図的に提出した、 Apache-2.0 ライセンスで定義されている、本作品に含めるためのコントリビューションは、 追加の条項なしに上記のようにデュアルライセンスされるものとします。
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any additional terms or conditions.
+
+---
+
+> 📝 This English document is translated from the Japanese original. [`README.ja.md`](README.ja.md) is the source of truth — if the two ever disagree, the Japanese version is authoritative.
