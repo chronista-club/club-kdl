@@ -1,7 +1,7 @@
 //! `club-kdl-codegen` CLI — generate target-language code from a KDL schema.
 //!
 //! ```text
-//! club-kdl-codegen <schema.kdl> --target <rust|typescript>
+//! club-kdl-codegen <schema.kdl> --target <rust|typescript|zod|surrealql>
 //! ```
 //!
 //! Reads the KDL schema file, parses it into the [`Schema`](kdl_codegen::ir::Schema)
@@ -12,10 +12,10 @@
 //! for consumers that integrate codegen into their build.
 
 use kdl_codegen::Emitter;
-use kdl_codegen::emit::{RustEmitter, TypeScriptEmitter};
+use kdl_codegen::emit::{RustEmitter, SurrealQlEmitter, TypeScriptEmitter, ZodEmitter};
 use std::process::ExitCode;
 
-const USAGE: &str = "usage: club-kdl-codegen <schema.kdl> --target <rust|typescript>";
+const USAGE: &str = "usage: club-kdl-codegen <schema.kdl> --target <rust|typescript|zod|surrealql>";
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -70,8 +70,10 @@ fn run(args: &[String]) -> Result<String, String> {
     match target {
         "rust" | "rs" => Ok(RustEmitter::new().emit(&schema)),
         "typescript" | "ts" => Ok(TypeScriptEmitter::new().emit(&schema)),
+        "zod" => Ok(ZodEmitter::new().emit(&schema)),
+        "surrealql" | "surql" => Ok(SurrealQlEmitter::new().emit(&schema)),
         other => Err(format!(
-            "unknown target: {other} (expected rust|typescript)"
+            "unknown target: {other} (expected rust|typescript|zod|surrealql)"
         )),
     }
 }

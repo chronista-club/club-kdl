@@ -1,13 +1,13 @@
 //! # club-kdl-codegen
 //!
 //! Generate type / schema definitions in multiple languages from a single
-//! KDL schema file (KDL-first). Targets implemented: **Rust** and
-//! **TypeScript**. Zod and SurrealQL are planned (see `ROADMAP.md`, Phase 1).
+//! KDL schema file (KDL-first). Targets: **Rust**, **TypeScript**, **Zod**,
+//! and **SurrealQL**.
 //!
 //! ## Pipeline
 //!
 //! ```text
-//! *.kdl  ──parser──▶  Schema IR  ──emitter──▶  Rust / TypeScript
+//! *.kdl  ──parser──▶  Schema IR  ──emitter──▶  Rust / TypeScript / Zod / SurrealQL
 //! ```
 //!
 //! The intermediate [`ir::Schema`] representation decouples parsing from
@@ -21,9 +21,10 @@ pub mod emit;
 pub mod ir;
 pub mod parser;
 
-/// A code generation target. Each language emitter (currently
-/// [`emit::RustEmitter`] / [`emit::TypeScriptEmitter`]) implements this trait
-/// against the shared [`ir::Schema`].
+/// A code generation target. Each language emitter ([`emit::RustEmitter`] /
+/// [`emit::TypeScriptEmitter`] / [`emit::ZodEmitter`] /
+/// [`emit::SurrealQlEmitter`]) implements this trait against the shared
+/// [`ir::Schema`].
 pub trait Emitter {
     /// Render the given schema into target-language source text.
     fn emit(&self, schema: &ir::Schema) -> String;

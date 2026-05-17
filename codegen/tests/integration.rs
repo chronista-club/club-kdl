@@ -1,11 +1,12 @@
 //! End-to-end tests for `club-kdl-codegen`:
 //!
-//! - **library pipeline** — `parse` → `Emitter` for the Rust / TypeScript
-//!   targets on a representative schema (data + protocol dialect).
+//! - **library pipeline** — `parse` → `Emitter` for all four targets
+//!   (Rust / TypeScript / Zod / SurrealQL) on a representative schema
+//!   exercising both the data and protocol dialects.
 //! - **CLI** — the `club-kdl-codegen` binary via subprocess.
 
 use kdl_codegen::Emitter;
-use kdl_codegen::emit::{RustEmitter, TypeScriptEmitter};
+use kdl_codegen::emit::{RustEmitter, SurrealQlEmitter, TypeScriptEmitter, ZodEmitter};
 use kdl_codegen::parser::parse;
 
 /// A representative schema exercising both dialects: standalone `struct` /
@@ -82,14 +83,62 @@ fn typescript_pipeline_emits_all_dialect_constructs() {
 }
 
 #[test]
-fn rust_and_typescript_outputs_are_non_empty_and_stable() {
+fn zod_pipeline_emits_schemas_with_enum_first() {
+    let schema = parse(SCHEMA).expect("schema parses");
+    let out = ZodEmitter::new().emit(&schema);
+
+    assert!(out.contains("import { z } from \"zod\";"), "zod import");
+    assert!(out.contains("export const Role = z.enum("), "enum schema");
+    assert!(
+        out.contains("export const User = z.object({"),
+        "object schema"
+    );
+    assert!(
+        out.contains("export const Send = z.object({"),
+        "protocol payload"
+    );
+    // enum must precede the struct that references it (Zod values can't be
+    // forward-referenced).
+    let role = out.find("export const Role").unwrap();
+    let user = out.find("export const User").unwrap();
+    assert!(role < user, "enum precedes the struct using it");
+}
+
+#[test]
+fn surrealql_pipeline_emits_ddl_for_data_dialect_only() {
+    let schema = parse(SCHEMA).expect("schema parses");
+    let out = SurrealQlEmitter::new().emit(&schema);
+
+    assert!(out.contains("DEFINE TABLE user SCHEMAFULL;"), "table DDL");
+    assert!(
+        out.contains("DEFINE FIELD id ON user TYPE string;"),
+        "field DDL"
+    );
+    assert!(
+        out.contains("ASSERT $value IN ['admin', 'member']"),
+        "enum field → ASSERT clause"
+    );
+    // the protocol dialect has no DB representation — payload structs must
+    // not leak into the DDL.
+    assert!(!out.contains("Send"), "protocol payload not emitted to DDL");
+}
+
+#[test]
+fn all_four_targets_are_non_empty_and_stable() {
     let schema = parse(SCHEMA).expect("schema parses");
     // Determinism: emitting twice yields byte-identical output.
     let rust = RustEmitter::new().emit(&schema);
     let ts = TypeScriptEmitter::new().emit(&schema);
+    let zod = ZodEmitter::new().emit(&schema);
+    let surql = SurrealQlEmitter::new().emit(&schema);
     assert_eq!(rust, RustEmitter::new().emit(&schema));
     assert_eq!(ts, TypeScriptEmitter::new().emit(&schema));
-    assert!(!rust.is_empty() && !ts.is_empty());
+    assert_eq!(zod, ZodEmitter::new().emit(&schema));
+    assert_eq!(surql, SurrealQlEmitter::new().emit(&schema));
+    assert!(
+        ![&rust, &ts, &zod, &surql].iter().any(|s| s.is_empty()),
+        "every target produces non-empty output"
+    );
 }
 
 // =============================================================================
@@ -140,6 +189,27 @@ fn cli_generates_rust_to_stdout() {
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(stdout.contains("pub struct User {"));
     assert!(stdout.contains("pub enum Role {"));
+    std::fs::remove_file(&path).ok();
+}
+
+#[test]
+fn cli_generates_zod_and_surrealql() {
+    let path = write_temp_schema("gen-multi");
+    for (target, needle) in [
+        ("zod", "z.object("),
+        ("surrealql", "DEFINE TABLE user SCHEMAFULL;"),
+    ] {
+        let out = cli()
+            .arg(&path)
+            .args(["--target", target])
+            .output()
+            .expect("runs");
+        assert!(out.status.success(), "{target} generation should succeed");
+        assert!(
+            String::from_utf8_lossy(&out.stdout).contains(needle),
+            "{target} output should contain {needle:?}"
+        );
+    }
     std::fs::remove_file(&path).ok();
 }
 
