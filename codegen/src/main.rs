@@ -70,6 +70,8 @@ fn run(args: &[String]) -> Result<String, String> {
     match target {
         "rust" | "rs" => Ok(RustEmitter::new().emit(&schema)),
         "typescript" | "ts" => Ok(TypeScriptEmitter::new().emit(&schema)),
-        other => Err(format!("unknown target: {other} (expected rust|typescript)")),
+        other => Err(format!(
+            "unknown target: {other} (expected rust|typescript)"
+        )),
     }
 }

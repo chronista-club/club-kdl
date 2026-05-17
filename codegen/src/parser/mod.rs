@@ -230,9 +230,7 @@ fn parse_ty(s: &str) -> Result<ir::Ty, ParseError> {
     };
     match prim {
         Some(p) => Ok(ir::Ty::Primitive(p)),
-        None if s.is_empty() => {
-            Err(ParseError::Validation("empty field type".to_string()))
-        }
+        None if s.is_empty() => Err(ParseError::Validation("empty field type".to_string())),
         None => Ok(ir::Ty::Named(s.to_string())),
     }
 }
@@ -306,7 +304,10 @@ mod tests {
         let event = &channel.events[0];
         assert_eq!(event.name, "Tick");
         assert!(event.fields[0].required);
-        assert!(!event.fields[1].required, "absent required= defaults to false");
+        assert!(
+            !event.fields[1].required,
+            "absent required= defaults to false"
+        );
     }
 
     #[test]
@@ -369,7 +370,10 @@ mod tests {
         match &schema.types[0] {
             ir::TypeDef::Struct { name, fields } => {
                 assert_eq!(name, "User");
-                assert_eq!(fields[1].ty, ir::Ty::Array(Box::new(ir::Ty::Primitive(ir::Prim::String))));
+                assert_eq!(
+                    fields[1].ty,
+                    ir::Ty::Array(Box::new(ir::Ty::Primitive(ir::Prim::String)))
+                );
                 assert_eq!(fields[2].ty, ir::Ty::Named("Role".to_string()));
             }
             other => panic!("expected struct, got {other:?}"),
@@ -398,8 +402,17 @@ mod tests {
 
     #[test]
     fn primitive_type_aliases() {
-        assert_eq!(parse_ty("object").unwrap(), ir::Ty::Primitive(ir::Prim::Json));
-        assert_eq!(parse_ty("number").unwrap(), ir::Ty::Primitive(ir::Prim::Float));
-        assert_eq!(parse_ty("timestamp").unwrap(), ir::Ty::Primitive(ir::Prim::Datetime));
+        assert_eq!(
+            parse_ty("object").unwrap(),
+            ir::Ty::Primitive(ir::Prim::Json)
+        );
+        assert_eq!(
+            parse_ty("number").unwrap(),
+            ir::Ty::Primitive(ir::Prim::Float)
+        );
+        assert_eq!(
+            parse_ty("timestamp").unwrap(),
+            ir::Ty::Primitive(ir::Prim::Datetime)
+        );
     }
 }

@@ -25,8 +25,8 @@
 //!   `timestamp` / `uuid` / `language_code` aliases of club-unison are still
 //!   honoured for compatibility with the fixed header.
 
-use crate::ir;
 use crate::Emitter;
+use crate::ir;
 
 use super::case::to_pascal_case;
 
@@ -104,12 +104,7 @@ fn render_enum(name: &str, variants: &[String]) -> String {
 /// Render a single interface field line.
 fn render_field(field: &ir::Field) -> String {
     let optional = if field.required { "" } else { "?" };
-    format!(
-        "  {}{}: {};",
-        field.name,
-        optional,
-        ty_to_ts(&field.ty)
-    )
+    format!("  {}{}: {};", field.name, optional, ty_to_ts(&field.ty))
 }
 
 /// Map an [`ir::Ty`] to its TypeScript type expression.

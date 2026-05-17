@@ -24,8 +24,8 @@
 //! - The IR's [`ir::Prim::Datetime`] maps to `chrono::DateTime<Utc>`; named
 //!   type references emit the bare identifier (no `TypeRegistry` indirection).
 
-use crate::ir;
 use crate::Emitter;
+use crate::ir;
 
 use super::case::{to_pascal_case, to_snake_case};
 
@@ -225,7 +225,11 @@ mod tests {
         let schema = ir::Schema {
             types: vec![ir::TypeDef::Struct {
                 name: "User".to_string(),
-                fields: vec![field("displayName", ir::Ty::Primitive(ir::Prim::String), true)],
+                fields: vec![field(
+                    "displayName",
+                    ir::Ty::Primitive(ir::Prim::String),
+                    true,
+                )],
             }],
             protocol: None,
         };
