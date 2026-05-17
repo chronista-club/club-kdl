@@ -19,13 +19,27 @@
 //!   OUT <to> SCHEMAFULL`. A `unique=#true` relation also emits a
 //!   `DEFINE INDEX ... UNIQUE` on `(in, out)`.
 //! - **enum**: SurrealDB has no enum type. An enum-typed field becomes
-//!   `string` with an `ASSERT $value IN [...]` clause listing the variants.
+//!   `string` with an `ASSERT $value INSIDE [...]` clause listing the variants.
 //! - **`link<Record>`**: a `record<table>` link.
 //! - **literal / literal union**: `'a' | 'b'` becomes `string` with an
-//!   `ASSERT $value IN ['a', 'b']` clause.
+//!   `ASSERT $value INSIDE ['a', 'b']` clause.
 //! - **`object` + `flexible=#true`**: rendered as `FLEXIBLE TYPE object`
 //!   (schemaless nested object).
 //! - **optional**: a non-required field is wrapped in `option<T>`.
+//!
+//! ## Tier 2 — description / constraints
+//!
+//! - **description**: a `COMMENT '...'` clause on the `DEFINE TABLE` (for a
+//!   type definition) and on the `DEFINE FIELD` (for a field description).
+//! - **constraints**: emitted as `ASSERT` conditions —
+//!   - `min` / `max` → `$value >= N` / `$value <= M`,
+//!   - `min_length` / `max_length` → `string::len($value)` for a string and
+//!     `array::len($value)` for an array,
+//!   - `pattern` → `string::matches($value, '<pattern>')` (SurrealDB's regex
+//!     match function).
+//!
+//!   Every condition — the type-derived value-set (`$value INSIDE [...]`) and
+//!   the constraint conditions — is joined into one `ASSERT` clause with `AND`.
 
 use std::collections::HashMap;
 
@@ -47,12 +61,14 @@ impl SurrealQlEmitter {
 
 impl Emitter for SurrealQlEmitter {
     fn emit(&self, schema: &ir::Schema) -> String {
-        // Map enum name → variants, for `ASSERT $value IN [...]` rendering.
+        // Map enum name → variants, for `ASSERT $value INSIDE [...]` rendering.
         let enums: HashMap<&str, &[String]> = schema
             .types
             .iter()
             .filter_map(|t| match t {
-                ir::TypeDef::Enum { name, variants } => Some((name.as_str(), variants.as_slice())),
+                ir::TypeDef::Enum { name, variants, .. } => {
+                    Some((name.as_str(), variants.as_slice()))
+                }
                 ir::TypeDef::Struct { .. } => None,
             })
             .collect();
@@ -60,9 +76,20 @@ impl Emitter for SurrealQlEmitter {
         let mut code = String::from(HEADER);
         // data dialect — `struct` tables (embedded value types).
         for ty in &schema.types {
-            if let ir::TypeDef::Struct { name, fields } = ty {
+            if let ir::TypeDef::Struct {
+                name,
+                description,
+                fields,
+            } = ty
+            {
                 code.push('\n');
-                code.push_str(&render_table(name, fields, TableKind::Struct, &enums));
+                code.push_str(&render_table(
+                    name,
+                    description.as_deref(),
+                    fields,
+                    TableKind::Struct,
+                    &enums,
+                ));
             }
         }
         // entity dialect — `record` tables.
@@ -70,6 +97,7 @@ impl Emitter for SurrealQlEmitter {
             code.push('\n');
             code.push_str(&render_table(
                 &record.name,
+                record.description.as_deref(),
                 &record.fields,
                 TableKind::Record,
                 &enums,
@@ -100,9 +128,22 @@ const HEADER: &str = "\
 -- DO NOT EDIT MANUALLY
 ";
 
+/// Render a `COMMENT '...'` clause from an optional description, or the empty
+/// string. The description is single-quoted with `'` and `\` escaped.
+fn comment_clause(description: Option<&str>) -> String {
+    match description {
+        Some(text) => {
+            let escaped = text.replace('\\', "\\\\").replace('\'', "\\'");
+            format!(" COMMENT '{escaped}'")
+        }
+        None => String::new(),
+    }
+}
+
 /// Render one `struct` / `record` as a `DEFINE TABLE` plus its `DEFINE FIELD`s.
 fn render_table(
     name: &str,
+    description: Option<&str>,
     fields: &[ir::Field],
     kind: TableKind,
     enums: &HashMap<&str, &[String]>,
@@ -112,7 +153,10 @@ fn render_table(
         TableKind::Struct => "",
         TableKind::Record => "TYPE NORMAL ",
     };
-    let mut out = format!("DEFINE TABLE {table} {type_clause}SCHEMAFULL;\n");
+    let mut out = format!(
+        "DEFINE TABLE {table} {type_clause}SCHEMAFULL{};\n",
+        comment_clause(description)
+    );
     for field in fields {
         out.push_str(&render_field(&table, field, enums));
     }
@@ -126,7 +170,10 @@ fn render_relation(relation: &ir::Relation, enums: &HashMap<&str, &[String]>) ->
     let table = to_snake_case(&relation.name);
     let in_t = to_snake_case(&relation.from);
     let out_t = to_snake_case(&relation.to);
-    let mut out = format!("DEFINE TABLE {table} TYPE RELATION IN {in_t} OUT {out_t} SCHEMAFULL;\n");
+    let mut out = format!(
+        "DEFINE TABLE {table} TYPE RELATION IN {in_t} OUT {out_t} SCHEMAFULL{};\n",
+        comment_clause(relation.description.as_deref())
+    );
     for field in &relation.fields {
         out.push_str(&render_field(&table, field, enums));
     }
@@ -139,8 +186,12 @@ fn render_relation(relation: &ir::Relation, enums: &HashMap<&str, &[String]>) ->
 }
 
 /// Render one `DEFINE FIELD` statement.
+///
+/// The `ASSERT` clause combines the type-derived condition (enum / literal
+/// value-set) with any [`ir::Constraints`] conditions, joined by `AND` so a
+/// constrained enum field still enforces both its value set and its bounds.
 fn render_field(table: &str, field: &ir::Field, enums: &HashMap<&str, &[String]>) -> String {
-    let (base, assert) = ty_to_surql(&field.ty, enums);
+    let (base, ty_assert) = ty_to_surql(&field.ty, enums);
     let full = if field.required {
         base
     } else {
@@ -156,15 +207,66 @@ fn render_field(table: &str, field: &ir::Field, enums: &HashMap<&str, &[String]>
         "DEFINE FIELD {} ON {table} {flexible}TYPE {full}",
         field.name
     );
-    if let Some(clause) = assert {
-        line.push(' ');
-        line.push_str(&clause);
+    // Collect every ASSERT condition: the type-derived one first, then the
+    // constraint-derived ones; join with `AND`.
+    let mut conditions: Vec<String> = Vec::new();
+    conditions.extend(ty_assert);
+    conditions.extend(constraint_conditions(&field.ty, &field.constraints));
+    if !conditions.is_empty() {
+        let joined = conditions.join(" AND ");
+        // An optional field may hold NONE. Guard the assertion with
+        // `$value = NONE OR …` so an absent value always passes — SurrealDB's
+        // idiom for a constrained `option<T>` field. `AND` binds tighter than
+        // `OR`, so no parentheses are needed.
+        let assert = if field.required {
+            joined
+        } else {
+            format!("$value = NONE OR {joined}")
+        };
+        line.push_str(&format!(" ASSERT {assert}"));
     }
     if let Some(default) = &field.default {
         line.push_str(&format!(" DEFAULT {}", surql_default(&field.ty, default)));
     }
+    line.push_str(&comment_clause(field.description.as_deref()));
     line.push_str(";\n");
     line
+}
+
+/// Render the SurrealQL `ASSERT` conditions for a field's [`ir::Constraints`].
+///
+/// - `min` / `max` → `$value >= N` / `$value <= M` (numeric range).
+/// - `min_length` / `max_length` → `string::len($value) >= N` for a string,
+///   `array::len($value) >= N` for an array.
+/// - `pattern` → `string::matches($value, '<pattern>')` — SurrealDB's regex
+///   match function.
+fn constraint_conditions(ty: &ir::Ty, c: &ir::Constraints) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    if let Some(min) = c.min {
+        out.push(format!("$value >= {min}"));
+    }
+    if let Some(max) = c.max {
+        out.push(format!("$value <= {max}"));
+    }
+    // Length bounds apply to strings and arrays via the matching `*::len`.
+    let len_fn = match ty {
+        ir::Ty::Array(_) => Some("array::len"),
+        ir::Ty::Primitive(ir::Prim::String) => Some("string::len"),
+        _ => None,
+    };
+    if let Some(len_fn) = len_fn {
+        if let Some(min) = c.min_length {
+            out.push(format!("{len_fn}($value) >= {min}"));
+        }
+        if let Some(max) = c.max_length {
+            out.push(format!("{len_fn}($value) <= {max}"));
+        }
+    }
+    if let Some(pattern) = &c.pattern {
+        let escaped = pattern.replace('\\', "\\\\").replace('\'', "\\'");
+        out.push(format!("string::matches($value, '{escaped}')"));
+    }
+    out
 }
 
 /// Whether a type is the `object` primitive (so `flexible=` applies).
@@ -190,8 +292,11 @@ fn surql_default(ty: &ir::Ty, raw: &str) -> String {
     }
 }
 
-/// Map an [`ir::Ty`] to a SurrealQL type, plus an optional `ASSERT` clause
+/// Map an [`ir::Ty`] to a SurrealQL type, plus an optional `ASSERT` *condition*
 /// (used to constrain enum-typed and literal-union fields to their value set).
+///
+/// The returned condition has no `ASSERT` prefix — [`render_field`] joins it
+/// with any constraint conditions via `AND` and prefixes `ASSERT` once.
 fn ty_to_surql(ty: &ir::Ty, enums: &HashMap<&str, &[String]>) -> (String, Option<String>) {
     match ty {
         ir::Ty::Primitive(p) => (prim_to_surql(*p).to_string(), None),
@@ -200,10 +305,10 @@ fn ty_to_surql(ty: &ir::Ty, enums: &HashMap<&str, &[String]>) -> (String, Option
             (format!("array<{inner_ty}>"), None)
         }
         ir::Ty::Named(name) => match enums.get(name.as_str()) {
-            // enum → string constrained by an ASSERT clause.
+            // enum → string constrained by an ASSERT condition.
             Some(variants) => (
                 "string".to_string(),
-                Some(assert_in(variants.iter().map(String::as_str))),
+                Some(inside_condition(variants.iter().map(String::as_str))),
             ),
             // struct → a record link to that struct's table.
             None => (format!("record<{}>", to_snake_case(name)), None),
@@ -213,14 +318,14 @@ fn ty_to_surql(ty: &ir::Ty, enums: &HashMap<&str, &[String]>) -> (String, Option
         // a bare literal → string constrained to that single value.
         ir::Ty::Literal(value) => (
             "string".to_string(),
-            Some(assert_in(std::iter::once(value.as_str()))),
+            Some(inside_condition(std::iter::once(value.as_str()))),
         ),
         ir::Ty::Union(members) => {
-            // A union of string literals → `string` with an `ASSERT IN [...]`.
+            // A union of string literals → `string` with an `INSIDE [...]`.
             if let Some(values) = literal_union_values(members) {
                 (
                     "string".to_string(),
-                    Some(assert_in(values.iter().map(String::as_str))),
+                    Some(inside_condition(values.iter().map(String::as_str))),
                 )
             } else {
                 // A non-literal union → a SurrealDB union type
@@ -251,10 +356,12 @@ fn literal_union_values(members: &[ir::Ty]) -> Option<Vec<String>> {
         .collect()
 }
 
-/// Build an `ASSERT $value IN ['a', 'b', ...]` clause.
-fn assert_in<'a>(values: impl Iterator<Item = &'a str>) -> String {
+/// Build a `$value INSIDE ['a', 'b', ...]` condition. `INSIDE` is SurrealDB's
+/// canonical set-membership operator (matching the convention in production
+/// creo schemas).
+fn inside_condition<'a>(values: impl Iterator<Item = &'a str>) -> String {
     let list: Vec<String> = values.map(|v| format!("'{v}'")).collect();
-    format!("ASSERT $value IN [{}]", list.join(", "))
+    format!("$value INSIDE [{}]", list.join(", "))
 }
 
 /// Map an [`ir::Prim`] to its SurrealQL type.
@@ -280,6 +387,8 @@ mod tests {
             required,
             flexible: false,
             default: None,
+            description: None,
+            constraints: ir::Constraints::default(),
         }
     }
 
@@ -294,6 +403,7 @@ mod tests {
         let schema = ir::Schema {
             types: vec![ir::TypeDef::Struct {
                 name: "User".to_string(),
+                description: None,
                 fields: vec![
                     field("id", ir::Ty::Primitive(ir::Prim::String), true),
                     field("age", ir::Ty::Primitive(ir::Prim::Int), true),
@@ -313,6 +423,7 @@ mod tests {
         let schema = ir::Schema {
             types: vec![ir::TypeDef::Struct {
                 name: "User".to_string(),
+                description: None,
                 fields: vec![field("nick", ir::Ty::Primitive(ir::Prim::String), false)],
             }],
             protocol: None,
@@ -328,10 +439,12 @@ mod tests {
             types: vec![
                 ir::TypeDef::Struct {
                     name: "User".to_string(),
+                    description: None,
                     fields: vec![field("role", ir::Ty::Named("Role".to_string()), true)],
                 },
                 ir::TypeDef::Enum {
                     name: "Role".to_string(),
+                    description: None,
                     variants: vec!["admin".to_string(), "member".to_string()],
                 },
             ],
@@ -340,7 +453,7 @@ mod tests {
         };
         let out = SurrealQlEmitter::new().emit(&schema);
         assert!(out.contains(
-            "DEFINE FIELD role ON user TYPE string ASSERT $value IN ['admin', 'member'];"
+            "DEFINE FIELD role ON user TYPE string ASSERT $value INSIDE ['admin', 'member'];"
         ));
     }
 
@@ -350,10 +463,12 @@ mod tests {
             types: vec![
                 ir::TypeDef::Struct {
                     name: "Post".to_string(),
+                    description: None,
                     fields: vec![field("author", ir::Ty::Named("User".to_string()), true)],
                 },
                 ir::TypeDef::Struct {
                     name: "User".to_string(),
+                    description: None,
                     fields: vec![field("id", ir::Ty::Primitive(ir::Prim::String), true)],
                 },
             ],
@@ -369,6 +484,7 @@ mod tests {
         let schema = ir::Schema {
             types: vec![ir::TypeDef::Struct {
                 name: "T".to_string(),
+                description: None,
                 fields: vec![
                     field("f", ir::Ty::Primitive(ir::Prim::Float), true),
                     field("b", ir::Ty::Primitive(ir::Prim::Bool), true),
@@ -422,6 +538,7 @@ mod tests {
         let schema = ir::Schema {
             records: vec![ir::Record {
                 name: "Atlas".to_string(),
+                description: None,
                 id_strategy: ir::IdStrategy::Uuidv7,
                 fields: vec![field("name", ir::Ty::Primitive(ir::Prim::String), true)],
             }],
@@ -439,6 +556,7 @@ mod tests {
         let schema = ir::Schema {
             types: vec![ir::TypeDef::Struct {
                 name: "GeoPoint".to_string(),
+                description: None,
                 fields: vec![field("lat", ir::Ty::Primitive(ir::Prim::Float), true)],
             }],
             ..Default::default()
@@ -453,6 +571,7 @@ mod tests {
         let schema = ir::Schema {
             relations: vec![ir::Relation {
                 name: "derivedFrom".to_string(),
+                description: None,
                 from: "Memory".to_string(),
                 to: "Memory".to_string(),
                 unique: true,
@@ -481,6 +600,7 @@ mod tests {
         let schema = ir::Schema {
             relations: vec![ir::Relation {
                 name: "tagged".to_string(),
+                description: None,
                 from: "Note".to_string(),
                 to: "Tag".to_string(),
                 unique: false,
@@ -498,6 +618,7 @@ mod tests {
         let schema = ir::Schema {
             records: vec![ir::Record {
                 name: "Atlas".to_string(),
+                description: None,
                 id_strategy: ir::IdStrategy::Uuidv7,
                 fields: vec![field("parent", ir::Ty::Link("Atlas".to_string()), false)],
             }],
@@ -512,6 +633,7 @@ mod tests {
         let schema = ir::Schema {
             records: vec![ir::Record {
                 name: "Doc".to_string(),
+                description: None,
                 id_strategy: ir::IdStrategy::Uuidv7,
                 fields: vec![field(
                     "visibility",
@@ -526,7 +648,7 @@ mod tests {
         };
         let out = SurrealQlEmitter::new().emit(&schema);
         assert!(out.contains(
-            "DEFINE FIELD visibility ON doc TYPE string ASSERT $value IN ['public', 'private'];"
+            "DEFINE FIELD visibility ON doc TYPE string ASSERT $value INSIDE ['public', 'private'];"
         ));
     }
 
@@ -537,6 +659,7 @@ mod tests {
         let schema = ir::Schema {
             records: vec![ir::Record {
                 name: "Atlas".to_string(),
+                description: None,
                 id_strategy: ir::IdStrategy::Uuidv7,
                 fields: vec![f],
             }],
@@ -555,6 +678,7 @@ mod tests {
         let schema = ir::Schema {
             records: vec![ir::Record {
                 name: "Doc".to_string(),
+                description: None,
                 id_strategy: ir::IdStrategy::Uuidv7,
                 fields: vec![f, g],
             }],
@@ -563,5 +687,166 @@ mod tests {
         let out = SurrealQlEmitter::new().emit(&schema);
         assert!(out.contains("DEFAULT 'private'"), "string default quoted");
         assert!(out.contains("DEFAULT 0"), "numeric default unquoted");
+    }
+
+    // -------------------------------------------------------------------------
+    // Tier 2 — description -> COMMENT, constraints -> ASSERT, value-set -> INSIDE
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn record_and_field_descriptions_become_comment_clauses() {
+        let mut content = field("content", ir::Ty::Primitive(ir::Prim::String), true);
+        content.description = Some("Memory content text".to_string());
+        let schema = ir::Schema {
+            records: vec![ir::Record {
+                name: "Memory".to_string(),
+                description: Some("User memory".to_string()),
+                id_strategy: ir::IdStrategy::Uuidv7,
+                fields: vec![content],
+            }],
+            ..Default::default()
+        };
+        let out = SurrealQlEmitter::new().emit(&schema);
+        assert!(
+            out.contains("DEFINE TABLE memory TYPE NORMAL SCHEMAFULL COMMENT 'User memory';"),
+            "table COMMENT; got: {out}"
+        );
+        assert!(
+            out.contains(
+                "DEFINE FIELD content ON memory TYPE string COMMENT 'Memory content text';"
+            ),
+            "field COMMENT; got: {out}"
+        );
+    }
+
+    #[test]
+    fn numeric_constraints_become_assert_range() {
+        let mut f = field("confidence", ir::Ty::Primitive(ir::Prim::Float), true);
+        f.constraints = ir::Constraints {
+            min: Some(0),
+            max: Some(1),
+            ..Default::default()
+        };
+        let schema = ir::Schema {
+            types: vec![ir::TypeDef::Struct {
+                name: "T".to_string(),
+                description: None,
+                fields: vec![f],
+            }],
+            ..Default::default()
+        };
+        let out = SurrealQlEmitter::new().emit(&schema);
+        assert!(
+            out.contains(
+                "DEFINE FIELD confidence ON t TYPE float ASSERT $value >= 0 AND $value <= 1;"
+            ),
+            "got: {out}"
+        );
+    }
+
+    #[test]
+    fn string_length_and_pattern_constraints_become_assert() {
+        let mut f = field("name", ir::Ty::Primitive(ir::Prim::String), true);
+        f.constraints = ir::Constraints {
+            min_length: Some(1),
+            max_length: Some(32),
+            pattern: Some("^[a-z]+$".to_string()),
+            ..Default::default()
+        };
+        let schema = ir::Schema {
+            types: vec![ir::TypeDef::Struct {
+                name: "T".to_string(),
+                description: None,
+                fields: vec![f],
+            }],
+            ..Default::default()
+        };
+        let out = SurrealQlEmitter::new().emit(&schema);
+        assert!(
+            out.contains(
+            "ASSERT string::len($value) >= 1 AND string::len($value) <= 32 AND string::matches($value, '^[a-z]+$')"
+            ),
+            "string length + pattern ASSERT; got: {out}"
+        );
+    }
+
+    #[test]
+    fn array_length_constraint_uses_array_len() {
+        let mut f = field(
+            "tags",
+            ir::Ty::Array(Box::new(ir::Ty::Primitive(ir::Prim::String))),
+            true,
+        );
+        f.constraints = ir::Constraints {
+            min_length: Some(2),
+            ..Default::default()
+        };
+        let schema = ir::Schema {
+            types: vec![ir::TypeDef::Struct {
+                name: "T".to_string(),
+                description: None,
+                fields: vec![f],
+            }],
+            ..Default::default()
+        };
+        let out = SurrealQlEmitter::new().emit(&schema);
+        assert!(out.contains("ASSERT array::len($value) >= 2"), "got: {out}");
+    }
+
+    #[test]
+    fn enum_value_set_and_constraint_assert_are_anded() {
+        // A constrained enum field keeps both the value-set INSIDE check and
+        // the constraint ASSERT, joined by AND.
+        let mut f = field("role", ir::Ty::Named("Role".to_string()), true);
+        f.constraints = ir::Constraints {
+            pattern: Some("^[a-z]+$".to_string()),
+            ..Default::default()
+        };
+        let schema = ir::Schema {
+            types: vec![
+                ir::TypeDef::Struct {
+                    name: "User".to_string(),
+                    description: None,
+                    fields: vec![f],
+                },
+                ir::TypeDef::Enum {
+                    name: "Role".to_string(),
+                    description: None,
+                    variants: vec!["admin".to_string(), "member".to_string()],
+                },
+            ],
+            ..Default::default()
+        };
+        let out = SurrealQlEmitter::new().emit(&schema);
+        assert!(
+            out.contains(
+                "ASSERT $value INSIDE ['admin', 'member'] AND string::matches($value, '^[a-z]+$')"
+            ),
+            "value-set AND constraint; got: {out}"
+        );
+    }
+
+    #[test]
+    fn assert_uses_inside_not_in() {
+        // Regression: the canonical SurrealDB set operator is INSIDE.
+        let schema = ir::Schema {
+            records: vec![ir::Record {
+                name: "Doc".to_string(),
+                description: None,
+                id_strategy: ir::IdStrategy::Uuidv7,
+                fields: vec![field(
+                    "visibility",
+                    ir::Ty::Union(vec![
+                        ir::Ty::Literal("public".to_string()),
+                        ir::Ty::Literal("private".to_string()),
+                    ]),
+                    true,
+                )],
+            }],
+            ..Default::default()
+        };
+        let out = SurrealQlEmitter::new().emit(&schema);
+        assert!(out.contains("ASSERT $value INSIDE ['public', 'private']"));
+        assert!(!out.contains("$value IN ["), "no legacy IN operator");
     }
 }

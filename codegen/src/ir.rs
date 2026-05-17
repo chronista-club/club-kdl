@@ -65,6 +65,8 @@ pub enum TypeDef {
     Struct {
         /// Type name (e.g. `"User"`).
         name: String,
+        /// Optional documentation string (`description="..."`).
+        description: Option<String>,
         /// Fields in source order.
         fields: Vec<Field>,
     },
@@ -72,6 +74,8 @@ pub enum TypeDef {
     Enum {
         /// Type name (e.g. `"Role"`).
         name: String,
+        /// Optional documentation string (`description="..."`).
+        description: Option<String>,
         /// Variant names in source order.
         variants: Vec<String>,
     },
@@ -95,6 +99,47 @@ pub struct Field {
     /// An optional default value, as written in the KDL `default="..."`
     /// property. Carried verbatim; emitters quote / render it per target.
     pub default: Option<String>,
+    /// An optional documentation string, from the KDL `description="..."`
+    /// property. Emitted as a doc comment (Rust `///`, TS `/** */` JSDoc,
+    /// Zod `.describe(...)`, SurrealQL `COMMENT '...'`).
+    pub description: Option<String>,
+    /// Value constraints, from the KDL `min` / `max` / `min_length` /
+    /// `max_length` / `pattern` properties. Emitted only by the Zod and
+    /// SurrealQL targets — the Rust / TypeScript type system cannot express
+    /// them.
+    pub constraints: Constraints,
+}
+
+/// Value constraints attached to a [`Field`].
+///
+/// These are language-agnostic validation metadata: a numeric range, a
+/// string / array length bound, and a regular-expression pattern. They are
+/// propagated to the **Zod** and **SurrealQL** emitters (which produce runtime
+/// validators / database `ASSERT`s); the Rust and TypeScript type systems
+/// cannot express them, so those emitters drop constraints entirely.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Constraints {
+    /// Inclusive lower bound for a numeric field (`min=N`).
+    pub min: Option<i64>,
+    /// Inclusive upper bound for a numeric field (`max=N`).
+    pub max: Option<i64>,
+    /// Inclusive minimum length for a string / array field (`min_length=N`).
+    pub min_length: Option<u64>,
+    /// Inclusive maximum length for a string / array field (`max_length=N`).
+    pub max_length: Option<u64>,
+    /// A regular-expression pattern a string field must match (`pattern="..."`).
+    pub pattern: Option<String>,
+}
+
+impl Constraints {
+    /// Whether no constraint is set.
+    pub fn is_empty(&self) -> bool {
+        self.min.is_none()
+            && self.max.is_none()
+            && self.min_length.is_none()
+            && self.max_length.is_none()
+            && self.pattern.is_none()
+    }
 }
 
 /// A field type.
@@ -148,6 +193,8 @@ pub enum Prim {
 pub struct Record {
     /// Record name (e.g. `"Atlas"`).
     pub name: String,
+    /// Optional documentation string (`description="..."`).
+    pub description: Option<String>,
     /// How the record's `id` is generated.
     pub id_strategy: IdStrategy,
     /// Fields in source order. The `id` field is *not* listed here — it is
@@ -176,6 +223,8 @@ pub enum IdStrategy {
 pub struct Relation {
     /// Relation name (e.g. `"derivedFrom"`).
     pub name: String,
+    /// Optional documentation string (`description="..."`).
+    pub description: Option<String>,
     /// The record name at the `in` end of the edge.
     pub from: String,
     /// The record name at the `out` end of the edge.

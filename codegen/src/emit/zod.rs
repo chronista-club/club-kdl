@@ -47,26 +47,44 @@ impl Emitter for ZodEmitter {
 
         // enums first — a Zod schema is a value and cannot be forward-referenced.
         for ty in &schema.types {
-            if let ir::TypeDef::Enum { name, variants } = ty {
-                code.push_str(&render_enum(name, variants));
+            if let ir::TypeDef::Enum {
+                name,
+                description,
+                variants,
+            } = ty
+            {
+                code.push_str(&render_enum(name, description.as_deref(), variants));
                 code.push_str("\n\n");
             }
         }
         // then structs.
         for ty in &schema.types {
-            if let ir::TypeDef::Struct { name, fields } = ty {
-                code.push_str(&render_object(name, fields));
+            if let ir::TypeDef::Struct {
+                name,
+                description,
+                fields,
+            } = ty
+            {
+                code.push_str(&render_object(name, description.as_deref(), fields));
                 code.push_str("\n\n");
             }
         }
 
         // entity dialect — records and relations.
         for record in &schema.records {
-            code.push_str(&render_object(&record.name, &record_members(record)));
+            code.push_str(&render_object(
+                &record.name,
+                record.description.as_deref(),
+                &record_members(record),
+            ));
             code.push_str("\n\n");
         }
         for relation in &schema.relations {
-            code.push_str(&render_object(&relation.name, &relation_members(relation)));
+            code.push_str(&render_object(
+                &relation.name,
+                relation.description.as_deref(),
+                &relation_members(relation),
+            ));
             code.push_str("\n\n");
         }
 
@@ -74,15 +92,15 @@ impl Emitter for ZodEmitter {
         if let Some(protocol) = &schema.protocol {
             for channel in &protocol.channels {
                 for req in &channel.requests {
-                    code.push_str(&render_object(&req.name, &req.fields));
+                    code.push_str(&render_object(&req.name, None, &req.fields));
                     code.push_str("\n\n");
                     if let Some(returns) = &req.returns {
-                        code.push_str(&render_object(&returns.name, &returns.fields));
+                        code.push_str(&render_object(&returns.name, None, &returns.fields));
                         code.push_str("\n\n");
                     }
                 }
                 for evt in &channel.events {
-                    code.push_str(&render_object(&evt.name, &evt.fields));
+                    code.push_str(&render_object(&evt.name, None, &evt.fields));
                     code.push_str("\n\n");
                 }
             }
@@ -99,37 +117,77 @@ const HEADER: &str = "\
 import { z } from \"zod\";
 ";
 
+/// Render a JavaScript string literal (double-quoted, with `"` and `\`
+/// escaped) for use inside a generated Zod call such as `.describe(...)`.
+fn js_string(text: &str) -> String {
+    let escaped = text.replace('\\', "\\\\").replace('"', "\\\"");
+    format!("\"{escaped}\"")
+}
+
+/// Append a `.describe("...")` call when the type definition carries a
+/// description.
+fn describe_suffix(description: Option<&str>) -> String {
+    match description {
+        Some(text) => format!(".describe({})", js_string(text)),
+        None => String::new(),
+    }
+}
+
 /// Render an `enum` as a `z.enum([...])`.
-fn render_enum(name: &str, variants: &[String]) -> String {
+fn render_enum(name: &str, description: Option<&str>, variants: &[String]) -> String {
     let vs: Vec<String> = variants.iter().map(|v| format!("\"{v}\"")).collect();
     format!(
-        "export const {} = z.enum([{}]);",
+        "export const {} = z.enum([{}]){};",
         to_pascal_case(name),
-        vs.join(", ")
+        vs.join(", "),
+        describe_suffix(description),
     )
 }
 
 /// Render a `struct` / payload as a `z.object({...})`.
-fn render_object(name: &str, fields: &[ir::Field]) -> String {
+fn render_object(name: &str, description: Option<&str>, fields: &[ir::Field]) -> String {
     let pascal = to_pascal_case(name);
+    let describe = describe_suffix(description);
     if fields.is_empty() {
-        return format!("export const {pascal} = z.object({{}});");
+        return format!("export const {pascal} = z.object({{}}){describe};");
     }
     let body: Vec<String> = fields.iter().map(render_field).collect();
     format!(
-        "export const {pascal} = z.object({{\n{}\n}});",
+        "export const {pascal} = z.object({{\n{}\n}}){describe};",
         body.join("\n")
     )
 }
 
-/// Render a single object field line.
+/// Render the constraint suffix for a Zod schema: `.min(N)` / `.max(N)` for a
+/// numeric range, `.min(N)` / `.max(N)` for a string / array length bound, and
+/// `.regex(/.../)` for a pattern. Numeric range and length bound never both
+/// apply to one field (a field is either numeric or string / array), so the
+/// shared `.min` / `.max` call sites do not collide.
+fn constraint_suffix(c: &ir::Constraints) -> String {
+    let mut out = String::new();
+    if let Some(min) = c.min.or(c.min_length.map(|n| n as i64)) {
+        out.push_str(&format!(".min({min})"));
+    }
+    if let Some(max) = c.max.or(c.max_length.map(|n| n as i64)) {
+        out.push_str(&format!(".max({max})"));
+    }
+    if let Some(pattern) = &c.pattern {
+        out.push_str(&format!(".regex(/{pattern}/)"));
+    }
+    out
+}
+
+/// Render a single object field line, applying any `.describe(...)` and
+/// constraint suffixes before the `.optional()` wrapper.
 fn render_field(field: &ir::Field) -> String {
-    let base = ty_to_zod(&field.ty);
-    let schema = if field.required {
-        base
-    } else {
-        format!("{base}.optional()")
-    };
+    let mut schema = ty_to_zod(&field.ty);
+    schema.push_str(&constraint_suffix(&field.constraints));
+    if let Some(desc) = &field.description {
+        schema.push_str(&format!(".describe({})", js_string(desc)));
+    }
+    if !field.required {
+        schema.push_str(".optional()");
+    }
     format!("  {}: {},", field.name, schema)
 }
 
@@ -141,6 +199,8 @@ fn id_member() -> ir::Field {
         required: true,
         flexible: false,
         default: None,
+        description: None,
+        constraints: ir::Constraints::default(),
     }
 }
 
@@ -161,6 +221,8 @@ fn relation_members(relation: &ir::Relation) -> Vec<ir::Field> {
         required: true,
         flexible: false,
         default: None,
+        description: None,
+        constraints: ir::Constraints::default(),
     };
     let mut members = Vec::with_capacity(relation.fields.len() + 3);
     members.push(id_member());
@@ -239,6 +301,8 @@ mod tests {
             required,
             flexible: false,
             default: None,
+            description: None,
+            constraints: ir::Constraints::default(),
         }
     }
 
@@ -254,6 +318,7 @@ mod tests {
         let schema = ir::Schema {
             types: vec![ir::TypeDef::Enum {
                 name: "Role".to_string(),
+                description: None,
                 variants: vec!["admin".to_string(), "member".to_string()],
             }],
             protocol: None,
@@ -268,6 +333,7 @@ mod tests {
         let schema = ir::Schema {
             types: vec![ir::TypeDef::Struct {
                 name: "User".to_string(),
+                description: None,
                 fields: vec![
                     field("name", ir::Ty::Primitive(ir::Prim::String), true),
                     field("nick", ir::Ty::Primitive(ir::Prim::String), false),
@@ -287,6 +353,7 @@ mod tests {
         let schema = ir::Schema {
             types: vec![ir::TypeDef::Struct {
                 name: "T".to_string(),
+                description: None,
                 fields: vec![
                     field("n", ir::Ty::Primitive(ir::Prim::Int), true),
                     field("f", ir::Ty::Primitive(ir::Prim::Float), true),
@@ -321,10 +388,12 @@ mod tests {
             types: vec![
                 ir::TypeDef::Struct {
                     name: "User".to_string(),
+                    description: None,
                     fields: vec![field("role", ir::Ty::Named("Role".to_string()), true)],
                 },
                 ir::TypeDef::Enum {
                     name: "Role".to_string(),
+                    description: None,
                     variants: vec!["admin".to_string()],
                 },
             ],
@@ -384,6 +453,7 @@ mod tests {
         let schema = ir::Schema {
             records: vec![ir::Record {
                 name: "Atlas".to_string(),
+                description: None,
                 id_strategy: ir::IdStrategy::Uuidv7,
                 fields: vec![field("name", ir::Ty::Primitive(ir::Prim::String), true)],
             }],
@@ -400,6 +470,7 @@ mod tests {
         let schema = ir::Schema {
             relations: vec![ir::Relation {
                 name: "derivedFrom".to_string(),
+                description: None,
                 from: "Memory".to_string(),
                 to: "Memory".to_string(),
                 unique: false,
@@ -420,6 +491,7 @@ mod tests {
         let schema = ir::Schema {
             records: vec![ir::Record {
                 name: "Atlas".to_string(),
+                description: None,
                 id_strategy: ir::IdStrategy::Uuidv7,
                 fields: vec![field("parent", ir::Ty::Link("Atlas".to_string()), true)],
             }],
@@ -434,6 +506,7 @@ mod tests {
         let schema = ir::Schema {
             types: vec![ir::TypeDef::Struct {
                 name: "T".to_string(),
+                description: None,
                 fields: vec![field(
                     "visibility",
                     ir::Ty::Union(vec![
@@ -454,6 +527,7 @@ mod tests {
         let schema = ir::Schema {
             types: vec![ir::TypeDef::Struct {
                 name: "T".to_string(),
+                description: None,
                 fields: vec![field(
                     "v",
                     ir::Ty::Union(vec![
@@ -467,5 +541,113 @@ mod tests {
         };
         let out = ZodEmitter::new().emit(&schema);
         assert!(out.contains("  v: z.union([z.string(), z.number().int()]),"));
+    }
+
+    // -------------------------------------------------------------------------
+    // Tier 2 — description -> .describe(), constraints -> .min/.max/.regex
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn object_and_field_descriptions_become_describe_calls() {
+        let mut content = field("content", ir::Ty::Primitive(ir::Prim::String), true);
+        content.description = Some("Memory content text".to_string());
+        let schema = ir::Schema {
+            types: vec![ir::TypeDef::Struct {
+                name: "Memory".to_string(),
+                description: Some("User memory".to_string()),
+                fields: vec![content],
+            }],
+            ..Default::default()
+        };
+        let out = ZodEmitter::new().emit(&schema);
+        assert!(
+            out.contains("}).describe(\"User memory\");"),
+            "object .describe()"
+        );
+        assert!(
+            out.contains("z.string().describe(\"Memory content text\")"),
+            "field .describe()"
+        );
+    }
+
+    #[test]
+    fn enum_description_becomes_describe_call() {
+        let schema = ir::Schema {
+            types: vec![ir::TypeDef::Enum {
+                name: "Role".to_string(),
+                description: Some("An access role".to_string()),
+                variants: vec!["admin".to_string()],
+            }],
+            ..Default::default()
+        };
+        let out = ZodEmitter::new().emit(&schema);
+        assert!(out.contains("z.enum([\"admin\"]).describe(\"An access role\");"));
+    }
+
+    #[test]
+    fn numeric_constraints_become_min_max() {
+        let mut f = field("confidence", ir::Ty::Primitive(ir::Prim::Float), true);
+        f.constraints = ir::Constraints {
+            min: Some(0),
+            max: Some(1),
+            ..Default::default()
+        };
+        let schema = ir::Schema {
+            types: vec![ir::TypeDef::Struct {
+                name: "T".to_string(),
+                description: None,
+                fields: vec![f],
+            }],
+            ..Default::default()
+        };
+        let out = ZodEmitter::new().emit(&schema);
+        assert!(out.contains("  confidence: z.number().min(0).max(1),"));
+    }
+
+    #[test]
+    fn string_length_and_pattern_constraints_are_emitted() {
+        let mut f = field("name", ir::Ty::Primitive(ir::Prim::String), true);
+        f.constraints = ir::Constraints {
+            min_length: Some(1),
+            max_length: Some(32),
+            pattern: Some("^[a-z]+$".to_string()),
+            ..Default::default()
+        };
+        let schema = ir::Schema {
+            types: vec![ir::TypeDef::Struct {
+                name: "T".to_string(),
+                description: None,
+                fields: vec![f],
+            }],
+            ..Default::default()
+        };
+        let out = ZodEmitter::new().emit(&schema);
+        assert!(
+            out.contains("  name: z.string().min(1).max(32).regex(/^[a-z]+$/),"),
+            "got: {out}"
+        );
+    }
+
+    #[test]
+    fn constraint_and_describe_precede_optional_wrapper() {
+        let mut f = field("nick", ir::Ty::Primitive(ir::Prim::String), false);
+        f.constraints = ir::Constraints {
+            max_length: Some(8),
+            ..Default::default()
+        };
+        f.description = Some("nickname".to_string());
+        let schema = ir::Schema {
+            types: vec![ir::TypeDef::Struct {
+                name: "T".to_string(),
+                description: None,
+                fields: vec![f],
+            }],
+            ..Default::default()
+        };
+        let out = ZodEmitter::new().emit(&schema);
+        assert!(
+            out.contains("z.string().max(8).describe(\"nickname\").optional()"),
+            ".optional() must come last; got: {out}"
+        );
     }
 }

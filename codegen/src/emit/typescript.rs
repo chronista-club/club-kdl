@@ -21,12 +21,18 @@
 //!
 //! ## Differences from club-unison (IR-driven port)
 //!
-//! - No inline `_inline_*` message skipping, no `service` legacy handling, and
-//!   no field-level `@default` / `@minimum` / `@pattern` JSDoc — the IR does
-//!   not carry constraints or defaults.
+//! - No inline `_inline_*` message skipping and no `service` legacy handling.
 //! - Named type references emit the bare PascalCase identifier; the special
 //!   `timestamp` / `uuid` / `language_code` aliases of club-unison are still
 //!   honoured for compatibility with the fixed header.
+//!
+//! ## Tier 2 — description / constraints
+//!
+//! - A `description` on an `interface` / `enum` or a field becomes a
+//!   `/** ... */` JSDoc comment.
+//! - Field `constraints` are **not** emitted — TypeScript's type system
+//!   cannot express them, and `@minimum` / `@pattern` JSDoc hacks are
+//!   deliberately avoided.
 
 use crate::Emitter;
 use crate::ir;
@@ -53,11 +59,19 @@ impl Emitter for TypeScriptEmitter {
         // data dialect — standalone type definitions.
         for ty in &schema.types {
             match ty {
-                ir::TypeDef::Struct { name, fields } => {
-                    code.push_str(&render_interface(name, fields));
+                ir::TypeDef::Struct {
+                    name,
+                    description,
+                    fields,
+                } => {
+                    code.push_str(&render_interface(name, description.as_deref(), fields));
                 }
-                ir::TypeDef::Enum { name, variants } => {
-                    code.push_str(&render_enum(name, variants));
+                ir::TypeDef::Enum {
+                    name,
+                    description,
+                    variants,
+                } => {
+                    code.push_str(&render_enum(name, description.as_deref(), variants));
                 }
             }
             code.push_str("\n\n");
@@ -68,6 +82,7 @@ impl Emitter for TypeScriptEmitter {
         for record in &schema.records {
             code.push_str(&render_interface(
                 &to_pascal_case(&record.name),
+                record.description.as_deref(),
                 &record_members(record),
             ));
             code.push_str("\n\n");
@@ -75,6 +90,7 @@ impl Emitter for TypeScriptEmitter {
         for relation in &schema.relations {
             code.push_str(&render_interface(
                 &to_pascal_case(&relation.name),
+                relation.description.as_deref(),
                 &relation_members(relation),
             ));
             code.push_str("\n\n");
@@ -106,25 +122,58 @@ export type UUID = string;
 export type LanguageCode = string; // ISO 639-1 format
 ";
 
+/// Render a `/** ... */` JSDoc block at the given indentation from an optional
+/// description, including a trailing newline. A multi-line description is
+/// rendered as a `*`-prefixed block; a single line stays on one line.
+fn render_doc(description: Option<&str>, indent: &str) -> String {
+    match description {
+        None => String::new(),
+        Some(text) => {
+            let mut lines = text.lines();
+            match (lines.next(), text.contains('\n')) {
+                (Some(first), false) => format!("{indent}/** {first} */\n"),
+                (Some(first), true) => {
+                    let mut out = format!("{indent}/**\n{indent} * {first}\n");
+                    for line in lines {
+                        out.push_str(&format!("{indent} * {line}\n"));
+                    }
+                    out.push_str(&format!("{indent} */\n"));
+                    out
+                }
+                (None, _) => String::new(),
+            }
+        }
+    }
+}
+
 /// Render a plain `interface` from a name and field list.
-fn render_interface(name: &str, fields: &[ir::Field]) -> String {
+fn render_interface(name: &str, description: Option<&str>, fields: &[ir::Field]) -> String {
+    let doc = render_doc(description, "");
     let body: Vec<String> = fields.iter().map(render_field).collect();
-    format!("export interface {name} {{\n{}\n}}", body.join("\n"))
+    format!("{doc}export interface {name} {{\n{}\n}}", body.join("\n"))
 }
 
 /// Render a string-valued `enum`.
-fn render_enum(name: &str, variants: &[String]) -> String {
+fn render_enum(name: &str, description: Option<&str>, variants: &[String]) -> String {
+    let doc = render_doc(description, "");
     let body: Vec<String> = variants
         .iter()
         .map(|v| format!("  {} = '{}',", to_pascal_case(v), v))
         .collect();
-    format!("export enum {name} {{\n{}\n}}", body.join("\n"))
+    format!("{doc}export enum {name} {{\n{}\n}}", body.join("\n"))
 }
 
-/// Render a single interface field line.
+/// Render a single interface field line, prefixed by its JSDoc when the field
+/// carries a description.
 fn render_field(field: &ir::Field) -> String {
     let optional = if field.required { "" } else { "?" };
-    format!("  {}{}: {};", field.name, optional, ty_to_ts(&field.ty))
+    let doc = render_doc(field.description.as_deref(), "  ");
+    format!(
+        "{doc}  {}{}: {};",
+        field.name,
+        optional,
+        ty_to_ts(&field.ty)
+    )
 }
 
 /// The synthetic `id: string` field shared by records and relations.
@@ -135,6 +184,8 @@ fn id_member() -> ir::Field {
         required: true,
         flexible: false,
         default: None,
+        description: None,
+        constraints: ir::Constraints::default(),
     }
 }
 
@@ -155,6 +206,8 @@ fn relation_members(relation: &ir::Relation) -> Vec<ir::Field> {
         required: true,
         flexible: false,
         default: None,
+        description: None,
+        constraints: ir::Constraints::default(),
     };
     let mut members = Vec::with_capacity(relation.fields.len() + 3);
     members.push(id_member());
@@ -386,6 +439,8 @@ mod tests {
             required,
             flexible: false,
             default: None,
+            description: None,
+            constraints: ir::Constraints::default(),
         }
     }
 
@@ -402,6 +457,7 @@ mod tests {
         let schema = ir::Schema {
             types: vec![ir::TypeDef::Struct {
                 name: "User".to_string(),
+                description: None,
                 fields: vec![
                     field("name", ir::Ty::Primitive(ir::Prim::String), true),
                     field("nick", ir::Ty::Primitive(ir::Prim::String), false),
@@ -421,6 +477,7 @@ mod tests {
         let schema = ir::Schema {
             types: vec![ir::TypeDef::Enum {
                 name: "Role".to_string(),
+                description: None,
                 variants: vec!["admin".to_string(), "guest_user".to_string()],
             }],
             protocol: None,
@@ -437,6 +494,7 @@ mod tests {
         let schema = ir::Schema {
             types: vec![ir::TypeDef::Struct {
                 name: "T".to_string(),
+                description: None,
                 fields: vec![
                     field("n", ir::Ty::Primitive(ir::Prim::Int), true),
                     field("b", ir::Ty::Primitive(ir::Prim::Bool), true),
@@ -554,6 +612,7 @@ mod tests {
         let schema = ir::Schema {
             records: vec![ir::Record {
                 name: "Atlas".to_string(),
+                description: None,
                 id_strategy: ir::IdStrategy::Uuidv7,
                 fields: vec![field("name", ir::Ty::Primitive(ir::Prim::String), true)],
             }],
@@ -570,6 +629,7 @@ mod tests {
         let schema = ir::Schema {
             relations: vec![ir::Relation {
                 name: "derivedFrom".to_string(),
+                description: None,
                 from: "Memory".to_string(),
                 to: "Memory".to_string(),
                 unique: true,
@@ -590,6 +650,7 @@ mod tests {
         let schema = ir::Schema {
             records: vec![ir::Record {
                 name: "Doc".to_string(),
+                description: None,
                 id_strategy: ir::IdStrategy::Uuidv7,
                 fields: vec![
                     field("parent", ir::Ty::Link("Doc".to_string()), false),
@@ -611,5 +672,65 @@ mod tests {
             out.contains("  visibility: 'public' | 'private';"),
             "literal union → TS union of literals"
         );
+    }
+
+    // -------------------------------------------------------------------------
+    // Tier 2 — description -> JSDoc (constraints are not emitted)
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn interface_and_field_descriptions_become_jsdoc() {
+        let mut content = field("content", ir::Ty::Primitive(ir::Prim::String), true);
+        content.description = Some("Memory content text".to_string());
+        let schema = ir::Schema {
+            types: vec![ir::TypeDef::Struct {
+                name: "Memory".to_string(),
+                description: Some("User memory".to_string()),
+                fields: vec![content],
+            }],
+            ..Default::default()
+        };
+        let out = TypeScriptEmitter::new().emit(&schema);
+        assert!(out.contains("/** User memory */\n"), "interface JSDoc");
+        assert!(
+            out.contains("  /** Memory content text */\n"),
+            "field JSDoc"
+        );
+    }
+
+    #[test]
+    fn enum_description_becomes_jsdoc() {
+        let schema = ir::Schema {
+            types: vec![ir::TypeDef::Enum {
+                name: "Role".to_string(),
+                description: Some("An access role".to_string()),
+                variants: vec!["admin".to_string()],
+            }],
+            ..Default::default()
+        };
+        let out = TypeScriptEmitter::new().emit(&schema);
+        assert!(out.contains("/** An access role */\n"));
+    }
+
+    #[test]
+    fn constraints_do_not_appear_in_typescript_output() {
+        // TypeScript's type system cannot express min/max/pattern.
+        let mut f = field("confidence", ir::Ty::Primitive(ir::Prim::Float), true);
+        f.constraints = ir::Constraints {
+            min: Some(0),
+            max: Some(1),
+            ..Default::default()
+        };
+        let schema = ir::Schema {
+            types: vec![ir::TypeDef::Struct {
+                name: "T".to_string(),
+                description: None,
+                fields: vec![f],
+            }],
+            ..Default::default()
+        };
+        let out = TypeScriptEmitter::new().emit(&schema);
+        assert!(out.contains("  confidence: number;"));
+        assert!(!out.contains("@minimum"), "no constraint metadata leaks");
     }
 }
