@@ -78,7 +78,7 @@ v1.0 freeze に向けた breaking changes を整理・確定。
 |-----------------|---------------------------------------------|-------------------|
 | `v0.5.1`        | 品質整備 (= Phase 0)                          | ✅ 2026-05-16 公開 |
 | `v0.6.0`        | NDKDL `append_node` 追加 + guide / README en/ja | ✅ 2026-05-17 公開 |
-| `v0.7.0` (予定)  | `club-kdl-codegen` 新設 + 本体 breaking (Phase 1) | 未着手 |
+| `v0.7.0`        | codegen 4 ターゲット完成 (Zod / SurrealQL emitter) + 0.6.1 整備 | ✅ 2026-05-17 公開 |
 | `v1.0.0-beta.1` | API freeze + beta soak (1 month)             | 未着手            |
 | `v1.0.0`        | stability commit (v2.0 まで breaking なし)    | 未着手            |
 
