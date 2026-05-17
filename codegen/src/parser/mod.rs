@@ -168,6 +168,7 @@ fn check_ty(ty: &ir::Ty, field: &str, defined: &DefinedNames) -> Result<(), Pars
 fn lower_struct(raw: raw::RawStruct) -> Result<ir::TypeDef, ParseError> {
     Ok(ir::TypeDef::Struct {
         name: raw.name,
+        description: raw.description,
         fields: lower_fields(raw.fields)?,
     })
 }
@@ -175,6 +176,7 @@ fn lower_struct(raw: raw::RawStruct) -> Result<ir::TypeDef, ParseError> {
 fn lower_enum(raw: raw::RawEnum) -> ir::TypeDef {
     ir::TypeDef::Enum {
         name: raw.name,
+        description: raw.description,
         variants: raw.variants.into_iter().map(|v| v.name).collect(),
     }
 }
@@ -183,6 +185,7 @@ fn lower_record(raw: raw::RawRecord) -> Result<ir::Record, ParseError> {
     let id_strategy = lower_id_strategy(raw.id.and_then(|i| i.strategy).as_deref())?;
     Ok(ir::Record {
         name: raw.name,
+        description: raw.description,
         id_strategy,
         fields: lower_fields(raw.fields)?,
     })
@@ -191,6 +194,7 @@ fn lower_record(raw: raw::RawRecord) -> Result<ir::Record, ParseError> {
 fn lower_relation(raw: raw::RawRelation) -> Result<ir::Relation, ParseError> {
     Ok(ir::Relation {
         name: raw.name,
+        description: raw.description,
         from: raw.from,
         to: raw.to,
         unique: raw.unique,
@@ -310,6 +314,14 @@ fn lower_field(raw: raw::RawField) -> Result<ir::Field, ParseError> {
         required: !raw.optional,
         flexible: raw.flexible,
         default: raw.default,
+        description: raw.description,
+        constraints: ir::Constraints {
+            min: raw.min,
+            max: raw.max,
+            min_length: raw.min_length,
+            max_length: raw.max_length,
+            pattern: raw.pattern,
+        },
     })
 }
 
@@ -495,6 +507,8 @@ mod tests {
                 required: true,
                 flexible: false,
                 default: None,
+                description: None,
+                constraints: ir::Constraints::default(),
             }]
         );
         let returns = request.returns.as_ref().expect("has returns");
@@ -586,7 +600,7 @@ mod tests {
         assert_eq!(schema.types.len(), 2);
 
         match &schema.types[0] {
-            ir::TypeDef::Struct { name, fields } => {
+            ir::TypeDef::Struct { name, fields, .. } => {
                 assert_eq!(name, "User");
                 assert_eq!(
                     fields[1].ty,
@@ -597,7 +611,7 @@ mod tests {
             other => panic!("expected struct, got {other:?}"),
         }
         match &schema.types[1] {
-            ir::TypeDef::Enum { name, variants } => {
+            ir::TypeDef::Enum { name, variants, .. } => {
                 assert_eq!(name, "Role");
                 assert_eq!(variants, &["admin", "member"]);
             }
@@ -840,5 +854,98 @@ mod tests {
         let fields = &schema.records[0].fields;
         assert_eq!(fields[0].ty, ir::Ty::Named("GeoPoint".to_string()));
         assert_eq!(fields[1].ty, ir::Ty::Link("Place".to_string()));
+    }
+
+    // -------------------------------------------------------------------------
+    // Tier 2 — description / constraints
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn record_and_field_descriptions_are_lowered() {
+        let src = r#"
+            record "Memory" description="User memory with content" {
+                field "content" type="string" description="Memory content text"
+            }
+        "#;
+        let schema = parse(src).expect("record with descriptions parses");
+        let memory = &schema.records[0];
+        assert_eq!(
+            memory.description.as_deref(),
+            Some("User memory with content")
+        );
+        assert_eq!(
+            memory.fields[0].description.as_deref(),
+            Some("Memory content text")
+        );
+    }
+
+    #[test]
+    fn struct_enum_relation_descriptions_are_lowered() {
+        let src = r#"
+            struct "Point" description="A 2D point" {
+                field "x" type="float"
+            }
+            enum "Color" description="An RGB primary" {
+                variant "red"
+            }
+            record "Node" { field "v" type="int" }
+            relation "edge" from="Node" to="Node" description="A directed edge"
+        "#;
+        let schema = parse(src).expect("schema parses");
+        match &schema.types[0] {
+            ir::TypeDef::Struct { description, .. } => {
+                assert_eq!(description.as_deref(), Some("A 2D point"));
+            }
+            other => panic!("expected struct, got {other:?}"),
+        }
+        match &schema.types[1] {
+            ir::TypeDef::Enum { description, .. } => {
+                assert_eq!(description.as_deref(), Some("An RGB primary"));
+            }
+            other => panic!("expected enum, got {other:?}"),
+        }
+        assert_eq!(
+            schema.relations[0].description.as_deref(),
+            Some("A directed edge")
+        );
+    }
+
+    #[test]
+    fn field_constraints_are_lowered() {
+        let src = r#"
+            struct "Profile" {
+                field "confidence" type="float" min=0 max=1
+                field "name"       type="string" min_length=1 max_length=32 pattern="^[a-z]+$"
+            }
+        "#;
+        let schema = parse(src).expect("schema parses");
+        let fields = match &schema.types[0] {
+            ir::TypeDef::Struct { fields, .. } => fields,
+            other => panic!("expected struct, got {other:?}"),
+        };
+        assert_eq!(fields[0].constraints.min, Some(0));
+        assert_eq!(fields[0].constraints.max, Some(1));
+        assert_eq!(fields[1].constraints.min_length, Some(1));
+        assert_eq!(fields[1].constraints.max_length, Some(32));
+        assert_eq!(fields[1].constraints.pattern.as_deref(), Some("^[a-z]+$"));
+    }
+
+    #[test]
+    fn absent_constraints_and_description_default_to_none() {
+        let src = r#"
+            struct "Bare" {
+                field "x" type="int"
+            }
+        "#;
+        let schema = parse(src).expect("schema parses");
+        let fields = match &schema.types[0] {
+            ir::TypeDef::Struct { fields, .. } => fields,
+            other => panic!("expected struct, got {other:?}"),
+        };
+        assert!(fields[0].description.is_none());
+        assert!(
+            fields[0].constraints.is_empty(),
+            "a field with no constraint properties has empty Constraints"
+        );
     }
 }

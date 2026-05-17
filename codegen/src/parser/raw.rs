@@ -162,6 +162,31 @@ pub struct RawField {
     /// An optional default value (`default="..."`).
     #[kdl(property)]
     pub default: Option<String>,
+
+    /// An optional documentation string (`description="..."`).
+    #[kdl(property)]
+    pub description: Option<String>,
+
+    /// Inclusive lower bound for a numeric field (`min=N`).
+    #[kdl(property)]
+    pub min: Option<i64>,
+
+    /// Inclusive upper bound for a numeric field (`max=N`).
+    #[kdl(property)]
+    pub max: Option<i64>,
+
+    /// Inclusive minimum length for a string / array field (`min_length=N`).
+    #[kdl(property)]
+    pub min_length: Option<u64>,
+
+    /// Inclusive maximum length for a string / array field (`max_length=N`).
+    #[kdl(property)]
+    pub max_length: Option<u64>,
+
+    /// A regular-expression pattern a string field must match
+    /// (`pattern="..."`).
+    #[kdl(property)]
+    pub pattern: Option<String>,
 }
 
 /// An `id strategy="..."` node within a [`RawRecord`].
@@ -181,6 +206,10 @@ pub struct RawRecord {
     #[kdl(argument)]
     pub name: String,
 
+    /// An optional documentation string (`description="..."`).
+    #[kdl(property)]
+    pub description: Option<String>,
+
     /// Optional `id strategy="..."` child. Absent ⇒ default strategy.
     #[kdl(child)]
     pub id: Option<RawId>,
@@ -197,6 +226,10 @@ pub struct RawRelation {
     /// Relation name.
     #[kdl(argument)]
     pub name: String,
+
+    /// An optional documentation string (`description="..."`).
+    #[kdl(property)]
+    pub description: Option<String>,
 
     /// The record name at the `in` end of the edge.
     #[kdl(property)]
@@ -223,6 +256,10 @@ pub struct RawStruct {
     #[kdl(argument)]
     pub name: String,
 
+    /// An optional documentation string (`description="..."`).
+    #[kdl(property)]
+    pub description: Option<String>,
+
     /// `field` children.
     #[kdl(children, name = "field")]
     pub fields: Vec<RawField>,
@@ -235,6 +272,10 @@ pub struct RawEnum {
     /// Type name.
     #[kdl(argument)]
     pub name: String,
+
+    /// An optional documentation string (`description="..."`).
+    #[kdl(property)]
+    pub description: Option<String>,
 
     /// `variant` children.
     #[kdl(children, name = "variant")]

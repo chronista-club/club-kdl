@@ -115,7 +115,7 @@ fn surrealql_pipeline_emits_ddl_for_data_dialect_only() {
         "field DDL"
     );
     assert!(
-        out.contains("ASSERT $value IN ['admin', 'member']"),
+        out.contains("ASSERT $value INSIDE ['admin', 'member']"),
         "enum field → ASSERT clause"
     );
     // the protocol dialect has no DB representation — payload structs must
@@ -265,7 +265,7 @@ fn surrealql_pipeline_emits_entity_ddl() {
     // self-link → record<atlas>.
     assert!(out.contains("DEFINE FIELD parent ON atlas TYPE option<record<atlas>>;"));
     // literal union → string + ASSERT, plus a quoted DEFAULT.
-    assert!(out.contains("ASSERT $value IN ['public', 'private']"));
+    assert!(out.contains("ASSERT $value INSIDE ['public', 'private']"));
     assert!(out.contains("DEFAULT 'private'"));
     // flexible object — the field is optional, so the type is wrapped.
     assert!(out.contains("DEFINE FIELD metadata ON atlas FLEXIBLE TYPE option<object>;"));
@@ -299,4 +299,58 @@ fn rust_typescript_zod_pipelines_emit_entity_types() {
     assert!(zod.contains("export const Atlas = z.object({"));
     assert!(zod.contains("export const DerivedFrom = z.object({"));
     assert!(zod.contains("z.enum([\"public\", \"private\"])"));
+}
+
+// =============================================================================
+// Tier 2 — description / constraints end-to-end
+// =============================================================================
+
+/// A schema exercising Tier 2: type / field descriptions and the full
+/// constraint set (numeric range, string length, pattern).
+const TIER2_SCHEMA: &str = r#"
+    record "Memory" description="User memory with content and metadata" {
+        field "content"    type="string" description="Memory content text" min_length=1
+        field "confidence" type="float" min=0 max=1
+        field "slug"       type="string" pattern="^[a-z]+$" max_length=32
+    }
+"#;
+
+#[test]
+fn tier2_surrealql_emits_comment_and_assert() {
+    let schema = parse(TIER2_SCHEMA).expect("tier 2 schema parses");
+    let out = SurrealQlEmitter::new().emit(&schema);
+    // description -> COMMENT on table and field.
+    assert!(out.contains("COMMENT 'User memory with content and metadata';"));
+    assert!(out.contains("COMMENT 'Memory content text';"));
+    // numeric range -> ASSERT.
+    assert!(out.contains("ASSERT $value >= 0 AND $value <= 1"));
+    // string length / pattern -> string::len / string::matches ASSERT.
+    assert!(out.contains("ASSERT string::len($value) >= 1"));
+    assert!(out.contains("string::matches($value, '^[a-z]+$')"));
+}
+
+#[test]
+fn tier2_zod_emits_describe_and_constraints() {
+    let schema = parse(TIER2_SCHEMA).expect("tier 2 schema parses");
+    let out = ZodEmitter::new().emit(&schema);
+    assert!(out.contains(".describe(\"User memory with content and metadata\")"));
+    assert!(out.contains(".describe(\"Memory content text\")"));
+    assert!(out.contains("z.number().min(0).max(1)"));
+    assert!(out.contains("z.string().min(1)"));
+    assert!(out.contains(".regex(/^[a-z]+$/)"));
+}
+
+#[test]
+fn tier2_rust_and_typescript_carry_docs_but_not_constraints() {
+    let schema = parse(TIER2_SCHEMA).expect("tier 2 schema parses");
+
+    let rust = RustEmitter::new().emit(&schema);
+    assert!(rust.contains("/// User memory with content and metadata"));
+    assert!(rust.contains("/// Memory content text"));
+    assert!(!rust.contains("minimum"), "no constraint metadata in Rust");
+
+    let ts = TypeScriptEmitter::new().emit(&schema);
+    assert!(ts.contains("/** User memory with content and metadata */"));
+    assert!(ts.contains("/** Memory content text */"));
+    assert!(!ts.contains("@minimum"), "no constraint metadata in TS");
 }

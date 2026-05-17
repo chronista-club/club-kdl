@@ -30,11 +30,19 @@
 //!
 //! ## Differences from club-unison (IR-driven port)
 //!
-//! - The IR has no inline `_inline_*` messages, no `service` / `method` /
-//!   `stream` / `send` / `recv` legacy constructs, and no field-level
-//!   constraints / defaults — so the corresponding branches are dropped.
+//! - The IR has no inline `_inline_*` messages and no `service` / `method` /
+//!   `stream` / `send` / `recv` legacy constructs — so the corresponding
+//!   branches are dropped.
 //! - The IR's [`ir::Prim::Datetime`] maps to `chrono::DateTime<Utc>`; named
 //!   type references emit the bare identifier (no `TypeRegistry` indirection).
+//!
+//! ## Tier 2 — description / constraints
+//!
+//! - A `description` on a `struct` / `enum` / `record` / `relation` or a
+//!   field becomes a `///` doc comment.
+//! - Field `constraints` (`min` / `max` / `min_length` / `max_length` /
+//!   `pattern`) are **not** emitted — Rust's type system cannot express them,
+//!   and JSDoc-style `@minimum` hacks are deliberately avoided.
 
 use crate::Emitter;
 use crate::ir;
@@ -96,19 +104,41 @@ use std::collections::HashMap;
 /// Render one standalone [`ir::TypeDef`].
 fn render_typedef(ty: &ir::TypeDef) -> String {
     match ty {
-        ir::TypeDef::Struct { name, fields } => render_struct(name, fields),
-        ir::TypeDef::Enum { name, variants } => render_enum(name, variants),
+        ir::TypeDef::Struct {
+            name,
+            description,
+            fields,
+        } => render_struct(name, description.as_deref(), fields),
+        ir::TypeDef::Enum {
+            name,
+            description,
+            variants,
+        } => render_enum(name, description.as_deref(), variants),
+    }
+}
+
+/// Render a `///` doc comment block at the given indentation from an optional
+/// description. Each line of a multi-line description gets its own `///`.
+fn render_doc(description: Option<&str>, indent: &str) -> String {
+    match description {
+        Some(text) => text
+            .lines()
+            .map(|line| format!("{indent}/// {line}\n"))
+            .collect(),
+        None => String::new(),
     }
 }
 
 /// Render a `struct` from a name and field list. A fieldless struct becomes a
 /// unit struct (`pub struct Name;`), matching club-unison.
-fn render_struct(name: &str, fields: &[ir::Field]) -> String {
+fn render_struct(name: &str, description: Option<&str>, fields: &[ir::Field]) -> String {
     let derive = "#[derive(Debug, Clone, Serialize, Deserialize)]\n";
+    let doc = render_doc(description, "");
     if fields.is_empty() {
-        return format!("{derive}pub struct {name};\n");
+        return format!("{doc}{derive}pub struct {name};\n");
     }
     let mut out = String::new();
+    out.push_str(&doc);
     out.push_str(derive);
     out.push_str(&format!("pub struct {name} {{\n"));
     for field in fields {
@@ -119,8 +149,9 @@ fn render_struct(name: &str, fields: &[ir::Field]) -> String {
 }
 
 /// Render an `enum` of string-valued variants.
-fn render_enum(name: &str, variants: &[String]) -> String {
+fn render_enum(name: &str, description: Option<&str>, variants: &[String]) -> String {
     let mut out = String::new();
+    out.push_str(&render_doc(description, ""));
     out.push_str("#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]\n");
     out.push_str("#[serde(rename_all = \"snake_case\")]\n");
     out.push_str(&format!("pub enum {name} {{\n"));
@@ -135,6 +166,9 @@ fn render_enum(name: &str, variants: &[String]) -> String {
 /// Render a single struct field with its `serde` attributes.
 fn render_field(field: &ir::Field) -> String {
     let mut out = String::new();
+
+    // `///` doc comment from the field description.
+    out.push_str(&render_doc(field.description.as_deref(), "    "));
 
     // `#[serde(rename = "...")]` when the source name is not snake_case.
     let snake = to_snake_case(&field.name);
@@ -233,7 +267,11 @@ fn render_record(record: &ir::Record) -> String {
     let mut fields = Vec::with_capacity(record.fields.len() + 1);
     fields.push(id_field());
     fields.extend(record.fields.iter().cloned());
-    render_struct(&to_pascal_case(&record.name), &fields)
+    render_struct(
+        &to_pascal_case(&record.name),
+        record.description.as_deref(),
+        &fields,
+    )
 }
 
 /// Render one [`ir::Relation`] as an edge `struct` carrying `id` / `in` /
@@ -247,6 +285,8 @@ fn render_relation(relation: &ir::Relation) -> String {
         required: true,
         flexible: false,
         default: None,
+        description: None,
+        constraints: ir::Constraints::default(),
     });
     fields.push(ir::Field {
         name: "out".to_string(),
@@ -254,9 +294,15 @@ fn render_relation(relation: &ir::Relation) -> String {
         required: true,
         flexible: false,
         default: None,
+        description: None,
+        constraints: ir::Constraints::default(),
     });
     fields.extend(relation.fields.iter().cloned());
-    render_struct(&to_pascal_case(&relation.name), &fields)
+    render_struct(
+        &to_pascal_case(&relation.name),
+        relation.description.as_deref(),
+        &fields,
+    )
 }
 
 /// The synthetic `id: String` field shared by records and relations.
@@ -267,6 +313,8 @@ fn id_field() -> ir::Field {
         required: true,
         flexible: false,
         default: None,
+        description: None,
+        constraints: ir::Constraints::default(),
     }
 }
 
@@ -276,15 +324,15 @@ fn render_channel(channel: &ir::Channel) -> String {
     let mut out = String::new();
     for req in &channel.requests {
         out.push('\n');
-        out.push_str(&render_struct(&req.name, &req.fields));
+        out.push_str(&render_struct(&req.name, None, &req.fields));
         if let Some(returns) = &req.returns {
             out.push('\n');
-            out.push_str(&render_struct(&returns.name, &returns.fields));
+            out.push_str(&render_struct(&returns.name, None, &returns.fields));
         }
     }
     for evt in &channel.events {
         out.push('\n');
-        out.push_str(&render_struct(&evt.name, &evt.fields));
+        out.push_str(&render_struct(&evt.name, None, &evt.fields));
     }
     out
 }
@@ -300,6 +348,8 @@ mod tests {
             required,
             flexible: false,
             default: None,
+            description: None,
+            constraints: ir::Constraints::default(),
         }
     }
 
@@ -315,6 +365,7 @@ mod tests {
         let schema = ir::Schema {
             types: vec![ir::TypeDef::Struct {
                 name: "User".to_string(),
+                description: None,
                 fields: vec![field("name", ir::Ty::Primitive(ir::Prim::String), true)],
             }],
             protocol: None,
@@ -331,6 +382,7 @@ mod tests {
         let schema = ir::Schema {
             types: vec![ir::TypeDef::Struct {
                 name: "Node".to_string(),
+                description: None,
                 fields: vec![field("type", ir::Ty::Primitive(ir::Prim::String), true)],
             }],
             protocol: None,
@@ -347,6 +399,7 @@ mod tests {
         let schema = ir::Schema {
             types: vec![ir::TypeDef::Struct {
                 name: "User".to_string(),
+                description: None,
                 fields: vec![field("nick", ir::Ty::Primitive(ir::Prim::String), false)],
             }],
             protocol: None,
@@ -362,6 +415,7 @@ mod tests {
         let schema = ir::Schema {
             types: vec![ir::TypeDef::Struct {
                 name: "User".to_string(),
+                description: None,
                 fields: vec![field(
                     "displayName",
                     ir::Ty::Primitive(ir::Prim::String),
@@ -381,6 +435,7 @@ mod tests {
         let schema = ir::Schema {
             types: vec![ir::TypeDef::Struct {
                 name: "Empty".to_string(),
+                description: None,
                 fields: vec![],
             }],
             protocol: None,
@@ -395,6 +450,7 @@ mod tests {
         let schema = ir::Schema {
             types: vec![ir::TypeDef::Enum {
                 name: "Role".to_string(),
+                description: None,
                 variants: vec!["admin".to_string(), "guest_user".to_string()],
             }],
             protocol: None,
@@ -414,6 +470,7 @@ mod tests {
         let schema = ir::Schema {
             types: vec![ir::TypeDef::Struct {
                 name: "T".to_string(),
+                description: None,
                 fields: vec![
                     field("n", ir::Ty::Primitive(ir::Prim::Int), true),
                     field("f", ir::Ty::Primitive(ir::Prim::Float), true),
@@ -488,6 +545,7 @@ mod tests {
         let schema = ir::Schema {
             records: vec![ir::Record {
                 name: "Atlas".to_string(),
+                description: None,
                 id_strategy: ir::IdStrategy::Uuidv7,
                 fields: vec![field("name", ir::Ty::Primitive(ir::Prim::String), true)],
             }],
@@ -504,6 +562,7 @@ mod tests {
         let schema = ir::Schema {
             relations: vec![ir::Relation {
                 name: "derivedFrom".to_string(),
+                description: None,
                 from: "Memory".to_string(),
                 to: "Memory".to_string(),
                 unique: true,
@@ -525,6 +584,7 @@ mod tests {
         let schema = ir::Schema {
             records: vec![ir::Record {
                 name: "Atlas".to_string(),
+                description: None,
                 id_strategy: ir::IdStrategy::Uuidv7,
                 fields: vec![field("parent", ir::Ty::Link("Atlas".to_string()), false)],
             }],
@@ -539,6 +599,7 @@ mod tests {
         let schema = ir::Schema {
             records: vec![ir::Record {
                 name: "Doc".to_string(),
+                description: None,
                 id_strategy: ir::IdStrategy::Uuidv7,
                 fields: vec![field(
                     "visibility",
@@ -560,6 +621,7 @@ mod tests {
         let schema = ir::Schema {
             types: vec![ir::TypeDef::Struct {
                 name: "T".to_string(),
+                description: None,
                 fields: vec![field(
                     "v",
                     ir::Ty::Union(vec![
@@ -573,5 +635,67 @@ mod tests {
         };
         let out = RustEmitter::new().emit(&schema);
         assert!(out.contains("pub v: serde_json::Value,"));
+    }
+
+    // -------------------------------------------------------------------------
+    // Tier 2 — description → `///` doc comments (constraints are not emitted)
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn struct_and_field_descriptions_become_doc_comments() {
+        let mut content = field("content", ir::Ty::Primitive(ir::Prim::String), true);
+        content.description = Some("Memory content text".to_string());
+        let schema = ir::Schema {
+            types: vec![ir::TypeDef::Struct {
+                name: "Memory".to_string(),
+                description: Some("User memory".to_string()),
+                fields: vec![content],
+            }],
+            ..Default::default()
+        };
+        let out = RustEmitter::new().emit(&schema);
+        assert!(out.contains("/// User memory\n"), "struct doc comment");
+        assert!(
+            out.contains("    /// Memory content text\n"),
+            "field doc comment"
+        );
+    }
+
+    #[test]
+    fn enum_description_becomes_doc_comment() {
+        let schema = ir::Schema {
+            types: vec![ir::TypeDef::Enum {
+                name: "Role".to_string(),
+                description: Some("An access role".to_string()),
+                variants: vec!["admin".to_string()],
+            }],
+            ..Default::default()
+        };
+        let out = RustEmitter::new().emit(&schema);
+        assert!(out.contains("/// An access role\n"));
+    }
+
+    #[test]
+    fn constraints_do_not_appear_in_rust_output() {
+        // Rust's type system cannot express min/max/pattern — they must be
+        // dropped, not emitted as attributes or comments.
+        let mut f = field("confidence", ir::Ty::Primitive(ir::Prim::Float), true);
+        f.constraints = ir::Constraints {
+            min: Some(0),
+            max: Some(1),
+            pattern: Some("x".to_string()),
+            ..Default::default()
+        };
+        let schema = ir::Schema {
+            types: vec![ir::TypeDef::Struct {
+                name: "T".to_string(),
+                description: None,
+                fields: vec![f],
+            }],
+            ..Default::default()
+        };
+        let out = RustEmitter::new().emit(&schema);
+        assert!(out.contains("pub confidence: f64,"));
+        assert!(!out.contains("minimum"), "no constraint metadata leaks");
     }
 }
