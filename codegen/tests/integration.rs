@@ -14,9 +14,9 @@ use kdl_codegen::parser::parse;
 /// a request/response and an event.
 const SCHEMA: &str = r#"
     struct "User" {
-        field "id" type="string" required=#true
-        field "tags" type="array<string>"
-        field "role" type="Role"
+        field "id" type="string"
+        field "tags" type="array<string>" optional=#true
+        field "role" type="Role" optional=#true
     }
     enum "Role" {
         variant "admin"
@@ -26,13 +26,13 @@ const SCHEMA: &str = r#"
         namespace "demo.chat"
         channel "messaging" from="client" lifetime="persistent" {
             request "Send" {
-                field "body" type="string" required=#true
+                field "body" type="string"
                 returns "Ack" {
-                    field "id" type="string" required=#true
+                    field "id" type="string"
                 }
             }
             event "Received" {
-                field "body" type="string" required=#true
+                field "body" type="string"
             }
         }
     }
@@ -234,17 +234,17 @@ fn write_temp_schema(name: &str) -> std::path::PathBuf {
 const ENTITY_SCHEMA: &str = r#"
     record "Atlas" {
         id strategy="uuidv7"
-        field "name"       type="string" required=#true
-        field "parent"     type="link<Atlas>"
-        field "visibility" type="'public' | 'private'" default="private"
-        field "metadata"   type="object" flexible=#true
+        field "name"       type="string"
+        field "parent"     type="link<Atlas>" optional=#true
+        field "visibility" type="'public' | 'private'" default="private" optional=#true
+        field "metadata"   type="object" flexible=#true optional=#true
     }
     record "Memory" {
-        field "body" type="string" required=#true
+        field "body" type="string"
     }
     relation "derivedFrom" from="Memory" to="Memory" unique=#true {
-        field "confidence" type="float"
-        field "reason"     type="string"
+        field "confidence" type="float" optional=#true
+        field "reason"     type="string" optional=#true
     }
 "#;
 

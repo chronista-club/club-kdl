@@ -136,7 +136,7 @@ pub struct RawMessage {
     pub fields: Vec<RawField>,
 }
 
-/// A `field "name" type="..." required=#true` node.
+/// A `field "name" type="..." optional=#true` node.
 #[derive(Debug, KdlDeserialize)]
 #[kdl(name = "field")]
 pub struct RawField {
@@ -149,9 +149,10 @@ pub struct RawField {
     #[kdl(property, rename = "type")]
     pub type_str: String,
 
-    /// Whether the field is required. Absent property defaults to `false`.
+    /// Whether the field is optional. Absent property defaults to `false` —
+    /// a field is **required** unless `optional=#true` is given.
     #[kdl(property, default)]
-    pub required: bool,
+    pub optional: bool,
 
     /// Whether an `object`-typed field is schemaless. Absent defaults to
     /// `false`.

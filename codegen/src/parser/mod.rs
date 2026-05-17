@@ -307,7 +307,7 @@ fn lower_field(raw: raw::RawField) -> Result<ir::Field, ParseError> {
     Ok(ir::Field {
         ty: parse_ty(&raw.type_str)?,
         name: raw.name,
-        required: raw.required,
+        required: !raw.optional,
         flexible: raw.flexible,
         default: raw.default,
     })
@@ -463,9 +463,9 @@ mod tests {
                 namespace "test.pp"
                 channel "pp" from="client" lifetime="persistent" {
                     request "Ping" {
-                        field "message" type="string" required=#true
+                        field "message" type="string"
                         returns "Pong" {
-                            field "reply" type="string" required=#true
+                            field "reply" type="string"
                         }
                     }
                 }
@@ -508,8 +508,8 @@ mod tests {
             protocol "p" version="1.0.0" {
                 channel "c" from="server" lifetime="persistent" {
                     event "Tick" {
-                        field "seq" type="int" required=#true
-                        field "note" type="string"
+                        field "seq" type="int"
+                        field "note" type="string" optional=#true
                     }
                 }
             }
@@ -518,10 +518,13 @@ mod tests {
         let channel = &schema.protocol.unwrap().channels[0];
         let event = &channel.events[0];
         assert_eq!(event.name, "Tick");
-        assert!(event.fields[0].required);
+        assert!(
+            event.fields[0].required,
+            "unmarked field defaults to required"
+        );
         assert!(
             !event.fields[1].required,
-            "absent required= defaults to false"
+            "explicit optional=#true → not required"
         );
     }
 
@@ -530,7 +533,7 @@ mod tests {
         let src = r#"
             protocol "p" version="1.0.0" {
                 channel "metric" from="server" lifetime="persistent" backend="datagram" {
-                    event "M" { field "v" type="int" required=#true }
+                    event "M" { field "v" type="int" }
                 }
             }
         "#;
@@ -543,7 +546,7 @@ mod tests {
         let src = r#"
             protocol "p" version="1.0.0" {
                 channel "c" from="client" lifetime="persistent" backend="datagram" channel_id=1 {
-                    request "R" { field "x" type="int" required=#true }
+                    request "R" { field "x" type="int" }
                 }
             }
         "#;
@@ -556,7 +559,7 @@ mod tests {
         let src = r#"
             protocol "p" version="1.0.0" {
                 channel "metric" from="server" lifetime="persistent" backend="datagram" channel_id=7 {
-                    event "M" { field "v" type="int" required=#true }
+                    event "M" { field "v" type="int" }
                 }
             }
         "#;
@@ -569,7 +572,7 @@ mod tests {
     fn parses_data_dialect_struct_and_enum() {
         let src = r#"
             struct "User" {
-                field "id" type="string" required=#true
+                field "id" type="string"
                 field "tags" type="array<string>"
                 field "role" type="Role"
             }
@@ -607,7 +610,7 @@ mod tests {
         let src = r#"
             protocol "p" version="1.0.0" {
                 channel "c" from="nobody" lifetime="persistent" {
-                    event "E" { field "x" type="int" required=#true }
+                    event "E" { field "x" type="int" }
                 }
             }
         "#;
@@ -650,7 +653,7 @@ mod tests {
                 field "members" type="array<User>"
             }
             struct "User" {
-                field "id" type="string" required=#true
+                field "id" type="string"
             }
         "#;
         // `array<User>` resolves because `User` is defined; order-independent.
@@ -666,7 +669,7 @@ mod tests {
         let src = r#"
             record "Atlas" {
                 id strategy="uuidv7"
-                field "name"   type="string" required=#true
+                field "name"   type="string"
                 field "parent" type="link<Atlas>"
             }
         "#;
@@ -684,7 +687,7 @@ mod tests {
     fn record_id_strategy_defaults_to_uuidv7_when_absent() {
         let src = r#"
             record "Note" {
-                field "body" type="string" required=#true
+                field "body" type="string"
             }
         "#;
         let schema = parse(src).expect("record without `id` node should parse");
@@ -700,7 +703,7 @@ mod tests {
         ] {
             let src = format!(
                 r#"record "R" {{ id strategy="{kw}"
-                       field "x" type="string" required=#true }}"#
+                       field "x" type="string" }}"#
             );
             let schema = parse(&src).expect("record parses");
             assert_eq!(schema.records[0].id_strategy, expected);
@@ -710,7 +713,7 @@ mod tests {
     #[test]
     fn rejects_unknown_id_strategy() {
         let src = r#"record "R" { id strategy="snowflake"
-                       field "x" type="string" required=#true }"#;
+                       field "x" type="string" }"#;
         let err = parse(src).expect_err("unknown id strategy is invalid");
         assert!(matches!(err, ParseError::Validation(_)));
     }
@@ -719,7 +722,7 @@ mod tests {
     fn parses_relation_with_endpoints_and_edge_fields() {
         let src = r#"
             record "Memory" {
-                field "body" type="string" required=#true
+                field "body" type="string"
             }
             relation "derivedFrom" from="Memory" to="Memory" unique=#true {
                 field "confidence" type="float"
@@ -740,7 +743,7 @@ mod tests {
     #[test]
     fn relation_unique_defaults_to_false() {
         let src = r#"
-            record "A" { field "x" type="string" required=#true }
+            record "A" { field "x" type="string" }
             relation "rel" from="A" to="A"
         "#;
         let schema = parse(src).expect("relation parses");
@@ -750,7 +753,7 @@ mod tests {
     #[test]
     fn rejects_relation_with_unknown_endpoint() {
         let src = r#"
-            record "A" { field "x" type="string" required=#true }
+            record "A" { field "x" type="string" }
             relation "rel" from="A" to="Ghost"
         "#;
         let err = parse(src).expect_err("unknown relation endpoint is invalid");
@@ -826,7 +829,7 @@ mod tests {
         // The same identifier in both forms must keep its distinct meaning.
         let src = r#"
             struct "GeoPoint" {
-                field "lat" type="float" required=#true
+                field "lat" type="float"
             }
             record "Place" {
                 field "at"     type="GeoPoint"
