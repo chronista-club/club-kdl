@@ -52,6 +52,9 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.os }}-${{ matrix.toolchain }}
+      # codegen の TypeScript 実コンパイル検証 (tsc --noEmit) が Bun を要する。
+      # 不在なら該当テストは skip するため、この step が事実上のゲート。
+      - uses: oven-sh/setup-bun@v2
       - name: cargo test
         run: cargo test --workspace --all-targets
       - name: cargo test doc

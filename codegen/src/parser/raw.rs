@@ -85,6 +85,12 @@ pub struct RawChannel {
     #[kdl(property)]
     pub channel_id: Option<u64>,
 
+    /// Optional `envelope="<tag>"` — when present, the emitters generate a
+    /// discriminated-union type over the channel's requests, internally
+    /// tagged by the named JSON field.
+    #[kdl(property)]
+    pub envelope: Option<String>,
+
     /// `request` children.
     #[kdl(children, name = "request")]
     pub requests: Vec<RawRequest>,

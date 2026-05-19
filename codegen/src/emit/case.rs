@@ -6,11 +6,16 @@
 //!
 //! The algorithm splits an identifier into words at:
 //!
-//! - existing separators (`_`, `-`, ` `),
+//! - existing separators (`_`, `-`, ` `, `:`, `/`, `.`),
 //! - lower→upper transitions (`fooBar` → `foo`, `Bar`),
 //! - upper-run boundaries before a final lowercase (`HTTPServer` → `HTTP`, `Server`).
 //!
 //! then re-joins the lowercased words in the requested style.
+//!
+//! The `:` / `/` / `.` separators let a wire-style schema name (`lane:delete`,
+//! `process/spawn`) sanitize cleanly into a language identifier
+//! (`LaneDelete` / `ProcessSpawn`) — characters valid in a KDL string but not
+//! in a Rust / TypeScript identifier.
 
 /// Split `s` into lowercase words on separator and case boundaries.
 fn words(s: &str) -> Vec<String> {
@@ -19,7 +24,7 @@ fn words(s: &str) -> Vec<String> {
     let chars: Vec<char> = s.chars().collect();
 
     for (i, &c) in chars.iter().enumerate() {
-        if c == '_' || c == '-' || c == ' ' {
+        if matches!(c, '_' | '-' | ' ' | ':' | '/' | '.') {
             if !cur.is_empty() {
                 out.push(std::mem::take(&mut cur));
             }
@@ -90,5 +95,16 @@ mod tests {
         assert_eq!(to_pascal_case("fooBar"), "FooBar");
         assert_eq!(to_pascal_case("ping"), "Ping");
         assert_eq!(to_pascal_case("ping-pong"), "PingPong");
+    }
+
+    #[test]
+    fn wire_name_separators_sanitize_to_identifiers() {
+        // `:` / `/` / `.` are valid in a KDL string but not in a Rust / TS
+        // identifier — they must split words like `_` / `-` / ` `.
+        assert_eq!(to_pascal_case("lane:delete"), "LaneDelete");
+        assert_eq!(to_pascal_case("process:toggle"), "ProcessToggle");
+        assert_eq!(to_pascal_case("process/spawn"), "ProcessSpawn");
+        assert_eq!(to_pascal_case("vp.sidebar"), "VpSidebar");
+        assert_eq!(to_snake_case("lane:delete"), "lane_delete");
     }
 }

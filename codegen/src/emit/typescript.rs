@@ -264,21 +264,39 @@ fn named_to_ts(name: &str) -> String {
 }
 
 /// Render a payload `interface` with a leading JSDoc comment of the given kind.
+///
+/// `name` is the wire name as written in the schema; the JSDoc keeps it
+/// verbatim while the `interface` identifier is PascalCased so a wire-style
+/// name (`process:toggle`) yields a valid TypeScript identifier
+/// (`ProcessToggle`).
 fn render_payload_interface(kind: &str, name: &str, fields: &[ir::Field]) -> String {
+    let ident = to_pascal_case(name);
     if fields.is_empty() {
-        format!("/** {kind} \"{name}\" — empty payload */\nexport interface {name} {{}}")
+        format!("/** {kind} \"{name}\" — empty payload */\nexport interface {ident} {{}}")
     } else {
         let body: Vec<String> = fields.iter().map(render_field).collect();
         format!(
-            "/** {kind} \"{name}\" */\nexport interface {name} {{\n{}\n}}",
+            "/** {kind} \"{name}\" */\nexport interface {ident} {{\n{}\n}}",
             body.join("\n")
         )
     }
 }
 
+/// The TypeScript identifier for a request's response: the sentinel `"void"`
+/// stays literal, any other (wire) name is PascalCased to match its generated
+/// `interface`.
+fn response_ident(resp: &str) -> String {
+    if resp == "void" {
+        "void".to_string()
+    } else {
+        to_pascal_case(resp)
+    }
+}
+
 /// Render the full block for one channel: payload interfaces, the event /
-/// request type maps, and the `ChannelMeta` const. Ported from
-/// club-unison's `generate_channel`.
+/// request type maps, the `ChannelMeta` const, and — when the channel
+/// declares `envelope="<tag>"` — a discriminated-union envelope type. Ported
+/// from club-unison's `generate_channel`.
 fn render_channel(channel: &ir::Channel) -> String {
     let mut code = String::new();
 
@@ -343,7 +361,8 @@ fn render_channel(channel: &ir::Channel) -> String {
     } else {
         code.push_str(&format!("export interface {event_types_name} {{\n"));
         for n in &event_names {
-            code.push_str(&format!("  {n}: {n};\n"));
+            let ident = to_pascal_case(n);
+            code.push_str(&format!("  {ident}: {ident};\n"));
         }
         code.push_str("}\n\n");
     }
@@ -361,8 +380,10 @@ fn render_channel(channel: &ir::Channel) -> String {
     } else {
         code.push_str(&format!("export interface {request_types_name} {{\n"));
         for (req_name, resp_type) in &request_mappings {
+            let req_ident = to_pascal_case(req_name);
+            let resp_ident = response_ident(resp_type);
             code.push_str(&format!(
-                "  {req_name}: {{ request: {req_name}; response: {resp_type} }};\n"
+                "  {req_ident}: {{ request: {req_ident}; response: {resp_ident} }};\n"
             ));
         }
         code.push_str("}\n\n");
@@ -412,8 +433,9 @@ fn render_channel(channel: &ir::Channel) -> String {
     } else {
         code.push_str("  requests: {\n");
         for (req_name, resp_type) in &request_mappings {
+            let req_ident = to_pascal_case(req_name);
             code.push_str(&format!(
-                "    {req_name}: {{ request: {req_name:?} as const, response: {resp_type:?} as const }},\n"
+                "    {req_ident}: {{ request: {req_name:?} as const, response: {resp_type:?} as const }},\n"
             ));
         }
         code.push_str("  } as const,\n");
@@ -424,6 +446,34 @@ fn render_channel(channel: &ir::Channel) -> String {
         "  __types: undefined as unknown as {{ events: {event_types_name}; requests: {request_types_name} }},\n"
     ));
     code.push_str("} as const;\n");
+
+    // Discriminated-union envelope over the channel's requests (opt-in via
+    // `envelope="<tag>"`). Each arm intersects the tag literal with the
+    // request's payload `interface`; a fieldless request's interface is `{}`,
+    // so the arm collapses to the tag literal alone.
+    if let Some(tag) = &channel.envelope
+        && !channel.requests.is_empty()
+    {
+        let envelope_name = format!("{pascal}Envelope");
+        code.push_str(&format!(
+            "\n/** Envelope union for channel \"{}\" — discriminated on {tag:?}. */\n",
+            channel.name
+        ));
+        code.push_str(&format!("export type {envelope_name} =\n"));
+        let arms: Vec<String> = channel
+            .requests
+            .iter()
+            .map(|req| {
+                format!(
+                    "  | ({{ {tag}: {:?} }} & {})",
+                    req.name,
+                    to_pascal_case(&req.name)
+                )
+            })
+            .collect();
+        code.push_str(&arms.join("\n"));
+        code.push_str(";\n");
+    }
 
     code
 }
@@ -537,6 +587,7 @@ mod tests {
                     lifetime: ir::ChannelLifetime::Persistent,
                     backend: ir::ChannelBackend::Stream,
                     channel_id: None,
+                    envelope: None,
                     requests: vec![ir::Request {
                         name: "Ping".to_string(),
                         fields: vec![field("seq", ir::Ty::Primitive(ir::Prim::Int), true)],
@@ -588,6 +639,7 @@ mod tests {
                     lifetime: ir::ChannelLifetime::Persistent,
                     backend: ir::ChannelBackend::Datagram,
                     channel_id: Some(7),
+                    envelope: None,
                     requests: vec![],
                     events: vec![ir::Event {
                         name: "Sample".to_string(),
@@ -601,6 +653,79 @@ mod tests {
         assert!(out.contains("  channelId: 7 as const,"));
         assert!(out.contains("  requests: {} as const,"));
         assert!(out.contains("export type MetricsChannelRequestTypes = Record<string, never>;"));
+    }
+
+    // -------------------------------------------------------------------------
+    // protocol dialect — envelope union + identifier sanitize
+    // -------------------------------------------------------------------------
+
+    /// The sidebar-IPC spike channel: a `:`-bearing request name, a fieldless
+    /// request, and an optional `envelope` tag.
+    fn sidebar_schema(envelope: Option<&str>) -> ir::Schema {
+        ir::Schema {
+            protocol: Some(ir::Protocol {
+                name: "sidebar".to_string(),
+                version: "1.0.0".to_string(),
+                namespace: None,
+                description: None,
+                channels: vec![ir::Channel {
+                    name: "ipc".to_string(),
+                    from: ir::ChannelFrom::Client,
+                    lifetime: ir::ChannelLifetime::Transient,
+                    backend: ir::ChannelBackend::Stream,
+                    channel_id: None,
+                    envelope: envelope.map(str::to_string),
+                    requests: vec![
+                        ir::Request {
+                            name: "process:toggle".to_string(),
+                            fields: vec![field("path", ir::Ty::Primitive(ir::Prim::String), true)],
+                            returns: None,
+                        },
+                        ir::Request {
+                            name: "process:add".to_string(),
+                            fields: vec![],
+                            returns: None,
+                        },
+                    ],
+                    events: vec![],
+                }],
+            }),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn channel_request_names_are_sanitized_to_valid_identifiers() {
+        // A `:`-bearing request name must not leak into `interface process:toggle`.
+        let out = TypeScriptEmitter::new().emit(&sidebar_schema(None));
+        assert!(out.contains("export interface ProcessToggle {"));
+        assert!(out.contains("export interface ProcessAdd {}"));
+        assert!(
+            !out.contains("interface process:toggle"),
+            "raw `:` name must not leak into an identifier"
+        );
+        // the JSDoc keeps the wire name verbatim.
+        assert!(out.contains("/** Request \"process:toggle\" */"));
+    }
+
+    #[test]
+    fn channel_without_envelope_emits_no_union() {
+        let out = TypeScriptEmitter::new().emit(&sidebar_schema(None));
+        assert!(
+            !out.contains("export type IpcEnvelope"),
+            "no envelope ⇒ no union"
+        );
+    }
+
+    #[test]
+    fn envelope_channel_emits_discriminated_union() {
+        let out = TypeScriptEmitter::new().emit(&sidebar_schema(Some("t")));
+        assert!(
+            out.contains("export type IpcEnvelope ="),
+            "union type emitted"
+        );
+        assert!(out.contains("  | ({ t: \"process:toggle\" } & ProcessToggle)"));
+        assert!(out.contains("  | ({ t: \"process:add\" } & ProcessAdd)"));
     }
 
     // -------------------------------------------------------------------------
