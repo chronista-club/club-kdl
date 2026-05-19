@@ -276,6 +276,7 @@ fn lower_channel(raw: raw::RawChannel) -> Result<ir::Channel, ParseError> {
         lifetime,
         backend,
         channel_id: raw.channel_id,
+        envelope: raw.envelope,
         requests,
         events,
     })

@@ -319,21 +319,81 @@ fn id_field() -> ir::Field {
 }
 
 /// Render every payload struct for one channel: request payloads, `returns`
-/// messages, and event payloads.
+/// messages, and event payloads. Payload names are PascalCased so a wire-style
+/// schema name (`process:toggle`) becomes a valid Rust identifier
+/// (`ProcessToggle`).
+///
+/// When the channel declares `envelope="<tag>"`, a discriminated-union enum
+/// bundling every request payload is appended (see [`render_envelope_enum`]).
 fn render_channel(channel: &ir::Channel) -> String {
     let mut out = String::new();
     for req in &channel.requests {
         out.push('\n');
-        out.push_str(&render_struct(&req.name, None, &req.fields));
+        out.push_str(&render_struct(
+            &to_pascal_case(&req.name),
+            None,
+            &req.fields,
+        ));
         if let Some(returns) = &req.returns {
             out.push('\n');
-            out.push_str(&render_struct(&returns.name, None, &returns.fields));
+            out.push_str(&render_struct(
+                &to_pascal_case(&returns.name),
+                None,
+                &returns.fields,
+            ));
         }
     }
     for evt in &channel.events {
         out.push('\n');
-        out.push_str(&render_struct(&evt.name, None, &evt.fields));
+        out.push_str(&render_struct(
+            &to_pascal_case(&evt.name),
+            None,
+            &evt.fields,
+        ));
     }
+    if let Some(tag) = &channel.envelope
+        && !channel.requests.is_empty()
+    {
+        out.push('\n');
+        out.push_str(&render_envelope_enum(channel, tag));
+    }
+    out
+}
+
+/// Render the channel's envelope `enum`: an internally `#[serde(tag = "...")]`
+/// discriminated union bundling every request payload.
+///
+/// A request carrying fields becomes a newtype variant wrapping its payload
+/// struct (`ProcessToggle(ProcessToggle)`); a fieldless request becomes a unit
+/// variant (`ProcessAdd`). The unit form is required — serde rejects an
+/// internally tagged newtype variant that wraps a unit struct at runtime.
+///
+/// The variant identifier is the PascalCased request name; the original
+/// (possibly `:`-bearing) wire name is preserved with `#[serde(rename = ...)]`
+/// whenever sanitizing changed it.
+fn render_envelope_enum(channel: &ir::Channel, tag: &str) -> String {
+    let enum_name = format!("{}Envelope", to_pascal_case(&channel.name));
+    let mut out = String::new();
+    out.push_str(&format!(
+        "/// Envelope enum for channel {:?} — a discriminated union over its\n\
+         /// requests, internally tagged by the {tag:?} field.\n",
+        channel.name
+    ));
+    out.push_str("#[derive(Debug, Clone, Serialize, Deserialize)]\n");
+    out.push_str(&format!("#[serde(tag = \"{tag}\")]\n"));
+    out.push_str(&format!("pub enum {enum_name} {{\n"));
+    for req in &channel.requests {
+        let variant = to_pascal_case(&req.name);
+        if variant != req.name {
+            out.push_str(&format!("    #[serde(rename = \"{}\")]\n", req.name));
+        }
+        if req.fields.is_empty() {
+            out.push_str(&format!("    {variant},\n"));
+        } else {
+            out.push_str(&format!("    {variant}({variant}),\n"));
+        }
+    }
+    out.push_str("}\n");
     out
 }
 
@@ -515,6 +575,7 @@ mod tests {
                     lifetime: ir::ChannelLifetime::Persistent,
                     backend: ir::ChannelBackend::Stream,
                     channel_id: None,
+                    envelope: None,
                     requests: vec![ir::Request {
                         name: "Ping".to_string(),
                         fields: vec![field("seq", ir::Ty::Primitive(ir::Prim::Int), true)],
@@ -534,6 +595,111 @@ mod tests {
         assert!(out.contains("pub struct Ping {"));
         assert!(out.contains("pub struct Pong {"));
         assert!(out.contains("pub struct Tick;"));
+    }
+
+    // -------------------------------------------------------------------------
+    // protocol dialect — envelope enum + identifier sanitize
+    // -------------------------------------------------------------------------
+
+    /// The sidebar-IPC spike channel: `:`-bearing request names, a fieldless
+    /// request, and an `envelope` tag.
+    fn sidebar_channel(envelope: Option<&str>) -> ir::Channel {
+        ir::Channel {
+            name: "ipc".to_string(),
+            from: ir::ChannelFrom::Client,
+            lifetime: ir::ChannelLifetime::Transient,
+            backend: ir::ChannelBackend::Stream,
+            channel_id: None,
+            envelope: envelope.map(str::to_string),
+            requests: vec![
+                ir::Request {
+                    name: "process:toggle".to_string(),
+                    fields: vec![
+                        field("path", ir::Ty::Primitive(ir::Prim::String), true),
+                        field("expanded", ir::Ty::Primitive(ir::Prim::Bool), true),
+                    ],
+                    returns: None,
+                },
+                ir::Request {
+                    name: "process:add".to_string(),
+                    fields: vec![],
+                    returns: None,
+                },
+            ],
+            events: vec![],
+        }
+    }
+
+    fn protocol_schema(channel: ir::Channel) -> ir::Schema {
+        ir::Schema {
+            protocol: Some(ir::Protocol {
+                name: "sidebar".to_string(),
+                version: "1.0.0".to_string(),
+                namespace: None,
+                description: None,
+                channels: vec![channel],
+            }),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn channel_request_names_are_sanitized_to_valid_identifiers() {
+        // A `:`-bearing request name must not leak into `pub struct foo:bar`.
+        let out = RustEmitter::new().emit(&protocol_schema(sidebar_channel(None)));
+        assert!(out.contains("pub struct ProcessToggle {"));
+        assert!(out.contains("pub struct ProcessAdd;"));
+        assert!(
+            !out.contains("process:toggle"),
+            "raw `:` name must not leak"
+        );
+    }
+
+    #[test]
+    fn channel_without_envelope_emits_no_enum() {
+        // Backward compatibility: an `envelope`-less channel emits only structs.
+        let out = RustEmitter::new().emit(&protocol_schema(sidebar_channel(None)));
+        assert!(!out.contains("pub enum"), "no envelope ⇒ no enum");
+    }
+
+    #[test]
+    fn envelope_channel_emits_internally_tagged_enum() {
+        let out = RustEmitter::new().emit(&protocol_schema(sidebar_channel(Some("t"))));
+        assert!(out.contains("#[serde(tag = \"t\")]"), "internally tagged");
+        assert!(
+            out.contains("pub enum IpcEnvelope {"),
+            "enum named <Channel>Envelope"
+        );
+        // a request with fields → newtype variant wrapping its struct.
+        assert!(out.contains("    #[serde(rename = \"process:toggle\")]"));
+        assert!(out.contains("    ProcessToggle(ProcessToggle),"));
+        // a fieldless request → unit variant (serde rejects newtype-of-unit).
+        assert!(out.contains("    #[serde(rename = \"process:add\")]"));
+        assert!(out.contains("    ProcessAdd,\n"));
+        assert!(
+            !out.contains("ProcessAdd(ProcessAdd)"),
+            "fieldless request must not become a newtype variant"
+        );
+    }
+
+    #[test]
+    fn envelope_variant_without_colon_name_needs_no_rename() {
+        // A request whose name is already PascalCase carries no `#[serde(rename)]`.
+        let mut channel = sidebar_channel(Some("t"));
+        channel.requests = vec![ir::Request {
+            name: "Ping".to_string(),
+            fields: vec![field("seq", ir::Ty::Primitive(ir::Prim::Int), true)],
+            returns: None,
+        }];
+        let out = RustEmitter::new().emit(&protocol_schema(channel));
+        assert!(out.contains("    Ping(Ping),"));
+        // `Ping` == to_pascal_case("Ping") → no rename attribute precedes it.
+        let variant_line = out.find("    Ping(Ping),").unwrap();
+        let preceding = &out[..variant_line];
+        assert!(
+            !preceding.trim_end().ends_with("rename = \"Ping\")]"),
+            "an already-PascalCase name needs no rename"
+        );
     }
 
     // -------------------------------------------------------------------------

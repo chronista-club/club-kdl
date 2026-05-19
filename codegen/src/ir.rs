@@ -268,6 +268,13 @@ pub struct Channel {
     /// Demux identifier, required when [`Self::backend`] is
     /// [`ChannelBackend::Datagram`]. A positive integer (`1..`).
     pub channel_id: Option<u64>,
+    /// When `Some(tag)`, the emitters generate a discriminated-union
+    /// **envelope** type bundling every [`Self::requests`] entry, internally
+    /// tagged by the JSON field named `tag` (`channel "ipc" envelope="t"` ⇒
+    /// `Some("t")`). `None` leaves the channel emitting per-request payloads
+    /// only — the channel output is then byte-identical to a pre-envelope
+    /// build.
+    pub envelope: Option<String>,
     /// Request/response definitions in source order. Always empty for a
     /// datagram channel (datagram channels carry events only).
     pub requests: Vec<Request>,

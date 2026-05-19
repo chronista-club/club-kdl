@@ -103,6 +103,14 @@ impl Emitter for ZodEmitter {
                     code.push_str(&render_object(&evt.name, None, &evt.fields));
                     code.push_str("\n\n");
                 }
+                // discriminated-union envelope over the channel's requests,
+                // emitted after the per-request objects it references.
+                if let Some(tag) = &channel.envelope
+                    && !channel.requests.is_empty()
+                {
+                    code.push_str(&render_envelope(channel, tag));
+                    code.push_str("\n\n");
+                }
             }
         }
 
@@ -156,6 +164,29 @@ fn render_object(name: &str, description: Option<&str>, fields: &[ir::Field]) ->
         "export const {pascal} = z.object({{\n{}\n}}){describe};",
         body.join("\n")
     )
+}
+
+/// Render the channel's envelope as a `z.discriminatedUnion`.
+///
+/// Each member extends a per-request `z.object` with the discriminator
+/// (`tag`) literal, so a runtime value carrying `{ "<tag>": "<wire>" }`
+/// validates against exactly one request payload. A fieldless request's
+/// object is `z.object({})`, which `.extend` still accepts.
+fn render_envelope(channel: &ir::Channel, tag: &str) -> String {
+    let name = format!("{}Envelope", to_pascal_case(&channel.name));
+    let mut out = format!(
+        "export const {name} = z.discriminatedUnion({}, [\n",
+        js_string(tag)
+    );
+    for req in &channel.requests {
+        out.push_str(&format!(
+            "  {}.extend({{ {tag}: z.literal({}) }}),\n",
+            to_pascal_case(&req.name),
+            js_string(&req.name),
+        ));
+    }
+    out.push_str("]);");
+    out
 }
 
 /// Render the constraint suffix for a Zod schema: `.min(N)` / `.max(N)` for a
@@ -427,6 +458,7 @@ mod tests {
                     lifetime: ir::ChannelLifetime::Persistent,
                     backend: ir::ChannelBackend::Stream,
                     channel_id: None,
+                    envelope: None,
                     requests: vec![ir::Request {
                         name: "Send".to_string(),
                         fields: vec![field("body", ir::Ty::Primitive(ir::Prim::String), true)],
@@ -442,6 +474,78 @@ mod tests {
         let out = ZodEmitter::new().emit(&schema);
         assert!(out.contains("export const Send = z.object({"));
         assert!(out.contains("export const Ack = z.object({"));
+    }
+
+    // -------------------------------------------------------------------------
+    // protocol dialect — envelope discriminated union
+    // -------------------------------------------------------------------------
+
+    /// The sidebar-IPC spike channel: a `:`-bearing request name, a fieldless
+    /// request, and an optional `envelope` tag.
+    fn sidebar_schema(envelope: Option<&str>) -> ir::Schema {
+        ir::Schema {
+            protocol: Some(ir::Protocol {
+                name: "sidebar".to_string(),
+                version: "1.0.0".to_string(),
+                namespace: None,
+                description: None,
+                channels: vec![ir::Channel {
+                    name: "ipc".to_string(),
+                    from: ir::ChannelFrom::Client,
+                    lifetime: ir::ChannelLifetime::Transient,
+                    backend: ir::ChannelBackend::Stream,
+                    channel_id: None,
+                    envelope: envelope.map(str::to_string),
+                    requests: vec![
+                        ir::Request {
+                            name: "process:toggle".to_string(),
+                            fields: vec![field("path", ir::Ty::Primitive(ir::Prim::String), true)],
+                            returns: None,
+                        },
+                        ir::Request {
+                            name: "process:add".to_string(),
+                            fields: vec![],
+                            returns: None,
+                        },
+                    ],
+                    events: vec![],
+                }],
+            }),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn channel_request_schema_names_are_sanitized() {
+        // `render_object` PascalCases the schema name, so a `:`-bearing
+        // request name yields a valid `export const` identifier.
+        let out = ZodEmitter::new().emit(&sidebar_schema(None));
+        assert!(out.contains("export const ProcessToggle = z.object({"));
+        assert!(out.contains("export const ProcessAdd = z.object({})"));
+    }
+
+    #[test]
+    fn channel_without_envelope_emits_no_discriminated_union() {
+        let out = ZodEmitter::new().emit(&sidebar_schema(None));
+        assert!(
+            !out.contains("z.discriminatedUnion"),
+            "no envelope ⇒ no union"
+        );
+    }
+
+    #[test]
+    fn envelope_channel_emits_discriminated_union() {
+        let out = ZodEmitter::new().emit(&sidebar_schema(Some("t")));
+        assert!(out.contains("export const IpcEnvelope = z.discriminatedUnion(\"t\", ["));
+        assert!(out.contains("  ProcessToggle.extend({ t: z.literal(\"process:toggle\") }),"));
+        assert!(out.contains("  ProcessAdd.extend({ t: z.literal(\"process:add\") }),"));
+        // the union must follow the per-request objects it references.
+        let obj = out.find("export const ProcessToggle").unwrap();
+        let union = out.find("export const IpcEnvelope").unwrap();
+        assert!(
+            obj < union,
+            "request objects precede the discriminated union"
+        );
     }
 
     // -------------------------------------------------------------------------

@@ -355,3 +355,255 @@ fn tier2_rust_and_typescript_carry_docs_but_not_constraints() {
     assert!(ts.contains("/** Memory content text */"));
     assert!(!ts.contains("@minimum"), "no constraint metadata in TS");
 }
+
+// =============================================================================
+// protocol dialect — envelope enum + identifier sanitize end-to-end
+// =============================================================================
+
+/// The VP sidebar-IPC spike: a `channel` with `envelope="t"`, `:`-bearing
+/// request names, and a fieldless request. Mirrors handoff
+/// `mem_1CbBXDUTbzbRpn1dnQzZt6`.
+const ENVELOPE_SCHEMA: &str = r#"
+    protocol "sidebar" version="1.0.0" {
+        namespace "vp.sidebar"
+        channel "ipc" from="client" lifetime="transient" envelope="t" {
+            request "process:toggle" {
+                field "path" type="string"
+                field "expanded" type="bool"
+            }
+            request "lane:delete" {
+                field "path" type="string"
+                field "address" type="string"
+            }
+            request "process:add" {}
+        }
+    }
+"#;
+
+#[test]
+fn envelope_schema_parses_with_envelope_tag() {
+    let schema = parse(ENVELOPE_SCHEMA).expect("envelope schema parses");
+    let channel = &schema.protocol.unwrap().channels[0];
+    assert_eq!(channel.envelope.as_deref(), Some("t"));
+    assert_eq!(channel.requests.len(), 3);
+}
+
+#[test]
+fn envelope_schema_emits_compilable_rust_enum() {
+    let schema = parse(ENVELOPE_SCHEMA).expect("envelope schema parses");
+    let out = RustEmitter::new().emit(&schema);
+    // `:`-bearing request names are sanitized into valid identifiers.
+    assert!(out.contains("pub struct ProcessToggle {"));
+    assert!(out.contains("pub struct LaneDelete {"));
+    assert!(out.contains("pub struct ProcessAdd;"));
+    assert!(
+        !out.contains("process:toggle {"),
+        "raw `:` name must not leak"
+    );
+    // the envelope enum is an internally tagged discriminated union.
+    assert!(out.contains("#[serde(tag = \"t\")]"));
+    assert!(out.contains("pub enum IpcEnvelope {"));
+    assert!(out.contains("ProcessToggle(ProcessToggle),"));
+    assert!(out.contains("LaneDelete(LaneDelete),"));
+    assert!(
+        out.contains("    ProcessAdd,\n"),
+        "fieldless request → unit variant"
+    );
+    assert!(out.contains("#[serde(rename = \"lane:delete\")]"));
+}
+
+#[test]
+fn envelope_schema_emits_typescript_and_zod_unions() {
+    let schema = parse(ENVELOPE_SCHEMA).expect("envelope schema parses");
+
+    let ts = TypeScriptEmitter::new().emit(&schema);
+    assert!(ts.contains("export type IpcEnvelope ="));
+    assert!(ts.contains("({ t: \"process:toggle\" } & ProcessToggle)"));
+    assert!(ts.contains("({ t: \"lane:delete\" } & LaneDelete)"));
+
+    let zod = ZodEmitter::new().emit(&schema);
+    assert!(zod.contains("z.discriminatedUnion(\"t\", ["));
+    assert!(zod.contains("ProcessToggle.extend({ t: z.literal(\"process:toggle\") })"));
+    assert!(zod.contains("LaneDelete.extend({ t: z.literal(\"lane:delete\") })"));
+}
+
+// =============================================================================
+// protocol dialect — generated output really compiles
+// =============================================================================
+//
+// The tests above assert on substrings of the generated text. That catches a
+// missing token but not a malformed one — a stray `#[serde(rename = ...)]`, an
+// enum variant rustc rejects, an interface body `tsc` rejects. The two tests
+// below close that gap: they feed the generated source to the real compiler
+// (`cargo build` for Rust, `tsc --noEmit` for TypeScript), so a schema that
+// emits syntactically broken code fails CI rather than passing a text assert.
+
+/// The VP sidebar-IPC schema — all 11 `SidebarIpcMsg` variants, from handoff
+/// `mem_1CbBXDUTbzbRpn1dnQzZt6` annotation `mem_1CbBaDWBeK7FeapgAQXyb3`. Used
+/// as the compile fixture for its coverage in one schema: a single- and a
+/// double-colon wire name (`lane:delete`, `project:clone:pickFolder`), two
+/// fieldless requests, a request with optional fields, an `array<string>`
+/// field, and multi-field requests — every identifier-sanitize and
+/// envelope-variant code path the emitters have.
+const SIDEBAR_IPC_SCHEMA: &str = r#"
+    protocol "sidebar" version="1.0.0" {
+        namespace "vp.sidebar"
+        channel "ipc" from="client" lifetime="transient" envelope="t" {
+            request "process:toggle" {
+                field "path" type="string"
+                field "expanded" type="bool"
+            }
+            request "process:reorder" {
+                field "order" type="array<string>"
+            }
+            request "process:restart" {
+                field "path" type="string"
+            }
+            request "process:add" {}
+            request "lane:select" {
+                field "path" type="string"
+                field "address" type="string"
+            }
+            request "lane:delete" {
+                field "path" type="string"
+                field "address" type="string"
+            }
+            request "lane:restart" {
+                field "path" type="string"
+                field "address" type="string"
+            }
+            request "lane:add_wing" {
+                field "path" type="string"
+                field "name" type="string"
+                field "branch" type="string" optional=#true
+                field "stand" type="string" optional=#true
+            }
+            request "stands:fetch" {
+                field "path" type="string"
+            }
+            request "stand:select" {
+                field "path" type="string"
+                field "kind" type="string"
+            }
+            request "project:clone:pickFolder" {}
+        }
+    }
+"#;
+
+/// The `cargo` binary that launched this test, for spawning a nested build.
+fn cargo_bin() -> String {
+    std::env::var("CARGO").unwrap_or_else(|_| "cargo".to_string())
+}
+
+/// Compile `generated` Rust as a standalone library crate; return
+/// `(succeeded, build_log)`.
+///
+/// The throwaway crate lives under `CARGO_TARGET_TMPDIR`. It carries an empty
+/// `[workspace]` table so cargo does not fold it into the club-kdl workspace
+/// it physically nests inside, and declares the crates the emitter's import
+/// header names (`serde` / `anyhow` / `chrono` / `uuid`). A leading
+/// `#![allow(unused_imports, dead_code)]`, plus dropping any inherited
+/// `RUSTFLAGS`, keeps a small schema's unused imports from tripping the
+/// `-D warnings` CI sets.
+fn rust_source_compiles(generated: &str) -> (bool, String) {
+    let dir = std::path::Path::new(env!("CARGO_TARGET_TMPDIR")).join("rust-compile-probe");
+    let src_dir = dir.join("src");
+    std::fs::create_dir_all(&src_dir).expect("create probe crate dir");
+    std::fs::write(
+        dir.join("Cargo.toml"),
+        r#"[package]
+name = "codegen-rust-compile-probe"
+version = "0.0.0"
+edition = "2024"
+
+[lib]
+path = "src/lib.rs"
+
+[workspace]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+anyhow = "1"
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1", features = ["serde"] }
+"#,
+    )
+    .expect("write probe Cargo.toml");
+    std::fs::write(
+        src_dir.join("lib.rs"),
+        format!("#![allow(unused_imports, dead_code)]\n{generated}"),
+    )
+    .expect("write probe lib.rs");
+
+    let out = Command::new(cargo_bin())
+        .current_dir(&dir)
+        .args(["build", "--quiet"])
+        .env_remove("RUSTFLAGS")
+        .output()
+        .expect("spawn cargo build");
+    let log = format!(
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr),
+    );
+    (out.status.success(), log)
+}
+
+#[test]
+fn sidebar_ipc_rust_output_really_compiles() {
+    let schema = parse(SIDEBAR_IPC_SCHEMA).expect("sidebar schema parses");
+    let generated = RustEmitter::new().emit(&schema);
+    let (ok, log) = rust_source_compiles(&generated);
+    assert!(
+        ok,
+        "generated Rust must compile — `cargo build` reported:\n{log}"
+    );
+}
+
+/// Type-check `generated` TypeScript with `tsc --noEmit` via Bun; return
+/// `(succeeded, log)`, or `None` when Bun is absent.
+///
+/// Bun is the project's TypeScript toolchain (never npm). A local checkout
+/// without Bun skips the check instead of failing; CI installs Bun via
+/// `setup-bun`, so the gate still holds there.
+fn typescript_source_typechecks(generated: &str) -> Option<(bool, String)> {
+    let bun_present = Command::new("bun")
+        .arg("--version")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+    if !bun_present {
+        return None;
+    }
+    let dir = std::path::Path::new(env!("CARGO_TARGET_TMPDIR")).join("ts-compile-probe");
+    std::fs::create_dir_all(&dir).expect("create ts probe dir");
+    std::fs::write(dir.join("generated.ts"), generated).expect("write generated.ts");
+
+    let out = Command::new("bunx")
+        .current_dir(&dir)
+        .args(["tsc", "--noEmit", "--strict", "generated.ts"])
+        .output()
+        .expect("spawn bunx tsc");
+    let log = format!(
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr),
+    );
+    Some((out.status.success(), log))
+}
+
+#[test]
+fn sidebar_ipc_typescript_output_really_compiles() {
+    let schema = parse(SIDEBAR_IPC_SCHEMA).expect("sidebar schema parses");
+    let generated = TypeScriptEmitter::new().emit(&schema);
+    match typescript_source_typechecks(&generated) {
+        Some((ok, log)) => assert!(
+            ok,
+            "generated TypeScript must type-check — `tsc` reported:\n{log}"
+        ),
+        None => eprintln!(
+            "skipping TypeScript compile check: Bun not found \
+             (CI installs it via setup-bun)"
+        ),
+    }
+}
