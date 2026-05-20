@@ -359,12 +359,15 @@ fn render_channel(channel: &ir::Channel) -> String {
             "export type {event_types_name} = Record<string, never>;\n\n"
         ));
     } else {
-        code.push_str(&format!("export interface {event_types_name} {{\n"));
+        // `type` (not `interface`): the map must be assignable to
+        // `Record<string, unknown>` for the SDK's `ChannelMeta.__types` —
+        // an `interface` has no implicit index signature and would fail.
+        code.push_str(&format!("export type {event_types_name} = {{\n"));
         for n in &event_names {
             let ident = to_pascal_case(n);
             code.push_str(&format!("  {ident}: {ident};\n"));
         }
-        code.push_str("}\n\n");
+        code.push_str("};\n\n");
     }
 
     // Request type map.
@@ -378,7 +381,8 @@ fn render_channel(channel: &ir::Channel) -> String {
             "export type {request_types_name} = Record<string, never>;\n\n"
         ));
     } else {
-        code.push_str(&format!("export interface {request_types_name} {{\n"));
+        // `type` (not `interface`) — see the event-map note above.
+        code.push_str(&format!("export type {request_types_name} = {{\n"));
         for (req_name, resp_type) in &request_mappings {
             let req_ident = to_pascal_case(req_name);
             let resp_ident = response_ident(resp_type);
@@ -386,7 +390,7 @@ fn render_channel(channel: &ir::Channel) -> String {
                 "  {req_ident}: {{ request: {req_ident}; response: {resp_ident} }};\n"
             ));
         }
-        code.push_str("}\n\n");
+        code.push_str("};\n\n");
     }
 
     // Channel metadata const.
@@ -611,8 +615,8 @@ mod tests {
         assert!(out.contains("/** Response \"Pong\" */"));
         assert!(out.contains("/** Event \"Tick\" — empty payload */"));
         assert!(out.contains("export interface Tick {}"));
-        assert!(out.contains("export interface PingPongChannelEventTypes {"));
-        assert!(out.contains("export interface PingPongChannelRequestTypes {"));
+        assert!(out.contains("export type PingPongChannelEventTypes = {"));
+        assert!(out.contains("export type PingPongChannelRequestTypes = {"));
         assert!(out.contains("  Ping: { request: Ping; response: Pong };"));
         assert!(out.contains("export const PingPongChannelMeta = {"));
         assert!(out.contains("  name: \"ping-pong\" as const,"));

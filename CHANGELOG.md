@@ -7,6 +7,16 @@
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-05-20
+
+### 修正
+
+- **codegen: TypeScript の channel type map を `interface` → `type` に** —
+  `<Channel>ChannelEventTypes` / `<Channel>ChannelRequestTypes` を `interface`
+  で出力していたため、SDK の `ChannelMeta.__types`（`Record<string, unknown>`）
+  に代入できなかった（`interface` は暗黙の index signature を持たない）。
+  `type` 別名で出力し、生成 `ChannelMeta` const が `ChannelMeta` を満たすようにする。
+
 ## [0.9.0] - 2026-05-19
 
 ### 追加
