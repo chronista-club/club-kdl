@@ -75,18 +75,30 @@
 //!
 //! ## Example
 //!
-//! ```no_run
-//! use kdl::KdlDocument;
+//! Each example is an **executable** doc-test — `cargo test --doc` runs it
+//! against a real filesystem (under [`tempfile::tempdir`]), so an API drift
+//! in `compose` / `from_path` breaks the docs and the test suite at once.
 //!
-//! // Resolve all (<) directives and return the composed document.
-//! let doc: KdlDocument = kdl_compose::compose("./schema.kdl")?;
+//! ```
+//! # fn main() -> Result<(), kdl_compose::ComposeError> {
+//! // Lay out a two-file schema under a scratch directory.
+//! let dir = tempfile::tempdir().unwrap();
+//! std::fs::write(
+//!     dir.path().join("types.kdl"),
+//!     r#"struct "User" { field "id" type="string" }"#,
+//! ).unwrap();
+//! std::fs::write(
+//!     dir.path().join("schema.kdl"),
+//!     "(<)file \"./types.kdl\"\nlocal \"trailing-node\"",
+//! ).unwrap();
 //!
-//! // Or deserialize directly into a typed value via club-kdl.
-//! # #[derive(club_kdl::KdlDeserialize)]
-//! # #[kdl(document)]
-//! # struct Config { /* ... */ }
-//! let cfg: Config = kdl_compose::from_path("./config.kdl")?;
-//! # Ok::<_, kdl_compose::ComposeError>(())
+//! // Resolve all (<) directives, returning a single composed KdlDocument.
+//! let doc = kdl_compose::compose(dir.path().join("schema.kdl"))?;
+//! assert_eq!(doc.nodes().len(), 2);                          // struct + local
+//! assert_eq!(doc.nodes()[0].name().value(), "struct");
+//! assert_eq!(doc.nodes()[1].name().value(), "local");
+//! # Ok(())
+//! # }
 //! ```
 
 #![warn(missing_docs)]
@@ -207,6 +219,7 @@ fn process_nodes(
 // =============================================================================
 
 /// A parsed `(<)` directive node, with all its options collected.
+#[derive(Debug)]
 struct Directive {
     kind: DirectiveKind,
     as_prefix: Option<String>,
@@ -216,6 +229,7 @@ struct Directive {
 }
 
 /// The variant — `(<)file` or `(<)glob`.
+#[derive(Debug)]
 enum DirectiveKind {
     /// A single path, relative to the importing file's directory.
     File(PathBuf),
@@ -435,12 +449,16 @@ fn expand_glob(base_dir: &Path, pattern: &str, current_file: &Path) -> Result<Ve
 fn transform_node(node: &KdlNode, directive: &Directive) -> Option<KdlNode> {
     let original_name = first_string_arg(node).map(str::to_string);
 
-    // Filter: only / except — operate on original (pre-rename) name.
-    if let Some(only) = &directive.only {
-        match &original_name {
-            Some(n) if only.contains(n) => {}
-            _ => return None,
-        }
+    // Filter: only / except — operate on the original (pre-rename) name.
+    // Nodes without a first string argument have no name to test against the
+    // filter, so they pass through unconditionally — this lets meta directives
+    // like `kdl-version 2` survive an `only`/`except` clause that targets
+    // sibling type definitions.
+    if let Some(only) = &directive.only
+        && let Some(n) = &original_name
+        && !only.contains(n)
+    {
+        return None;
     }
     if let Some(n) = &original_name
         && directive.except.contains(n)
@@ -485,19 +503,79 @@ fn set_first_string_arg(node: &mut KdlNode, new_value: &str) {
 }
 
 // =============================================================================
-// Inline tests — exercise small surface; integration tests cover the rest.
+// Unit tests — exercise the pure helpers and the directive-parsing /
+// transformation pipeline in isolation. The integration test suite catches
+// the end-to-end IO + path-resolution paths.
 // =============================================================================
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    // -------------------------------------------------------------------------
+    // Test helpers — keep each test focused on its actual assertion.
+    // -------------------------------------------------------------------------
+
+    /// Parse `s` and return its first top-level node, cloned. Lets every test
+    /// build a one-line input without doc/index ceremony.
+    fn first_node(s: &str) -> KdlNode {
+        let doc: KdlDocument = s.parse().expect("kdl parse");
+        doc.nodes()[0].clone()
+    }
+
+    /// A throwaway path used for the `current_file` field of the error
+    /// reporter. Tests only need it to land in error messages; it never has
+    /// to exist on disk.
+    fn dummy_path() -> &'static Path {
+        Path::new("/tmp/dummy.kdl")
+    }
+
+    /// Build a [`Directive`] from the four optional dimensions, so transform
+    /// tests stay one screen high.
+    fn directive(
+        only: Option<&[&str]>,
+        except: &[&str],
+        rename: &[(&str, &str)],
+        as_prefix: Option<&str>,
+    ) -> Directive {
+        Directive {
+            kind: DirectiveKind::File(PathBuf::from("test.kdl")),
+            as_prefix: as_prefix.map(str::to_string),
+            only: only.map(|v| v.iter().map(|s| (*s).to_string()).collect()),
+            except: except.iter().map(|s| (*s).to_string()).collect(),
+            rename: rename
+                .iter()
+                .map(|(k, v)| ((*k).to_string(), (*v).to_string()))
+                .collect(),
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // first_string_arg — read the leading positional string of a node.
+    // -------------------------------------------------------------------------
+
     #[test]
     fn first_string_arg_skips_properties() {
-        let doc: KdlDocument = r#"node prop="ignored" "the-arg""#.parse().unwrap();
-        let node = &doc.nodes()[0];
-        assert_eq!(first_string_arg(node), Some("the-arg"));
+        let node = first_node(r#"node prop="ignored" "the-arg""#);
+        assert_eq!(first_string_arg(&node), Some("the-arg"));
     }
+
+    #[test]
+    fn first_string_arg_returns_none_when_no_positional_arg() {
+        let node = first_node(r#"node key="value""#);
+        assert_eq!(first_string_arg(&node), None);
+    }
+
+    #[test]
+    fn first_string_arg_returns_none_when_positional_arg_is_integer() {
+        // `kdl-version 2`-style nodes — positional but not a string.
+        let node = first_node(r#"node 42"#);
+        assert_eq!(first_string_arg(&node), None);
+    }
+
+    // -------------------------------------------------------------------------
+    // set_first_string_arg — rewrite the leading positional string in place.
+    // -------------------------------------------------------------------------
 
     #[test]
     fn set_first_string_arg_replaces_in_place() {
@@ -508,5 +586,355 @@ mod tests {
         // Children are untouched — only the first string arg of `struct`.
         let child = &node.children().unwrap().nodes()[0];
         assert_eq!(first_string_arg(child), Some("id"));
+    }
+
+    #[test]
+    fn set_first_string_arg_noop_when_no_string_positional_arg() {
+        // `kdl-version 2` has only an integer arg; nothing to rename.
+        let mut node = first_node(r#"node 42 key="value""#);
+        set_first_string_arg(&mut node, "wont-apply");
+        // Integer arg stays an integer (not silently converted to a string).
+        assert!(matches!(node.entries()[0].value(), KdlValue::Integer(_)));
+    }
+
+    // -------------------------------------------------------------------------
+    // parse_directive — recognize a `(<)` directive and reject malformed ones.
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn parse_directive_returns_none_for_untagged_node() {
+        let node = first_node(r#"file "./x.kdl""#);
+        assert!(parse_directive(&node, dummy_path()).unwrap().is_none());
+    }
+
+    #[test]
+    fn parse_directive_returns_none_for_non_lt_tag() {
+        // `(date)` is the canonical "this is a type" tag — must not be
+        // mistaken for a directive.
+        let node = first_node(r#"(date)"2026-05-19""#);
+        assert!(parse_directive(&node, dummy_path()).unwrap().is_none());
+    }
+
+    #[test]
+    fn parse_directive_rejects_unknown_variant() {
+        let node = first_node(r#"(<)wat "./x.kdl""#);
+        let err = parse_directive(&node, dummy_path()).unwrap_err();
+        let ComposeError::InvalidDirective { message, .. } = err else {
+            panic!("expected InvalidDirective");
+        };
+        assert!(message.contains("unknown (<) variant"));
+        assert!(message.contains("wat"));
+    }
+
+    #[test]
+    fn parse_directive_file_variant_extracts_path() {
+        let node = first_node(r#"(<)file "./types.kdl""#);
+        let d = parse_directive(&node, dummy_path())
+            .unwrap()
+            .expect("directive");
+        let DirectiveKind::File(p) = d.kind else {
+            panic!("expected File");
+        };
+        assert_eq!(p, PathBuf::from("./types.kdl"));
+    }
+
+    #[test]
+    fn parse_directive_glob_variant_extracts_pattern() {
+        let node = first_node(r#"(<)glob "./types/*.kdl""#);
+        let d = parse_directive(&node, dummy_path())
+            .unwrap()
+            .expect("directive");
+        let DirectiveKind::Glob(p) = d.kind else {
+            panic!("expected Glob");
+        };
+        assert_eq!(p, "./types/*.kdl");
+    }
+
+    #[test]
+    fn parse_directive_rejects_file_without_path_arg() {
+        let node = first_node(r#"(<)file"#);
+        let err = parse_directive(&node, dummy_path()).unwrap_err();
+        assert!(matches!(err, ComposeError::InvalidDirective { .. }));
+    }
+
+    #[test]
+    fn parse_directive_rejects_glob_without_pattern_arg() {
+        let node = first_node(r#"(<)glob"#);
+        let err = parse_directive(&node, dummy_path()).unwrap_err();
+        assert!(matches!(err, ComposeError::InvalidDirective { .. }));
+    }
+
+    #[test]
+    fn parse_directive_extracts_as_prefix() {
+        let node = first_node(r#"(<)file "./x.kdl" as="shared""#);
+        let d = parse_directive(&node, dummy_path())
+            .unwrap()
+            .expect("directive");
+        assert_eq!(d.as_prefix.as_deref(), Some("shared"));
+    }
+
+    #[test]
+    fn parse_directive_rejects_non_string_as_value() {
+        let node = first_node(r#"(<)file "./x.kdl" as=42"#);
+        let err = parse_directive(&node, dummy_path()).unwrap_err();
+        let ComposeError::InvalidDirective { message, .. } = err else {
+            panic!("expected InvalidDirective");
+        };
+        assert!(message.contains("as= must be a string"));
+    }
+
+    #[test]
+    fn parse_directive_rejects_unknown_property() {
+        let node = first_node(r#"(<)file "./x.kdl" wat="x""#);
+        let err = parse_directive(&node, dummy_path()).unwrap_err();
+        let ComposeError::InvalidDirective { message, .. } = err else {
+            panic!("expected InvalidDirective");
+        };
+        assert!(message.contains("unknown directive property"));
+        assert!(message.contains("wat"));
+    }
+
+    // -------------------------------------------------------------------------
+    // parse_options_block — list-valued options live in a children block.
+    //
+    // Reached through `parse_directive` since `parse_options_block` is only
+    // called once and is not public to the test module's grandparent. These
+    // tests use directive nodes with children blocks.
+    // -------------------------------------------------------------------------
+
+    fn parse_with_block(node_text: &str) -> Directive {
+        let node = first_node(node_text);
+        parse_directive(&node, dummy_path())
+            .unwrap()
+            .expect("directive")
+    }
+
+    #[test]
+    fn parse_options_block_empty_node_returns_defaults() {
+        let d = parse_with_block(r#"(<)file "./x.kdl""#);
+        assert!(d.only.is_none());
+        assert!(d.except.is_empty());
+        assert!(d.rename.is_empty());
+    }
+
+    #[test]
+    fn parse_options_block_only_single_line_collects_names() {
+        let d = parse_with_block(
+            r#"(<)file "./x.kdl" {
+                only "A" "B"
+            }"#,
+        );
+        assert_eq!(d.only.unwrap(), vec!["A".to_string(), "B".to_string()]);
+    }
+
+    #[test]
+    fn parse_options_block_only_multi_line_accumulates() {
+        // Two `only` nodes — the second should not overwrite the first.
+        let d = parse_with_block(
+            r#"(<)file "./x.kdl" {
+                only "A"
+                only "B"
+            }"#,
+        );
+        assert_eq!(
+            d.only.unwrap(),
+            vec!["A".to_string(), "B".to_string()],
+            "multiple `only` nodes must accumulate, not overwrite"
+        );
+    }
+
+    #[test]
+    fn parse_options_block_except_collects_names() {
+        let d = parse_with_block(
+            r#"(<)file "./x.kdl" {
+                except "A" "B"
+            }"#,
+        );
+        assert_eq!(d.except, vec!["A".to_string(), "B".to_string()]);
+    }
+
+    #[test]
+    fn parse_options_block_rename_single_entry() {
+        let d = parse_with_block(
+            r#"(<)file "./x.kdl" {
+                rename "Old" "New"
+            }"#,
+        );
+        assert_eq!(d.rename.get("Old"), Some(&"New".to_string()));
+    }
+
+    #[test]
+    fn parse_options_block_rename_same_key_later_wins() {
+        // Two `rename` entries for the same key — later overrides earlier.
+        let d = parse_with_block(
+            r#"(<)file "./x.kdl" {
+                rename "User" "First"
+                rename "User" "Second"
+            }"#,
+        );
+        assert_eq!(
+            d.rename.get("User"),
+            Some(&"Second".to_string()),
+            "later rename entry must override earlier for the same key"
+        );
+    }
+
+    #[test]
+    fn parse_options_block_rename_wrong_arity_is_rejected() {
+        let node = first_node(
+            r#"(<)file "./x.kdl" {
+                rename "OnlyOne"
+            }"#,
+        );
+        let err = parse_directive(&node, dummy_path()).unwrap_err();
+        let ComposeError::InvalidDirective { message, .. } = err else {
+            panic!("expected InvalidDirective");
+        };
+        assert!(message.contains("rename"));
+        assert!(message.contains("exactly two"));
+    }
+
+    #[test]
+    fn parse_options_block_unknown_option_is_rejected() {
+        let node = first_node(
+            r#"(<)file "./x.kdl" {
+                weird "x"
+            }"#,
+        );
+        let err = parse_directive(&node, dummy_path()).unwrap_err();
+        let ComposeError::InvalidDirective { message, .. } = err else {
+            panic!("expected InvalidDirective");
+        };
+        assert!(message.contains("unknown directive option"));
+        assert!(message.contains("weird"));
+    }
+
+    #[test]
+    fn parse_options_block_non_string_arg_is_rejected() {
+        let node = first_node(
+            r#"(<)file "./x.kdl" {
+                only 42
+            }"#,
+        );
+        let err = parse_directive(&node, dummy_path()).unwrap_err();
+        let ComposeError::InvalidDirective { message, .. } = err else {
+            panic!("expected InvalidDirective");
+        };
+        assert!(message.contains("only"));
+        assert!(message.contains("string"));
+    }
+
+    // -------------------------------------------------------------------------
+    // transform_node — apply order: filter (only/except) → rename → as= prefix.
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn transform_node_no_options_returns_node_unchanged() {
+        let node = first_node(r#"struct "User""#);
+        let d = directive(None, &[], &[], None);
+        let out = transform_node(&node, &d).expect("kept");
+        assert_eq!(first_string_arg(&out), Some("User"));
+    }
+
+    #[test]
+    fn transform_node_only_keeps_matching_node() {
+        let node = first_node(r#"struct "User""#);
+        let d = directive(Some(&["User"]), &[], &[], None);
+        assert!(transform_node(&node, &d).is_some());
+    }
+
+    #[test]
+    fn transform_node_only_drops_non_matching_node() {
+        let node = first_node(r#"struct "Other""#);
+        let d = directive(Some(&["User"]), &[], &[], None);
+        assert!(transform_node(&node, &d).is_none());
+    }
+
+    #[test]
+    fn transform_node_only_keeps_no_first_string_arg_node() {
+        // `kdl-version 2` has no string positional arg → kept regardless of
+        // the `only` list. Documented as "nodes without one are always kept".
+        let node = first_node(r#"kdl-version 2"#);
+        let d = directive(Some(&["User"]), &[], &[], None);
+        let out = transform_node(&node, &d).expect("kept despite only filter");
+        assert!(matches!(out.entries()[0].value(), KdlValue::Integer(_)));
+    }
+
+    #[test]
+    fn transform_node_except_drops_matching_node() {
+        let node = first_node(r#"struct "Internal""#);
+        let d = directive(None, &["Internal"], &[], None);
+        assert!(transform_node(&node, &d).is_none());
+    }
+
+    #[test]
+    fn transform_node_except_keeps_no_first_string_arg_node() {
+        // Symmetric to the `only` case — first-string-argless nodes are
+        // also never dropped by `except`.
+        let node = first_node(r#"kdl-version 2"#);
+        let d = directive(None, &["Internal"], &[], None);
+        let out = transform_node(&node, &d).expect("kept");
+        assert!(matches!(out.entries()[0].value(), KdlValue::Integer(_)));
+    }
+
+    #[test]
+    fn transform_node_rename_replaces_first_string_arg() {
+        let node = first_node(r#"struct "User""#);
+        let d = directive(None, &[], &[("User", "Acct")], None);
+        let out = transform_node(&node, &d).expect("kept");
+        assert_eq!(first_string_arg(&out), Some("Acct"));
+    }
+
+    #[test]
+    fn transform_node_rename_for_unknown_key_is_silent_noop() {
+        let node = first_node(r#"struct "User""#);
+        let d = directive(None, &[], &[("Other", "Acct")], None);
+        let out = transform_node(&node, &d).expect("kept");
+        assert_eq!(
+            first_string_arg(&out),
+            Some("User"),
+            "non-matching rename leaves node intact"
+        );
+    }
+
+    #[test]
+    fn transform_node_as_prefix_prepends_dot_separated() {
+        let node = first_node(r#"struct "User""#);
+        let d = directive(None, &[], &[], Some("shared"));
+        let out = transform_node(&node, &d).expect("kept");
+        assert_eq!(first_string_arg(&out), Some("shared.User"));
+    }
+
+    #[test]
+    fn transform_node_apply_order_is_filter_then_rename_then_prefix() {
+        // only=[User] (pre-rename) → keep
+        // rename User→Acct           → first string arg becomes Acct
+        // as="ns"                    → prefix to ns.Acct
+        let node = first_node(r#"struct "User""#);
+        let d = directive(Some(&["User"]), &[], &[("User", "Acct")], Some("ns"));
+        let out = transform_node(&node, &d).expect("kept");
+        assert_eq!(first_string_arg(&out), Some("ns.Acct"));
+    }
+
+    #[test]
+    fn transform_node_only_matches_against_original_name_not_renamed_name() {
+        // `only=["Acct"]` referring to the *renamed* name must NOT match —
+        // filter runs first, against the original.
+        let node = first_node(r#"struct "User""#);
+        let d = directive(Some(&["Acct"]), &[], &[("User", "Acct")], None);
+        assert!(
+            transform_node(&node, &d).is_none(),
+            "only matches pre-rename names, so `Acct` should not match `User`"
+        );
+    }
+
+    #[test]
+    fn transform_node_as_prefix_skips_node_with_no_first_string_arg() {
+        // `as=` only rewrites the first *string* arg; integer-only nodes
+        // pass through unchanged.
+        let node = first_node(r#"kdl-version 2"#);
+        let d = directive(None, &[], &[], Some("shared"));
+        let out = transform_node(&node, &d).expect("kept");
+        assert!(matches!(out.entries()[0].value(), KdlValue::Integer(_)));
     }
 }

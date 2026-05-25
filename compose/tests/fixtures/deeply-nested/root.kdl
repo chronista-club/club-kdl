@@ -1,0 +1,8 @@
+protocol "deep" version="1.0.0" {
+    channel "ipc" {
+        group "core" {
+            (<)file "./leaf.kdl"
+            local "level-3"
+        }
+    }
+}

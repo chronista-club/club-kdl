@@ -81,3 +81,24 @@ fn display_cycle(stack: &[PathBuf]) -> String {
 
 /// `Result` alias used throughout [`crate`].
 pub type Result<T> = std::result::Result<T, ComposeError>;
+
+#[cfg(test)]
+mod tests {
+    use super::display_cycle;
+    use std::path::PathBuf;
+
+    #[test]
+    fn display_cycle_formats_arrow_chain() {
+        let stack = vec![
+            PathBuf::from("/tmp/a.kdl"),
+            PathBuf::from("/tmp/b.kdl"),
+            PathBuf::from("/tmp/a.kdl"),
+        ];
+        let rendered = display_cycle(&stack);
+        // Each path's basename appears (3 path entries → 2 `a.kdl`, 1 `b.kdl`).
+        assert_eq!(rendered.matches("a.kdl").count(), 2);
+        assert_eq!(rendered.matches("b.kdl").count(), 1);
+        // Joined by the cycle arrow so readers see the chain at a glance.
+        assert_eq!(rendered.matches('→').count(), 2);
+    }
+}

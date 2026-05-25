@@ -1,0 +1,2 @@
+(<)glob "./empty/*.kdl"
+trailing "after-empty-glob"
