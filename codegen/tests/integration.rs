@@ -607,3 +607,101 @@ fn sidebar_ipc_typescript_output_really_compiles() {
         ),
     }
 }
+
+// =============================================================================
+// `parse_path` — multi-file schemas via club-kdl-compose `(<)` directive
+// =============================================================================
+//
+// `parse_path` runs the entry file through `kdl_compose::compose` before
+// lowering, so a schema split across files via `(<)file` resolves
+// transparently. We assert that the multi-file form produces byte-equivalent
+// Rust to its inline equivalent, then check the CLI end-to-end.
+
+/// Inline form of the `multi-file/` fixture: the two `struct` definitions
+/// concatenated in the order the directive splices them.
+const INLINE_EQUIVALENT_OF_MULTI_FILE: &str = r#"
+    struct "User" {
+        field "id" type="string"
+    }
+
+    struct "Item" {
+        field "name" type="string"
+    }
+"#;
+
+fn multi_file_root() -> std::path::PathBuf {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("fixtures")
+        .join("multi-file")
+        .join("root.kdl")
+}
+
+#[test]
+fn parse_path_resolves_include_to_same_schema_as_inline() {
+    let inline = parse(INLINE_EQUIVALENT_OF_MULTI_FILE).expect("inline parses");
+    let composed = kdl_codegen::parser::parse_path(multi_file_root()).expect("multi-file resolves");
+
+    // The IR derives `PartialEq`, so a structural compare is the strongest
+    // assertion: same types in the same order, same fields, identical.
+    assert_eq!(
+        composed.types, inline.types,
+        "multi-file schema must lower to the same IR as its inline equivalent"
+    );
+}
+
+#[test]
+fn parse_path_emits_same_rust_as_inline() {
+    // Even if the IR ever diverges in non-semantic ways, the *emitted* code
+    // is what the user actually sees; assert byte-equality of the Rust
+    // output between the two parse paths.
+    let inline = parse(INLINE_EQUIVALENT_OF_MULTI_FILE).expect("inline parses");
+    let composed = kdl_codegen::parser::parse_path(multi_file_root()).expect("multi-file resolves");
+
+    let rust_inline = RustEmitter::new().emit(&inline);
+    let rust_composed = RustEmitter::new().emit(&composed);
+    assert_eq!(rust_inline, rust_composed);
+}
+
+#[test]
+fn parse_doc_works_on_composed_kdl_document() {
+    // Library consumers who hold a `KdlDocument` directly (custom IO or
+    // in-memory build) should be able to skip the string round-trip.
+    let doc = kdl_compose::compose(multi_file_root()).expect("compose");
+    let schema = kdl_codegen::parser::parse_doc(&doc).expect("parse_doc");
+    let names: Vec<&str> = schema
+        .types
+        .iter()
+        .map(|t| match t {
+            kdl_codegen::ir::TypeDef::Struct { name, .. } => name.as_str(),
+            kdl_codegen::ir::TypeDef::Enum { name, .. } => name.as_str(),
+        })
+        .collect();
+    assert_eq!(names, vec!["User", "Item"]);
+}
+
+#[test]
+fn cli_resolves_include_directives_in_multi_file_schema() {
+    // End-to-end: the binary should accept a root file whose includes are
+    // not on disk in the same node, and emit Rust covering both files'
+    // top-level definitions.
+    let out = cli()
+        .arg(multi_file_root())
+        .args(["--target", "rust"])
+        .output()
+        .expect("runs");
+    assert!(
+        out.status.success(),
+        "cli failed: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        stdout.contains("pub struct User {"),
+        "missing User struct: {stdout}"
+    );
+    assert!(
+        stdout.contains("pub struct Item {"),
+        "missing Item struct: {stdout}"
+    );
+}

@@ -64,8 +64,10 @@ fn run(args: &[String]) -> Result<String, String> {
     let file = file.ok_or("missing <schema.kdl> argument")?;
     let target = target.ok_or("missing --target option")?;
 
-    let src = std::fs::read_to_string(file).map_err(|e| format!("cannot read {file}: {e}"))?;
-    let schema = kdl_codegen::parser::parse(&src).map_err(|e| format!("parse error: {e}"))?;
+    // `parse_path` runs the file through `kdl_compose` first, so any
+    // `(<)file` / `(<)glob` directive in the schema is resolved before
+    // lowering. A schema without directives is composed to itself.
+    let schema = kdl_codegen::parser::parse_path(file).map_err(|e| format!("parse error: {e}"))?;
 
     match target {
         "rust" | "rs" => Ok(RustEmitter::new().emit(&schema)),

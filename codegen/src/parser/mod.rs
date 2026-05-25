@@ -17,11 +17,17 @@
 mod raw;
 
 use std::collections::HashSet;
+use std::path::Path;
 
 use crate::ir;
 
 /// An error produced while parsing a KDL schema.
+///
+/// Marked `#[non_exhaustive]` so future error sources (network fetches, new
+/// dialect-specific validation passes, …) can be added without a major bump.
+/// Downstream `match` blocks need a `_ => …` arm.
 #[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
 pub enum ParseError {
     /// The input was not well-formed KDL, or did not match the schema shape.
     #[error("KDL parse error: {0}")]
@@ -29,9 +35,15 @@ pub enum ParseError {
     /// The input parsed as KDL but violated a schema rule.
     #[error("schema validation error: {0}")]
     Validation(String),
+    /// A `(<)file` / `(<)glob` directive failed to resolve. Only produced by
+    /// [`parse_path`] — the pure-text [`parse`] and [`parse_doc`] entries
+    /// never read the filesystem and therefore cannot emit this variant.
+    #[error("compose error: {0}")]
+    Compose(#[from] kdl_compose::ComposeError),
 }
 
-/// Parse a KDL schema source string into a [`Schema`](ir::Schema).
+/// Parse a KDL schema source string into a [`Schema`](ir::Schema). Pure text
+/// in, pure value out — no filesystem access, no directive resolution.
 ///
 /// # Errors
 ///
@@ -42,6 +54,43 @@ pub fn parse(src: &str) -> Result<ir::Schema, ParseError> {
     let raw: raw::RawSchema =
         club_kdl::from_str(src).map_err(|e| ParseError::Kdl(e.to_string()))?;
     lower_schema(raw)
+}
+
+/// Parse an already-loaded [`kdl::KdlDocument`] into a [`Schema`](ir::Schema).
+///
+/// The intended caller is [`parse_path`], which composes a multi-file schema
+/// via [`kdl_compose::compose`] and then hands the resolved document to
+/// this entry; exposed publicly so library consumers who build a `KdlDocument`
+/// some other way (custom IO, in-memory generation) can skip the string round
+/// trip.
+///
+/// # Errors
+///
+/// Same shape as [`parse`] — [`ParseError::Kdl`] on a deserialization failure,
+/// [`ParseError::Validation`] on a schema-rule violation.
+pub fn parse_doc(doc: &kdl::KdlDocument) -> Result<ir::Schema, ParseError> {
+    let raw: raw::RawSchema =
+        club_kdl::from_doc(doc).map_err(|e| ParseError::Kdl(e.to_string()))?;
+    lower_schema(raw)
+}
+
+/// Read a KDL schema file from disk, resolve every `(<)file` / `(<)glob`
+/// directive in it via [`kdl_compose::compose`], then parse the composed
+/// document into a [`Schema`](ir::Schema).
+///
+/// A schema that contains no directives is composed to a document
+/// byte-equivalent to the on-disk file, so this entry is a drop-in upgrade
+/// from "read file + [`parse`]"; the only observable difference is that
+/// `(<)` directives now work.
+///
+/// # Errors
+///
+/// In addition to the variants from [`parse`], returns [`ParseError::Compose`]
+/// when the composer cannot read a referenced file, detects an include cycle,
+/// or rejects a malformed directive.
+pub fn parse_path(path: impl AsRef<Path>) -> Result<ir::Schema, ParseError> {
+    let doc = kdl_compose::compose(path)?;
+    parse_doc(&doc)
 }
 
 // =============================================================================
