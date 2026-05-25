@@ -76,8 +76,8 @@
 //! ## Example
 //!
 //! Each example is an **executable** doc-test — `cargo test --doc` runs it
-//! against a real filesystem (under [`tempfile::tempdir`]), so an API drift
-//! in `compose` / `from_path` breaks the docs and the test suite at once.
+//! against a real filesystem (under `tempfile::tempdir`), so an API drift in
+//! `compose` / `from_path` breaks the docs and the test suite at once.
 //!
 //! ```
 //! # fn main() -> Result<(), kdl_compose::ComposeError> {
