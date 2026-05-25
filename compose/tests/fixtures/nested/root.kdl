@@ -1,0 +1,8 @@
+protocol "sidebar" version="1.0.0" {
+    channel "ipc" from="client" envelope="t" {
+        (<)file "./reqs.kdl"
+        request "specific:save" {
+            field "data" type="string"
+        }
+    }
+}

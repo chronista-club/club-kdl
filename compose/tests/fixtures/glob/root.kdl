@@ -1,0 +1,2 @@
+(<)glob "./types/*.kdl"
+top "after-glob"
