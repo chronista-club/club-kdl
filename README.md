@@ -9,16 +9,29 @@
 
 English | **[日本語](README.ja.md)**
 
-Read and write KDL just by adding a derive macro to your Rust structs.
+A **family of crates** for working with [KDL](https://kdl.dev) in Rust — derive-based serde, schema-driven multi-language code generation, and multi-file composition.
 
 ```toml
 [dependencies]
-club-kdl = "0.5"
+club-kdl = "0.11"
 ```
 
-## Why club-kdl?
+## The crate family
 
-The official Rust implementation of KDL, [`kdl-rs`](https://crates.io/crates/kdl), focuses on **AST-level** manipulation — converting to and from Rust structs is left to you. club-kdl adds an **attribute-based derive layer** on top of kdl-rs, so `#[derive(KdlDeserialize, KdlSerialize)]` is all you need for a full struct ↔ KDL round trip.
+`club-kdl` ships as four crates sharing a workspace version; reach for the one that matches the job.
+
+| Crate | What it does | Reach for it when |
+|-------|--------------|-------------------|
+| **[`club-kdl`](https://crates.io/crates/club-kdl)** | Derive-based serialization / deserialization between Rust structs and KDL text | You have Rust types and want them to round-trip with KDL |
+| [`club-kdl-derive`](https://crates.io/crates/club-kdl-derive) | Proc-macro behind `#[derive(KdlDeserialize, KdlSerialize)]` | (Internal — pulled in by `club-kdl`; rarely depended on directly) |
+| **[`club-kdl-codegen`](https://crates.io/crates/club-kdl-codegen)** | KDL schema → Rust / TypeScript / Zod / SurrealQL code generator (CLI + library) | A single KDL schema should drive types in multiple languages |
+| **[`club-kdl-compose`](https://crates.io/crates/club-kdl-compose)** | Multi-file KDL composition via the `(<)file` / `(<)glob` include directive | Your schemas / configs grow large and you want to split them across files |
+
+The rest of this README is about `club-kdl` (the derive layer). For the schema generator and the composer, jump to [Schema codegen](#schema-codegen-with-club-kdl-codegen) and [Multi-file schemas](#multi-file-schemas-with-club-kdl-compose) below.
+
+## Why `club-kdl` (the derive layer)?
+
+The official Rust implementation of KDL, [`kdl-rs`](https://crates.io/crates/kdl), focuses on **AST-level** manipulation — converting to and from Rust structs is left to you. `club-kdl` adds an **attribute-based derive layer** on top of kdl-rs, so `#[derive(KdlDeserialize, KdlSerialize)]` is all you need for a full struct ↔ KDL round trip.
 
 | Library | Role | Best for |
 |---------|------|----------|
@@ -26,7 +39,7 @@ The official Rust implementation of KDL, [`kdl-rs`](https://crates.io/crates/kdl
 | [`knuffel`](https://crates.io/crates/knuffel) / [`knus`](https://crates.io/crates/knus) | derive-based parser | Spec-compliance focused / parsing-oriented |
 | **`club-kdl`** | **derive-based ser/de** | **Bidirectional struct ↔ KDL / automatic parent-child node name resolution / enum data variants** |
 
-club-kdl uses the `kdl` crate (v6) AST internally, so spec compliance is delegated to kdl-rs.
+`club-kdl` uses the `kdl` crate (v6) AST internally, so spec compliance is delegated to kdl-rs.
 
 ---
 
@@ -85,6 +98,72 @@ let service: Service = club_kdl::from_str(kdl_text).unwrap();
 // Serialize (Rust → KDL)
 let kdl_text = club_kdl::to_string_pretty(&service).unwrap();
 ```
+
+---
+
+## Schema codegen with `club-kdl-codegen`
+
+Define your types and protocols **once in KDL**, generate them in every language you need:
+
+```kdl
+# schema.kdl
+struct "User" {
+    field "id" type="string"
+    field "name" type="string"
+}
+
+enum "Role" {
+    variant "admin"
+    variant "member"
+}
+```
+
+```sh
+$ club-kdl-codegen schema.kdl --target rust         # Rust structs / enums
+$ club-kdl-codegen schema.kdl --target typescript   # TypeScript interfaces
+$ club-kdl-codegen schema.kdl --target zod          # Zod runtime validators
+$ club-kdl-codegen schema.kdl --target surrealql    # SurrealQL DDL
+```
+
+The schema dialect also supports the **entity dialect** (`record` / `relation` / `link<T>`) for relational/graph data and the **protocol dialect** (`protocol` / `channel` / `request` / `event`) for IPC schemas. Channels can opt-in to a **discriminated-union envelope** with `envelope="t"`, generating `#[serde(tag = "t")]` Rust enums, TypeScript discriminated unions, and Zod `discriminatedUnion`s.
+
+See [`club-kdl-codegen` on docs.rs](https://docs.rs/club-kdl-codegen) for the full dialect reference.
+
+---
+
+## Multi-file schemas with `club-kdl-compose`
+
+When a schema gets large, split it across files and include with `(<)file` (or `(<)glob` for batch import):
+
+```kdl
+# schema.kdl
+(<)file "./types.kdl"
+
+protocol "sidebar" version="1.0.0" {
+    channel "ipc" from="client" envelope="t" {
+        (<)file "./common-requests.kdl"
+        request "specific:save" { field "data" type="string" }
+    }
+}
+```
+
+```kdl
+# types.kdl
+struct "User" { field "id" type="string" }
+```
+
+The directive lives anywhere — top-level or inside any block — and resolves recursively with cycle detection. Selective import lives in a children block:
+
+```kdl
+(<)file "./types.kdl" as="shared" {
+    only "User" "Memory"
+    rename "User" "Acct"
+}
+```
+
+This renames the first string argument of each top-level included node to `shared.Acct` / `shared.Memory`. The `club-kdl-codegen` CLI uses `club-kdl-compose` internally, so `(<)` directives just work; library consumers can also call `kdl_compose::compose(path) -> KdlDocument` or `kdl_compose::from_path::<T>(path)` directly.
+
+See [`club-kdl-compose` on docs.rs](https://docs.rs/club-kdl-compose) for directive syntax and limits.
 
 ---
 
@@ -432,4 +511,4 @@ Unless you explicitly state otherwise, any contribution intentionally submitted 
 
 ---
 
-> 📝 This English document is translated from the Japanese original. [`README.ja.md`](README.ja.md) is the source of truth — if the two ever disagree, the Japanese version is authoritative.
+> 📝 This English README is the **canonical source** going forward. [`README.ja.md`](README.ja.md) is the Japanese translation; if the two ever disagree, this English version is authoritative.
