@@ -9,16 +9,29 @@
 
 **[English](README.md)** | 日本語
 
-Rust 構造体に derive マクロを付けるだけで KDL の読み書きができるライブラリ。
+Rust で [KDL](https://kdl.dev) を扱う **クレートファミリー** — derive ベースの serde、schema 駆動の多言語コード生成、複数ファイル合成までを 1 つの ecosystem に。
 
 ```toml
 [dependencies]
-club-kdl = "0.5"
+club-kdl = "0.11"
 ```
 
-## なぜ club-kdl？
+## クレートファミリー
 
-KDL の公式 Rust 実装 [`kdl-rs`](https://crates.io/crates/kdl) は **AST レベル** の操作に集中したライブラリで、 Rust 構造体との往復は手書きが必要。 club-kdl は kdl-rs の上に **属性ベースの derive 層** を載せて、 `#[derive(KdlDeserialize, KdlSerialize)]` だけで struct ↔ KDL の往復を完結させる。
+`club-kdl` は workspace version を共有する 4 つの crate で構成され、まとめてリリースされる。用途に応じて使い分ける。
+
+| Crate | 役割 | 使うとき |
+|-------|------|---------|
+| **[`club-kdl`](https://crates.io/crates/club-kdl)** | Rust 構造体 ↔ KDL テキストの derive ベース ser/de | Rust 型を KDL と往復させたい |
+| [`club-kdl-derive`](https://crates.io/crates/club-kdl-derive) | `#[derive(KdlDeserialize, KdlSerialize)]` を実装する proc-macro | (内部依存 — `club-kdl` が引き込むので直接依存することはほぼ無い) |
+| **[`club-kdl-codegen`](https://crates.io/crates/club-kdl-codegen)** | KDL schema → Rust / TypeScript / Zod / SurrealQL コード生成 (CLI + ライブラリ) | 1 つの KDL schema から多言語の型を生成したい |
+| **[`club-kdl-compose`](https://crates.io/crates/club-kdl-compose)** | `(<)file` / `(<)glob` include directive による複数ファイル合成 | schema / config が肥大化したのでファイル分割したい |
+
+このREADMEのほとんどは `club-kdl` (derive 層) の説明。schema codegen と compose については下の [Schema codegen](#schema-codegen--club-kdl-codegen) / [複数ファイル schema](#複数ファイル-schema--club-kdl-compose) を参照。
+
+## なぜ `club-kdl` (derive 層)？
+
+KDL の公式 Rust 実装 [`kdl-rs`](https://crates.io/crates/kdl) は **AST レベル** の操作に集中したライブラリで、 Rust 構造体との往復は手書きが必要。 `club-kdl` は kdl-rs の上に **属性ベースの derive 層** を載せて、 `#[derive(KdlDeserialize, KdlSerialize)]` だけで struct ↔ KDL の往復を完結させる。
 
 | ライブラリ | 立ち位置 | 適性 |
 |-----------|---------|------|
@@ -26,7 +39,7 @@ KDL の公式 Rust 実装 [`kdl-rs`](https://crates.io/crates/kdl) は **AST レ
 | [`knuffel`](https://crates.io/crates/knuffel) / [`knus`](https://crates.io/crates/knus) | derive ベースの parser | spec 準拠重視 / parse 側に偏る |
 | **`club-kdl`** | **derive ベースの ser/de** | **struct ↔ KDL 双方向 / 親子ノード名自動解決 / enum data variants** |
 
-club-kdl は内部で `kdl` crate (v6) の AST を使うので、 spec 準拠は kdl-rs に委譲されている。
+`club-kdl` は内部で `kdl` crate (v6) の AST を使うので、 spec 準拠は kdl-rs に委譲されている。
 
 ---
 
@@ -85,6 +98,72 @@ let service: Service = club_kdl::from_str(kdl_text).unwrap();
 // シリアライズ（Rust → KDL）
 let kdl_text = club_kdl::to_string_pretty(&service).unwrap();
 ```
+
+---
+
+## Schema codegen — `club-kdl-codegen`
+
+型・プロトコルを **KDL で 1 度だけ定義**し、必要な言語ぶん生成する:
+
+```kdl
+# schema.kdl
+struct "User" {
+    field "id" type="string"
+    field "name" type="string"
+}
+
+enum "Role" {
+    variant "admin"
+    variant "member"
+}
+```
+
+```sh
+$ club-kdl-codegen schema.kdl --target rust         # Rust struct / enum
+$ club-kdl-codegen schema.kdl --target typescript   # TypeScript interface
+$ club-kdl-codegen schema.kdl --target zod          # Zod ランタイムバリデータ
+$ club-kdl-codegen schema.kdl --target surrealql    # SurrealQL DDL
+```
+
+schema 文法は **data 方言**（`struct` / `enum`）に加えて、 関係データの **entity 方言**（`record` / `relation` / `link<T>`）と IPC 用の **protocol 方言**（`protocol` / `channel` / `request` / `event`）をサポート。 channel は `envelope="t"` で **discriminated-union envelope** を opt-in でき、 Rust の `#[serde(tag = "t")]` enum、 TypeScript の判別 union、 Zod の `discriminatedUnion` を生成する。
+
+詳細は [`club-kdl-codegen` の docs.rs](https://docs.rs/club-kdl-codegen) 参照。
+
+---
+
+## 複数ファイル schema — `club-kdl-compose`
+
+schema が大きくなったら、 `(<)file`（または batch import 用に `(<)glob`）で分割する:
+
+```kdl
+# schema.kdl
+(<)file "./types.kdl"
+
+protocol "sidebar" version="1.0.0" {
+    channel "ipc" from="client" envelope="t" {
+        (<)file "./common-requests.kdl"
+        request "specific:save" { field "data" type="string" }
+    }
+}
+```
+
+```kdl
+# types.kdl
+struct "User" { field "id" type="string" }
+```
+
+directive は **top-level でも任意の block の中でも**書けて、 cycle 検出つきで再帰的に解決される。 選択 import は children block で:
+
+```kdl
+(<)file "./types.kdl" as="shared" {
+    only "User" "Memory"
+    rename "User" "Acct"
+}
+```
+
+これで取り込まれる top-level ノードの **first string argument** が `shared.Acct` / `shared.Memory` に rewrite される。 `club-kdl-codegen` CLI は内部で `club-kdl-compose` を使うので `(<)` directive はそのまま動く。 ライブラリから直接使うなら `kdl_compose::compose(path) -> KdlDocument` か `kdl_compose::from_path::<T>(path)`。
+
+directive 構文と制約は [`club-kdl-compose` の docs.rs](https://docs.rs/club-kdl-compose) 参照。
 
 ---
 
