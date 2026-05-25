@@ -55,6 +55,10 @@ jobs:
         if: github.event_name == 'workflow_dispatch' && inputs.dry_run == 'true'
         run: cargo publish --dry-run -p club-kdl-codegen --allow-dirty
 
+      - name: Publish compose crate (dry-run)
+        if: github.event_name == 'workflow_dispatch' && inputs.dry_run == 'true'
+        run: cargo publish --dry-run -p club-kdl-compose --allow-dirty
+
       - name: Publish derive crate
         if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.dry_run == 'false')
         run: cargo publish -p club-kdl-derive --token ${{ secrets.CRATES_IO_TOKEN }}
@@ -74,6 +78,14 @@ jobs:
       - name: Publish codegen crate
         if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.dry_run == 'false')
         run: cargo publish -p club-kdl-codegen --token ${{ secrets.CRATES_IO_TOKEN }}
+
+      - name: Wait for crates.io to index codegen
+        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.dry_run == 'false')
+        run: sleep 30
+
+      - name: Publish compose crate
+        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.dry_run == 'false')
+        run: cargo publish -p club-kdl-compose --token ${{ secrets.CRATES_IO_TOKEN }}
 
       - name: Create GitHub Release
         if: github.event_name == 'push'
