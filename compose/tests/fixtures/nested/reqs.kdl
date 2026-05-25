@@ -1,0 +1,7 @@
+request "log:info" {
+    field "msg" type="string"
+}
+request "log:error" {
+    field "msg" type="string"
+    field "code" type="int"
+}

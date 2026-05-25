@@ -1,0 +1,5 @@
+(<)file "./types.kdl" as="shared" {
+    only "User" "Memory"
+    rename "User" "Acct"
+}
+trailing "kept"

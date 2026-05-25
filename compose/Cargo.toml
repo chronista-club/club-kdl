@@ -1,0 +1,33 @@
+[package]
+name = "club-kdl-compose"
+description = "Multi-file composition for KDL documents — resolves (include) directives into a single KdlDocument."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords = ["kdl", "compose", "include", "schema", "config"]
+categories = ["development-tools", "parsing", "config"]
+readme = "../README.md"
+
+# lib 名は bare (chronista-club CONVENTIONS.md 準拠)。
+# club-kdl 本体のみ upstream `kdl` crate 衝突回避の例外で `club_kdl`。
+[lib]
+name = "kdl_compose"
+path = "src/lib.rs"
+
+[dependencies]
+# club-kdl 本体は from_doc<T> のために path 依存で参照。
+# crates.io publish のため path 依存にも version を明示。
+club-kdl = { path = "..", version = "0.9.0" }
+kdl.workspace = true
+thiserror.workspace = true
+# Phase 2.1 の (<)glob variant 用。
+glob = "0.3"
+
+[dev-dependencies]
+# Doc-test が `compose` / `from_path` を実 IO 経由で叩いて API drift を
+# 防ぐためのスクラッチ dir 用。`no_run` ではなく実行可能 doc-test に。
+tempfile = "3"

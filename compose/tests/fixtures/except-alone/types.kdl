@@ -1,0 +1,6 @@
+struct "Kept" {
+    field "id" type="string"
+}
+struct "Dropped" {
+    field "secret" type="string"
+}

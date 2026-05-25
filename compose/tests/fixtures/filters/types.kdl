@@ -1,0 +1,9 @@
+struct "User" {
+    field "id" type="string"
+}
+struct "Memory" {
+    field "content" type="string"
+}
+struct "Internal" {
+    field "secret" type="string"
+}

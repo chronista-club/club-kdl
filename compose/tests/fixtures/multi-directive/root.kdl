@@ -1,0 +1,5 @@
+protocol "x" version="1.0.0" {
+    (<)file "./parts/a.kdl"
+    (<)file "./parts/b.kdl"
+    local "third"
+}
