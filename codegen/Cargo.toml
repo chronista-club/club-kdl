@@ -26,5 +26,10 @@ path = "src/main.rs"
 # parser が KDL schema を club-kdl の KdlDeserialize derive で読む。
 # crates.io publish のため path 依存にも version を明示。
 club-kdl = { path = "..", version = "0.10.0" }
+# parse_path / CLI が (<)file / (<)glob directive を解決して複数ファイル
+# schema を 1 つの KdlDocument に合成する。(<) を含まない schema には
+# no-op なので opt-in flag は持たない。
+club-kdl-compose = { path = "../compose", version = "0.10.0" }
+kdl.workspace = true
 thiserror.workspace = true
 

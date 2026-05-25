@@ -1,0 +1,5 @@
+(<)file "./types.kdl"
+
+struct "Item" {
+    field "name" type="string"
+}
