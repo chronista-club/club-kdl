@@ -137,7 +137,3 @@ flowchart TD
 
 - The "Attribute reference" section of the README for each attribute's syntax
 - [Custom Types Guide](./custom-types.md) ―― extending the value types of property/argument
-
----
-
-> 📝 This English document is translated from the Japanese original. [`best-practices.ja.md`](best-practices.ja.md) is the source of truth.

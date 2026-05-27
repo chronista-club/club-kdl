@@ -128,7 +128,3 @@ impl<'de> FromKdlValue<'de> for Port {
 
 - The "Supported types" section of the README
 - Scalar enum mapping is handled automatically by derive (`#[kdl(rename = "...")]`) ―― no manual implementation needed
-
----
-
-> 📝 This English document is translated from the Japanese original. [`custom-types.ja.md`](custom-types.ja.md) is the source of truth.
