@@ -10,7 +10,3 @@ In-depth guides for using club-kdl. While the top-level `README.md` is an
 | [Custom Types Guide](./custom-types.md) | Implement `FromKdlValue` / `ToKdlValue` to map your own types (chrono types, newtypes, external crate types) to KDL values |
 | [KDL Design Best Practices](./best-practices.md) | Choosing between argument / property / children, and idiomatic KDL schema design with anti-patterns |
 | [Troubleshooting](./troubleshooting.md) | Causes and fixes for common errors (lifetimes, child node resolution, type mismatches, etc.) |
-
----
-
-> 📝 This English document is translated from the Japanese original. [`README.ja.md`](README.ja.md) is the source of truth.

@@ -131,7 +131,3 @@ service "api" image-name="myapp"
 
 - [Custom Types Guide](./custom-types.md)
 - [KDL Design Best Practices](./best-practices.md)
-
----
-
-> 📝 This English document is translated from the Japanese original. [`troubleshooting.ja.md`](troubleshooting.ja.md) is the source of truth.
