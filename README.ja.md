@@ -31,7 +31,7 @@ club-kdl = "0.11"
 
 ## なぜ `club-kdl` (derive 層)？
 
-KDL の公式 Rust 実装 [`kdl-rs`](https://crates.io/crates/kdl) は **AST レベル** の操作に集中したライブラリで、 Rust 構造体との往復は手書きが必要。 `club-kdl` は kdl-rs の上に **属性ベースの derive 層** を載せて、 `#[derive(KdlDeserialize, KdlSerialize)]` だけで struct ↔ KDL の往復を完結させる。
+KDL の公式 Rust 実装 [`kdl-rs`](https://crates.io/crates/kdl) は **AST レベル** の操作に集中したライブラリで、 Rust 構造体との往復は手書きが必要。 `club-kdl` は **属性ベースの derive 層** を提供し、 `#[derive(KdlDeserialize, KdlSerialize)]` だけで struct ↔ KDL の往復を完結させる。
 
 | ライブラリ | 立ち位置 | 適性 |
 |-----------|---------|------|
@@ -39,7 +39,7 @@ KDL の公式 Rust 実装 [`kdl-rs`](https://crates.io/crates/kdl) は **AST レ
 | [`knuffel`](https://crates.io/crates/knuffel) / [`knus`](https://crates.io/crates/knus) | derive ベースの parser | spec 準拠重視 / parse 側に偏る |
 | **`club-kdl`** | **derive ベースの ser/de** | **struct ↔ KDL 双方向 / 親子ノード名自動解決 / enum data variants** |
 
-`club-kdl` は内部で `kdl` crate (v6) の AST を使うので、 spec 準拠は kdl-rs に委譲されている。
+`club-kdl` は **独自のゼロコピー KDL v2 パーサー** で読み込み、 公式 KDL テストスイート全件で準拠を検証している (`tests/spec_compliance.rs`)。 シリアライズも独自の writer で行う。 相互運用として、 kdl-rs のツリーは `from_kdl_document` / `from_kdl_node` で読め、 書式を保ったまま編集したいときは `to_kdl_document` で kdl-rs のツリーに変換できる。
 
 ---
 
@@ -161,7 +161,7 @@ directive は **top-level でも任意の block の中でも**書けて、 cycle
 }
 ```
 
-これで取り込まれる top-level ノードの **first string argument** が `shared.Acct` / `shared.Memory` に rewrite される。 `club-kdl-codegen` CLI は内部で `club-kdl-compose` を使うので `(<)` directive はそのまま動く。 ライブラリから直接使うなら `kdl_compose::compose(path) -> KdlDocument` か `kdl_compose::from_path::<T>(path)`。
+これで取り込まれる top-level ノードの **first string argument** が `shared.Acct` / `shared.Memory` に rewrite される。 `club-kdl-codegen` CLI は内部で `club-kdl-compose` を使うので `(<)` directive はそのまま動く。 ライブラリから直接使うなら `kdl_compose::compose(path) -> club_kdl::Document` か `kdl_compose::from_path::<T>(path)`。
 
 directive 構文と制約は [`club-kdl-compose` の docs.rs](https://docs.rs/club-kdl-compose) 参照。
 
@@ -473,12 +473,14 @@ service "api" interval=30 timeout=5
 
 `benches/kdl_vs_json.rs` に同等の docker-compose 風データを KDL と JSON で読み書きするマイクロベンチがあります。
 
-実測値 (Apple Silicon, Rust 1.95, criterion 中央値):
+実測値 (Apple Silicon, Rust 1.95, criterion 中央値、 すべて同じ 1 回の計測。 絶対値は回ごとに揺れるので比率を見てください):
 
-| operation | KDL (club-kdl) | JSON (serde_json) | 倍率 |
-|-----------|----------------|-------------------|------|
-| read  | 486 µs | 4.2 µs | KDL は ~115x 遅い |
-| write |  8.8 µs | 1.7 µs | KDL は ~5x 遅い |
+| operation | KDL (club-kdl) | kdl-rs 経由の KDL (≤ v0.12) | JSON (serde_json) |
+|-----------|----------------|-----------------------------|-------------------|
+| read (1.7 KB テキスト → struct) | 26.6 µs | 1651 µs | 12.0 µs |
+| write (struct → テキスト) | 13.5 µs | 174 µs | 4.9 µs |
+
+パースのスループット (`parse` グループ、 85 KB の文書): 同じ計測で club-kdl は約 80 MiB/s、 kdl-rs は約 1 MiB/s (負荷の無いマシンでは club-kdl は約 160 MiB/s)。
 
 実行:
 
@@ -488,7 +490,7 @@ cargo bench --bench kdl_vs_json
 
 結果は HTML レポート (`target/criterion/report/index.html`) で詳細を確認できます。
 
-**用途のガイド**: KDL は人間可読性に最適化されたフォーマットで、 read は JSON より明確に重いです。 hot-path での頻繁な再パースには JSON / binary フォーマット (rkyv 等) を選び、 **設定ファイル / 宣言的 schema / human-edited DSL** に club-kdl を使ってください。
+**用途のガイド**: read は serde_json と同じ桁に収まったので、 リクエストごとに設定ファイルを読み直す使い方でも問題ありません。 ただし KDL は人が読み書きするためのフォーマットなので、 通信プロトコルや大量データには JSON / binary フォーマット (rkyv 等) が引き続き向いています。
 
 ## MSRV (Minimum Supported Rust Version)
 

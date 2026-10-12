@@ -11,6 +11,7 @@ homepage.workspace = true
 keywords = ["kdl", "serialization", "derive", "macro"]
 categories = ["encoding", "parsing"]
 readme = "README.md"
+exclude = ["tests/kdl-spec"]
 
 [package.metadata.docs.rs]
 all-features = true

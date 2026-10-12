@@ -31,7 +31,7 @@ The rest of this README is about `club-kdl` (the derive layer). For the schema g
 
 ## Why `club-kdl` (the derive layer)?
 
-The official Rust implementation of KDL, [`kdl-rs`](https://crates.io/crates/kdl), focuses on **AST-level** manipulation — converting to and from Rust structs is left to you. `club-kdl` adds an **attribute-based derive layer** on top of kdl-rs, so `#[derive(KdlDeserialize, KdlSerialize)]` is all you need for a full struct ↔ KDL round trip.
+The official Rust implementation of KDL, [`kdl-rs`](https://crates.io/crates/kdl), focuses on **AST-level** manipulation — converting to and from Rust structs is left to you. `club-kdl` adds an **attribute-based derive layer**, so `#[derive(KdlDeserialize, KdlSerialize)]` is all you need for a full struct ↔ KDL round trip.
 
 | Library | Role | Best for |
 |---------|------|----------|
@@ -39,7 +39,7 @@ The official Rust implementation of KDL, [`kdl-rs`](https://crates.io/crates/kdl
 | [`knuffel`](https://crates.io/crates/knuffel) / [`knus`](https://crates.io/crates/knus) | derive-based parser | Spec-compliance focused / parsing-oriented |
 | **`club-kdl`** | **derive-based ser/de** | **Bidirectional struct ↔ KDL / automatic parent-child node name resolution / enum data variants** |
 
-`club-kdl` uses the `kdl` crate (v6) AST internally, so spec compliance is delegated to kdl-rs.
+`club-kdl` reads KDL with its **own zero-copy KDL v2 parser**, checked against the full official KDL test suite (`tests/spec_compliance.rs`). Serialization uses its own writer as well. For interop, kdl-rs trees can be read with `from_kdl_document` / `from_kdl_node`, and club-kdl trees convert into kdl-rs (`to_kdl_document`) when you need format-preserving edits.
 
 ---
 
@@ -161,7 +161,7 @@ The directive lives anywhere — top-level or inside any block — and resolves 
 }
 ```
 
-This renames the first string argument of each top-level included node to `shared.Acct` / `shared.Memory`. The `club-kdl-codegen` CLI uses `club-kdl-compose` internally, so `(<)` directives just work; library consumers can also call `kdl_compose::compose(path) -> KdlDocument` or `kdl_compose::from_path::<T>(path)` directly.
+This renames the first string argument of each top-level included node to `shared.Acct` / `shared.Memory`. The `club-kdl-codegen` CLI uses `club-kdl-compose` internally, so `(<)` directives just work; library consumers can also call `kdl_compose::compose(path) -> club_kdl::Document` or `kdl_compose::from_path::<T>(path)` directly.
 
 See [`club-kdl-compose` on docs.rs](https://docs.rs/club-kdl-compose) for directive syntax and limits.
 
@@ -471,12 +471,14 @@ For more detailed usage, see [`docs/guide/`](docs/guide/README.md):
 
 `benches/kdl_vs_json.rs` contains a micro-benchmark that reads and writes equivalent docker-compose-like data in both KDL and JSON.
 
-Measured values (Apple Silicon, Rust 1.95, criterion median):
+Measured values (Apple Silicon, Rust 1.95, criterion median, all from one run — absolute numbers drift between runs, ratios are steadier):
 
-| operation | KDL (club-kdl) | JSON (serde_json) | ratio |
-|-----------|----------------|-------------------|-------|
-| read  | 486 µs | 4.2 µs | KDL is ~115x slower |
-| write |  8.8 µs | 1.7 µs | KDL is ~5x slower |
+| operation | KDL (club-kdl) | KDL via kdl-rs (≤ v0.12) | JSON (serde_json) |
+|-----------|----------------|--------------------------|-------------------|
+| read (1.7 KB text → structs) | 26.6 µs | 1651 µs | 12.0 µs |
+| write (structs → text) | 13.5 µs | 174 µs | 4.9 µs |
+
+Parse throughput (`parse` group, 85 KB document): ~80 MiB/s for club-kdl vs ~1 MiB/s for kdl-rs in the same run (up to ~160 MiB/s on an idle machine).
 
 Run it with:
 
@@ -486,7 +488,7 @@ cargo bench --bench kdl_vs_json
 
 Detailed results are available in the HTML report (`target/criterion/report/index.html`).
 
-**Usage guidance**: KDL is a format optimized for human readability, and reads are clearly heavier than JSON. For frequent re-parsing on a hot path, choose JSON or a binary format (such as rkyv); use club-kdl for **configuration files, declarative schemas, and human-edited DSLs**.
+**Usage guidance**: reads are now within a small factor of serde_json, so re-reading config files on every request is fine. KDL is still a human-oriented format: for wire protocols and bulk data, JSON or a binary format (such as rkyv) remains the better fit.
 
 ## MSRV (Minimum Supported Rust Version)
 

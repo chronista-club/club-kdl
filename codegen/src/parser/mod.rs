@@ -56,19 +56,19 @@ pub fn parse(src: &str) -> Result<ir::Schema, ParseError> {
     lower_schema(raw)
 }
 
-/// Parse an already-loaded [`kdl::KdlDocument`] into a [`Schema`](ir::Schema).
+/// Parse an already-loaded [`club_kdl::Document`] into a [`Schema`](ir::Schema).
 ///
 /// The intended caller is [`parse_path`], which composes a multi-file schema
 /// via [`kdl_compose::compose`] and then hands the resolved document to
-/// this entry; exposed publicly so library consumers who build a `KdlDocument`
+/// this entry; exposed publicly so library consumers who build a `Document`
 /// some other way (custom IO, in-memory generation) can skip the string round
-/// trip.
+/// trip. A kdl-rs `KdlDocument` converts with `club_kdl::Document::from(&doc)`.
 ///
 /// # Errors
 ///
 /// Same shape as [`parse`] — [`ParseError::Kdl`] on a deserialization failure,
 /// [`ParseError::Validation`] on a schema-rule violation.
-pub fn parse_doc(doc: &kdl::KdlDocument) -> Result<ir::Schema, ParseError> {
+pub fn parse_doc(doc: &club_kdl::Document<'_>) -> Result<ir::Schema, ParseError> {
     let raw: raw::RawSchema =
         club_kdl::from_doc(doc).map_err(|e| ParseError::Kdl(e.to_string()))?;
     lower_schema(raw)

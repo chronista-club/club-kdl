@@ -9,7 +9,8 @@
 //!
 //! - **Zero-copy deserialization** - Borrow strings directly from KDL source
 //! - **Attribute-based mapping** - Fine-grained control with `#[kdl(...)]`
-//! - **High performance** - Optimized for speed with minimal allocations
+//! - **High performance** - Own KDL v2 parser and writer; reads and writes
+//!   borrow strings instead of copying them
 //!
 //! ## Example
 //!
@@ -78,23 +79,32 @@
 //! - `default` - Use Default::default() if missing
 //! - `skip` - Skip this field during serialization/deserialization
 
+pub mod ast;
 pub mod de;
 pub mod error;
+mod parse;
 pub mod ser;
 pub mod stream;
+mod write;
 
 // Re-exports
+pub use ast::{Document, Entry, Node, Value};
 pub use de::{
-    FromKdlValue, KdlDeserialize, KdlNodeExt, doc_to_wrapper_node, from_doc, from_node, from_str,
+    FromKdlValue, KdlDeserialize, KdlNodeExt, from_doc, from_kdl_document, from_kdl_node,
+    from_node, from_str,
 };
 pub use error::{Error, Result};
 pub use ser::{
-    KdlSerialize, NodeBuilder, ToKdlValue, to_doc, to_node, to_string, to_string_pretty,
+    KdlSerialize, NodeBuilder, ToKdlValue, to_doc, to_kdl_document, to_node, to_string,
+    to_string_pretty,
 };
 pub use stream::append_node;
 
-// Re-export kdl types for convenience
-pub use kdl::{KdlDocument, KdlIdentifier, KdlNode, KdlValue};
+/// The [kdl-rs](https://docs.rs/kdl) crate, for interop: reading its trees
+/// with [`from_kdl_document`] / [`from_kdl_node`], or converting club-kdl
+/// trees into it (`kdl::KdlDocument::from(&doc)`, [`to_kdl_document`]) for
+/// format-preserving edits.
+pub use kdl;
 
 // Derive macros
 pub use club_kdl_derive::{KdlDeserialize, KdlSerialize};

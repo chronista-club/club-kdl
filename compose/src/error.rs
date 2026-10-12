@@ -15,16 +15,16 @@ pub enum ComposeError {
         source: std::io::Error,
     },
 
-    /// The KDL parser rejected the contents of a source file. The
-    /// [`kdl::KdlError`] error carries its own span information; this variant
-    /// keeps the offending path so the user can locate the file.
+    /// The KDL parser rejected the contents of a source file. The parse
+    /// error carries the line and column; this variant keeps the offending
+    /// path so the user can locate the file.
     #[error("kdl parse error in {path}: {source}")]
     Parse {
         /// The path whose contents failed to parse.
         path: PathBuf,
         /// The underlying parse error.
         #[source]
-        source: kdl::KdlError,
+        source: club_kdl::Error,
     },
 
     /// A canonical path appears twice on the include stack — the resolver
