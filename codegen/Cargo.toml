@@ -30,6 +30,5 @@ club-kdl = { path = "..", version = "0.12.0" }
 # schema を 1 つの KdlDocument に合成する。(<) を含まない schema には
 # no-op なので opt-in flag は持たない。
 club-kdl-compose = { path = "../compose", version = "0.12.0" }
-kdl.workspace = true
 thiserror.workspace = true
 

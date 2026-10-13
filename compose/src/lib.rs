@@ -1,5 +1,5 @@
 //! Multi-file composition for KDL documents — resolves `(<)file` and
-//! `(<)glob` directives into a single composed [`KdlDocument`].
+//! `(<)glob` directives into a single composed [`club_kdl::Document`].
 //!
 //! `club-kdl` itself is a **pure parser** — `from_str` takes a string, returns
 //! a value, no IO. This crate adds the **composer** layer on top: it reads
@@ -92,11 +92,11 @@
 //!     "(<)file \"./types.kdl\"\nlocal \"trailing-node\"",
 //! ).unwrap();
 //!
-//! // Resolve all (<) directives, returning a single composed KdlDocument.
+//! // Resolve all (<) directives, returning a single composed Document.
 //! let doc = kdl_compose::compose(dir.path().join("schema.kdl"))?;
 //! assert_eq!(doc.nodes().len(), 2);                          // struct + local
-//! assert_eq!(doc.nodes()[0].name().value(), "struct");
-//! assert_eq!(doc.nodes()[1].name().value(), "local");
+//! assert_eq!(doc.nodes()[0].name(), "struct");
+//! assert_eq!(doc.nodes()[1].name(), "local");
 //! # Ok(())
 //! # }
 //! ```
@@ -106,7 +106,9 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use kdl::{KdlDocument, KdlNode, KdlValue};
+use std::borrow::Cow;
+
+use club_kdl::{Document, Node, Value};
 
 pub mod error;
 pub use error::{ComposeError, Result};
@@ -116,22 +118,23 @@ pub use error::{ComposeError, Result};
 // =============================================================================
 
 /// Compose a KDL document from `path`, resolving every `(<)` directive
-/// recursively. Returns the composed [`KdlDocument`] — equivalent to the file
+/// recursively. Returns the composed [`Document`] — equivalent to the file
 /// the user wrote, but with every include spliced in place.
+///
+/// Files are read with club-kdl's own KDL v2 parser; the result owns its
+/// strings, so it outlives the source files' contents.
 ///
 /// `path` is canonicalized once at entry so cycle detection compares stable
 /// identifiers; child paths from `(<)file/glob` are resolved relative
 /// to the parent file's directory.
 ///
 /// See the [crate docs](crate) for directive syntax and design limits.
-pub fn compose(path: impl AsRef<Path>) -> Result<KdlDocument> {
+pub fn compose(path: impl AsRef<Path>) -> Result<Document<'static>> {
     let entry = path.as_ref();
     let canonical = canonicalize(entry)?;
     let mut stack = Vec::new();
     let nodes = resolve(&canonical, &mut stack)?;
-    let mut doc = KdlDocument::new();
-    *doc.nodes_mut() = nodes;
-    Ok(doc)
+    Ok(Document::from_nodes(nodes))
 }
 
 /// Compose then deserialize via [`club_kdl::from_doc`] — a thin convenience
@@ -161,7 +164,7 @@ fn canonicalize(p: &Path) -> Result<PathBuf> {
 /// Read, parse, and compose the file at `canonical_path`, returning its
 /// composed top-level nodes. `stack` carries the active include chain so the
 /// caller can detect cycles.
-fn resolve(canonical_path: &Path, stack: &mut Vec<PathBuf>) -> Result<Vec<KdlNode>> {
+fn resolve(canonical_path: &Path, stack: &mut Vec<PathBuf>) -> Result<Vec<Node<'static>>> {
     if stack.iter().any(|p| p == canonical_path) {
         let mut cycle = stack.clone();
         cycle.push(canonical_path.to_path_buf());
@@ -173,7 +176,7 @@ fn resolve(canonical_path: &Path, stack: &mut Vec<PathBuf>) -> Result<Vec<KdlNod
         path: canonical_path.to_path_buf(),
         source,
     })?;
-    let doc: KdlDocument = text.parse().map_err(|source| ComposeError::Parse {
+    let doc = Document::parse(&text).map_err(|source| ComposeError::Parse {
         path: canonical_path.to_path_buf(),
         source,
     })?;
@@ -182,33 +185,33 @@ fn resolve(canonical_path: &Path, stack: &mut Vec<PathBuf>) -> Result<Vec<KdlNod
         .parent()
         .map(Path::to_path_buf)
         .unwrap_or_default();
-    let nodes = process_nodes(doc.nodes(), &base_dir, canonical_path, stack)?;
+    let nodes = process_nodes(doc.into_nodes(), &base_dir, canonical_path, stack)?;
 
     stack.pop();
     Ok(nodes)
 }
 
 /// Walk `nodes`. For each one, if it is a `(<)` directive, splice in the
-/// resolved content; otherwise clone it and recurse into its children so
-/// nested includes (inside a `channel` or `protocol` block) are resolved too.
+/// resolved content; otherwise keep it (taking ownership of its strings) and
+/// recurse into its children so nested includes (inside a `channel` or
+/// `protocol` block) are resolved too.
 fn process_nodes(
-    nodes: &[KdlNode],
+    nodes: Vec<Node<'_>>,
     base_dir: &Path,
     current_file: &Path,
     stack: &mut Vec<PathBuf>,
-) -> Result<Vec<KdlNode>> {
+) -> Result<Vec<Node<'static>>> {
     let mut out = Vec::with_capacity(nodes.len());
-    for node in nodes {
-        if let Some(directive) = parse_directive(node, current_file)? {
+    for mut node in nodes {
+        if let Some(directive) = parse_directive(&node, current_file)? {
             let included = apply_directive(&directive, base_dir, current_file, stack)?;
             out.extend(included);
         } else {
-            let mut new_node = node.clone();
-            if let Some(children) = new_node.children_mut() {
-                let new_children = process_nodes(children.nodes(), base_dir, current_file, stack)?;
-                *children.nodes_mut() = new_children;
-            }
-            out.push(new_node);
+            let children = std::mem::take(node.children_mut());
+            let children = process_nodes(children, base_dir, current_file, stack)?;
+            let mut owned = node.into_owned();
+            *owned.children_mut() = children;
+            out.push(owned);
         }
     }
     Ok(out)
@@ -240,15 +243,15 @@ enum DirectiveKind {
 /// Return `Some(directive)` if `node` is tagged `(<)`, else `None`. Returns
 /// `Err` if the tag is `<` but the node is structurally invalid (unknown
 /// variant, missing path, unsupported property, etc.).
-fn parse_directive(node: &KdlNode, current_file: &Path) -> Result<Option<Directive>> {
+fn parse_directive(node: &Node<'_>, current_file: &Path) -> Result<Option<Directive>> {
     let Some(tag) = node.ty() else {
         return Ok(None);
     };
-    if tag.value() != "<" {
+    if tag != "<" {
         return Ok(None);
     }
 
-    let variant = node.name().value();
+    let variant = node.name();
     let kind = match variant {
         "file" => {
             let path = first_string_arg(node).ok_or_else(|| ComposeError::InvalidDirective {
@@ -276,7 +279,7 @@ fn parse_directive(node: &KdlNode, current_file: &Path) -> Result<Option<Directi
     let mut as_prefix = None;
     for entry in node.entries() {
         let Some(key) = entry.name() else { continue };
-        match key.value() {
+        match key {
             "as" => {
                 let v =
                     entry
@@ -321,19 +324,15 @@ fn parse_directive(node: &KdlNode, current_file: &Path) -> Result<Option<Directi
 ///   is many-to-one; later entries override earlier ones for the same key.
 #[allow(clippy::type_complexity)]
 fn parse_options_block(
-    node: &KdlNode,
+    node: &Node<'_>,
     current_file: &Path,
 ) -> Result<(Option<Vec<String>>, Vec<String>, BTreeMap<String, String>)> {
     let mut only_acc: Option<Vec<String>> = None;
     let mut except = Vec::new();
     let mut rename = BTreeMap::new();
 
-    let Some(children) = node.children() else {
-        return Ok((only_acc, except, rename));
-    };
-
-    for child in children.nodes() {
-        match child.name().value() {
+    for child in node.children() {
+        match child.name() {
             "only" => {
                 let entry_only = only_acc.get_or_insert_with(Vec::new);
                 for s in positional_strings(child, "only", current_file)? {
@@ -374,7 +373,7 @@ fn parse_options_block(
 }
 
 /// Collect every positional (un-named) string argument of `node` into a Vec.
-fn positional_strings(node: &KdlNode, label: &str, current_file: &Path) -> Result<Vec<String>> {
+fn positional_strings(node: &Node<'_>, label: &str, current_file: &Path) -> Result<Vec<String>> {
     let mut out = Vec::new();
     for entry in node.entries() {
         if entry.name().is_some() {
@@ -403,7 +402,7 @@ fn apply_directive(
     base_dir: &Path,
     current_file: &Path,
     stack: &mut Vec<PathBuf>,
-) -> Result<Vec<KdlNode>> {
+) -> Result<Vec<Node<'static>>> {
     let paths: Vec<PathBuf> = match &directive.kind {
         DirectiveKind::File(rel) => vec![base_dir.join(rel)],
         DirectiveKind::Glob(pattern) => expand_glob(base_dir, pattern, current_file)?,
@@ -413,11 +412,11 @@ fn apply_directive(
     for path in paths {
         let canonical = canonicalize(&path)?;
         let included_nodes = resolve(&canonical, stack)?;
-        for node in included_nodes {
-            if let Some(transformed) = transform_node(&node, directive) {
-                out.push(transformed);
-            }
-        }
+        out.extend(
+            included_nodes
+                .into_iter()
+                .filter_map(|node| transform_node(node, directive)),
+        );
     }
     Ok(out)
 }
@@ -446,8 +445,8 @@ fn expand_glob(base_dir: &Path, pattern: &str, current_file: &Path) -> Result<Ve
 /// Rules apply in order: **filter (`only` / `except`) → `rename` → `as=`
 /// prefix.** Lookup keys for filter and rename are the node's first string
 /// argument — nodes without one are always kept and never renamed.
-fn transform_node(node: &KdlNode, directive: &Directive) -> Option<KdlNode> {
-    let original_name = first_string_arg(node).map(str::to_string);
+fn transform_node<'a>(mut node: Node<'a>, directive: &Directive) -> Option<Node<'a>> {
+    let original_name = first_string_arg(&node).map(str::to_string);
 
     // Filter: only / except — operate on the original (pre-rename) name.
     // Nodes without a first string argument have no name to test against the
@@ -467,36 +466,32 @@ fn transform_node(node: &KdlNode, directive: &Directive) -> Option<KdlNode> {
     }
 
     // Rename, then prefix. Both touch only the first string arg.
-    let mut new_node = node.clone();
     if let Some(orig) = original_name {
         let renamed = directive.rename.get(&orig).cloned().unwrap_or(orig);
         let final_name = match &directive.as_prefix {
             Some(prefix) => format!("{prefix}.{renamed}"),
             None => renamed,
         };
-        set_first_string_arg(&mut new_node, &final_name);
+        set_first_string_arg(&mut node, final_name);
     }
-    Some(new_node)
+    Some(node)
 }
 
 // =============================================================================
-// Small helpers on KdlNode
+// Small helpers on Node
 // =============================================================================
 
 /// The first positional (un-named) string argument of `node`, if any.
-fn first_string_arg(node: &KdlNode) -> Option<&str> {
-    node.entries()
-        .iter()
-        .find(|e| e.name().is_none())
-        .and_then(|e| e.value().as_string())
+fn first_string_arg<'n>(node: &'n Node<'_>) -> Option<&'n str> {
+    node.arg(0).and_then(Value::as_string)
 }
 
 /// Replace the first positional string argument of `node` with `new_value`.
 /// No-op when the node has no such argument.
-fn set_first_string_arg(node: &mut KdlNode, new_value: &str) {
+fn set_first_string_arg(node: &mut Node<'_>, new_value: String) {
     for entry in node.entries_mut() {
-        if entry.name().is_none() && entry.value().is_string() {
-            *entry.value_mut() = KdlValue::String(new_value.to_string());
+        if entry.name().is_none() && entry.value().as_string().is_some() {
+            *entry = club_kdl::Entry::arg(Value::String(Cow::Owned(new_value)));
             return;
         }
     }
@@ -518,9 +513,9 @@ mod tests {
 
     /// Parse `s` and return its first top-level node, cloned. Lets every test
     /// build a one-line input without doc/index ceremony.
-    fn first_node(s: &str) -> KdlNode {
-        let doc: KdlDocument = s.parse().expect("kdl parse");
-        doc.nodes()[0].clone()
+    fn first_node(s: &str) -> Node<'static> {
+        let doc = Document::parse(s).expect("kdl parse");
+        doc.into_nodes().remove(0).into_owned()
     }
 
     /// A throwaway path used for the `current_file` field of the error
@@ -579,12 +574,12 @@ mod tests {
 
     #[test]
     fn set_first_string_arg_replaces_in_place() {
-        let mut doc: KdlDocument = r#"struct "User" { field "id" type="string" }"#.parse().unwrap();
-        let node = &mut doc.nodes_mut()[0];
-        set_first_string_arg(node, "Renamed");
+        let mut node = first_node(r#"struct "User" { field "id" type="string" }"#);
+        let node = &mut node;
+        set_first_string_arg(node, "Renamed".to_string());
         assert_eq!(first_string_arg(node), Some("Renamed"));
         // Children are untouched — only the first string arg of `struct`.
-        let child = &node.children().unwrap().nodes()[0];
+        let child = &node.children()[0];
         assert_eq!(first_string_arg(child), Some("id"));
     }
 
@@ -592,9 +587,9 @@ mod tests {
     fn set_first_string_arg_noop_when_no_string_positional_arg() {
         // `kdl-version 2` has only an integer arg; nothing to rename.
         let mut node = first_node(r#"node 42 key="value""#);
-        set_first_string_arg(&mut node, "wont-apply");
+        set_first_string_arg(&mut node, "wont-apply".to_string());
         // Integer arg stays an integer (not silently converted to a string).
-        assert!(matches!(node.entries()[0].value(), KdlValue::Integer(_)));
+        assert!(matches!(node.entries()[0].value(), Value::Integer(_)));
     }
 
     // -------------------------------------------------------------------------
@@ -832,7 +827,7 @@ mod tests {
     fn transform_node_no_options_returns_node_unchanged() {
         let node = first_node(r#"struct "User""#);
         let d = directive(None, &[], &[], None);
-        let out = transform_node(&node, &d).expect("kept");
+        let out = transform_node(node.clone(), &d).expect("kept");
         assert_eq!(first_string_arg(&out), Some("User"));
     }
 
@@ -840,14 +835,14 @@ mod tests {
     fn transform_node_only_keeps_matching_node() {
         let node = first_node(r#"struct "User""#);
         let d = directive(Some(&["User"]), &[], &[], None);
-        assert!(transform_node(&node, &d).is_some());
+        assert!(transform_node(node.clone(), &d).is_some());
     }
 
     #[test]
     fn transform_node_only_drops_non_matching_node() {
         let node = first_node(r#"struct "Other""#);
         let d = directive(Some(&["User"]), &[], &[], None);
-        assert!(transform_node(&node, &d).is_none());
+        assert!(transform_node(node.clone(), &d).is_none());
     }
 
     #[test]
@@ -856,15 +851,15 @@ mod tests {
         // the `only` list. Documented as "nodes without one are always kept".
         let node = first_node(r#"kdl-version 2"#);
         let d = directive(Some(&["User"]), &[], &[], None);
-        let out = transform_node(&node, &d).expect("kept despite only filter");
-        assert!(matches!(out.entries()[0].value(), KdlValue::Integer(_)));
+        let out = transform_node(node.clone(), &d).expect("kept despite only filter");
+        assert!(matches!(out.entries()[0].value(), Value::Integer(_)));
     }
 
     #[test]
     fn transform_node_except_drops_matching_node() {
         let node = first_node(r#"struct "Internal""#);
         let d = directive(None, &["Internal"], &[], None);
-        assert!(transform_node(&node, &d).is_none());
+        assert!(transform_node(node.clone(), &d).is_none());
     }
 
     #[test]
@@ -873,15 +868,15 @@ mod tests {
         // also never dropped by `except`.
         let node = first_node(r#"kdl-version 2"#);
         let d = directive(None, &["Internal"], &[], None);
-        let out = transform_node(&node, &d).expect("kept");
-        assert!(matches!(out.entries()[0].value(), KdlValue::Integer(_)));
+        let out = transform_node(node.clone(), &d).expect("kept");
+        assert!(matches!(out.entries()[0].value(), Value::Integer(_)));
     }
 
     #[test]
     fn transform_node_rename_replaces_first_string_arg() {
         let node = first_node(r#"struct "User""#);
         let d = directive(None, &[], &[("User", "Acct")], None);
-        let out = transform_node(&node, &d).expect("kept");
+        let out = transform_node(node.clone(), &d).expect("kept");
         assert_eq!(first_string_arg(&out), Some("Acct"));
     }
 
@@ -889,7 +884,7 @@ mod tests {
     fn transform_node_rename_for_unknown_key_is_silent_noop() {
         let node = first_node(r#"struct "User""#);
         let d = directive(None, &[], &[("Other", "Acct")], None);
-        let out = transform_node(&node, &d).expect("kept");
+        let out = transform_node(node.clone(), &d).expect("kept");
         assert_eq!(
             first_string_arg(&out),
             Some("User"),
@@ -901,7 +896,7 @@ mod tests {
     fn transform_node_as_prefix_prepends_dot_separated() {
         let node = first_node(r#"struct "User""#);
         let d = directive(None, &[], &[], Some("shared"));
-        let out = transform_node(&node, &d).expect("kept");
+        let out = transform_node(node.clone(), &d).expect("kept");
         assert_eq!(first_string_arg(&out), Some("shared.User"));
     }
 
@@ -912,7 +907,7 @@ mod tests {
         // as="ns"                    → prefix to ns.Acct
         let node = first_node(r#"struct "User""#);
         let d = directive(Some(&["User"]), &[], &[("User", "Acct")], Some("ns"));
-        let out = transform_node(&node, &d).expect("kept");
+        let out = transform_node(node.clone(), &d).expect("kept");
         assert_eq!(first_string_arg(&out), Some("ns.Acct"));
     }
 
@@ -923,7 +918,7 @@ mod tests {
         let node = first_node(r#"struct "User""#);
         let d = directive(Some(&["Acct"]), &[], &[("User", "Acct")], None);
         assert!(
-            transform_node(&node, &d).is_none(),
+            transform_node(node.clone(), &d).is_none(),
             "only matches pre-rename names, so `Acct` should not match `User`"
         );
     }
@@ -934,7 +929,7 @@ mod tests {
         // pass through unchanged.
         let node = first_node(r#"kdl-version 2"#);
         let d = directive(None, &[], &[], Some("shared"));
-        let out = transform_node(&node, &d).expect("kept");
-        assert!(matches!(out.entries()[0].value(), KdlValue::Integer(_)));
+        let out = transform_node(node.clone(), &d).expect("kept");
+        assert!(matches!(out.entries()[0].value(), Value::Integer(_)));
     }
 }

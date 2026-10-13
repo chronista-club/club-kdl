@@ -1,15 +1,19 @@
 //! KDL Deserialization
 //!
 //! High-performance deserialization from KDL to Rust types.
-//! Prioritizes zero-copy operations where possible.
+//!
+//! Input is parsed by club-kdl's own KDL v2 parser into the lightweight
+//! [`crate::ast`] tree, which borrows strings from the source text where it
+//! can. Derived impls read straight from that tree.
 
+use crate::ast::{Document, Node, Value};
 use crate::error::{Error, Result};
 use kdl::{KdlDocument, KdlNode, KdlValue};
 
 /// Trait for types that can be deserialized from KDL.
 ///
 /// The lifetime `'de` allows zero-copy deserialization by borrowing
-/// string data directly from the KDL source.
+/// string data (e.g. `&'de str` fields) from the parsed [`Node`].
 ///
 /// # Example
 ///
@@ -31,7 +35,17 @@ use kdl::{KdlDocument, KdlNode, KdlValue};
 /// ```
 pub trait KdlDeserialize<'de>: Sized {
     /// Deserialize from a KDL node.
-    fn from_kdl_node(node: &'de KdlNode) -> Result<Self>;
+    fn from_kdl_node(node: &'de Node<'de>) -> Result<Self>;
+
+    /// Deserialize from a node without checking its name.
+    ///
+    /// Used by data enum newtype variants, whose node name selects the
+    /// variant rather than the inner type. Derived structs override this;
+    /// other impls fall back to [`from_kdl_node`](Self::from_kdl_node).
+    #[doc(hidden)]
+    fn __from_kdl_node_unnamed(node: &'de Node<'de>) -> Result<Self> {
+        Self::from_kdl_node(node)
+    }
 
     /// Returns the expected KDL node name for this type.
     /// When `#[kdl(name = "...")]` is specified, returns `Some("...")`.
@@ -48,7 +62,7 @@ pub trait KdlDeserialize<'de>: Sized {
     }
 
     /// Deserialize from a KDL document (uses first node).
-    fn from_kdl_doc(doc: &'de KdlDocument) -> Result<Self> {
+    fn from_kdl_doc(doc: &'de Document<'de>) -> Result<Self> {
         doc.nodes()
             .first()
             .ok_or(Error::Custom("empty document".into()))
@@ -80,26 +94,46 @@ pub fn from_str<T>(s: &str) -> Result<T>
 where
     T: for<'de> KdlDeserialize<'de>,
 {
-    let doc: KdlDocument = s
-        .parse()
-        .map_err(|e: kdl::KdlError| Error::Parse(e.to_string()))?;
+    let doc = Document::parse(s)?;
     T::from_kdl_doc(&doc)
 }
 
-/// Deserialize a type from a KDL document.
-pub fn from_doc<'de, T>(doc: &'de KdlDocument) -> Result<T>
+/// Deserialize a type from a parsed [`Document`].
+///
+/// Unlike [`from_str`], the result may borrow from `doc` (e.g. `&str` fields).
+pub fn from_doc<'de, T>(doc: &'de Document<'de>) -> Result<T>
 where
     T: KdlDeserialize<'de>,
 {
     T::from_kdl_doc(doc)
 }
 
-/// Deserialize a type from a KDL node.
-pub fn from_node<'de, T>(node: &'de KdlNode) -> Result<T>
+/// Deserialize a type from a parsed [`Node`].
+pub fn from_node<'de, T>(node: &'de Node<'de>) -> Result<T>
 where
     T: KdlDeserialize<'de>,
 {
     T::from_kdl_node(node)
+}
+
+/// Deserialize a type from a [`kdl::KdlDocument`] built or parsed with kdl-rs.
+///
+/// The kdl-rs tree is first viewed as a [`Document`] (strings are borrowed,
+/// not copied). Prefer [`from_str`] when starting from text: it skips kdl-rs
+/// entirely and is much faster.
+pub fn from_kdl_document<T>(doc: &KdlDocument) -> Result<T>
+where
+    T: for<'de> KdlDeserialize<'de>,
+{
+    T::from_kdl_doc(&Document::from(doc))
+}
+
+/// Deserialize a type from a [`kdl::KdlNode`] built or parsed with kdl-rs.
+pub fn from_kdl_node<T>(node: &KdlNode) -> Result<T>
+where
+    T: for<'de> KdlDeserialize<'de>,
+{
+    T::from_kdl_node(&Node::from(node))
 }
 
 // ============================================================================
@@ -108,12 +142,12 @@ where
 
 /// Helper to extract a value from a KdlEntry
 pub trait FromKdlValue<'de>: Sized {
-    fn from_kdl_value(value: &'de KdlValue) -> Result<Self>;
+    fn from_kdl_value(value: &'de Value<'de>) -> Result<Self>;
 }
 
 impl<'de> FromKdlValue<'de> for &'de str {
     #[inline]
-    fn from_kdl_value(value: &'de KdlValue) -> Result<Self> {
+    fn from_kdl_value(value: &'de Value<'de>) -> Result<Self> {
         value
             .as_string()
             .ok_or_else(|| Error::type_mismatch("string", value))
@@ -122,7 +156,7 @@ impl<'de> FromKdlValue<'de> for &'de str {
 
 impl<'de> FromKdlValue<'de> for String {
     #[inline]
-    fn from_kdl_value(value: &'de KdlValue) -> Result<Self> {
+    fn from_kdl_value(value: &'de Value<'de>) -> Result<Self> {
         value
             .as_string()
             .map(|s| s.to_owned())
@@ -132,7 +166,7 @@ impl<'de> FromKdlValue<'de> for String {
 
 impl<'de> FromKdlValue<'de> for i64 {
     #[inline]
-    fn from_kdl_value(value: &'de KdlValue) -> Result<Self> {
+    fn from_kdl_value(value: &'de Value<'de>) -> Result<Self> {
         value
             .as_integer()
             .and_then(|v| v.try_into().ok())
@@ -142,7 +176,7 @@ impl<'de> FromKdlValue<'de> for i64 {
 
 impl<'de> FromKdlValue<'de> for i128 {
     #[inline]
-    fn from_kdl_value(value: &'de KdlValue) -> Result<Self> {
+    fn from_kdl_value(value: &'de Value<'de>) -> Result<Self> {
         value
             .as_integer()
             .ok_or_else(|| Error::type_mismatch("integer", value))
@@ -151,7 +185,7 @@ impl<'de> FromKdlValue<'de> for i128 {
 
 impl<'de> FromKdlValue<'de> for i32 {
     #[inline]
-    fn from_kdl_value(value: &'de KdlValue) -> Result<Self> {
+    fn from_kdl_value(value: &'de Value<'de>) -> Result<Self> {
         value
             .as_integer()
             .and_then(|v| v.try_into().ok())
@@ -161,7 +195,7 @@ impl<'de> FromKdlValue<'de> for i32 {
 
 impl<'de> FromKdlValue<'de> for u64 {
     #[inline]
-    fn from_kdl_value(value: &'de KdlValue) -> Result<Self> {
+    fn from_kdl_value(value: &'de Value<'de>) -> Result<Self> {
         value
             .as_integer()
             .and_then(|v| v.try_into().ok())
@@ -171,7 +205,7 @@ impl<'de> FromKdlValue<'de> for u64 {
 
 impl<'de> FromKdlValue<'de> for u32 {
     #[inline]
-    fn from_kdl_value(value: &'de KdlValue) -> Result<Self> {
+    fn from_kdl_value(value: &'de Value<'de>) -> Result<Self> {
         value
             .as_integer()
             .and_then(|v| v.try_into().ok())
@@ -181,7 +215,7 @@ impl<'de> FromKdlValue<'de> for u32 {
 
 impl<'de> FromKdlValue<'de> for u16 {
     #[inline]
-    fn from_kdl_value(value: &'de KdlValue) -> Result<Self> {
+    fn from_kdl_value(value: &'de Value<'de>) -> Result<Self> {
         value
             .as_integer()
             .and_then(|v| v.try_into().ok())
@@ -191,7 +225,7 @@ impl<'de> FromKdlValue<'de> for u16 {
 
 impl<'de> FromKdlValue<'de> for usize {
     #[inline]
-    fn from_kdl_value(value: &'de KdlValue) -> Result<Self> {
+    fn from_kdl_value(value: &'de Value<'de>) -> Result<Self> {
         value
             .as_integer()
             .and_then(|v| v.try_into().ok())
@@ -201,7 +235,7 @@ impl<'de> FromKdlValue<'de> for usize {
 
 impl<'de> FromKdlValue<'de> for f64 {
     #[inline]
-    fn from_kdl_value(value: &'de KdlValue) -> Result<Self> {
+    fn from_kdl_value(value: &'de Value<'de>) -> Result<Self> {
         value
             .as_float()
             .ok_or_else(|| Error::type_mismatch("float", value))
@@ -210,7 +244,7 @@ impl<'de> FromKdlValue<'de> for f64 {
 
 impl<'de> FromKdlValue<'de> for bool {
     #[inline]
-    fn from_kdl_value(value: &'de KdlValue) -> Result<Self> {
+    fn from_kdl_value(value: &'de Value<'de>) -> Result<Self> {
         value
             .as_bool()
             .ok_or_else(|| Error::type_mismatch("boolean", value))
@@ -219,7 +253,7 @@ impl<'de> FromKdlValue<'de> for bool {
 
 impl<'de, T: FromKdlValue<'de>> FromKdlValue<'de> for Option<T> {
     #[inline]
-    fn from_kdl_value(value: &'de KdlValue) -> Result<Self> {
+    fn from_kdl_value(value: &'de Value<'de>) -> Result<Self> {
         if value.is_null() {
             Ok(None)
         } else {
@@ -231,7 +265,7 @@ impl<'de, T: FromKdlValue<'de>> FromKdlValue<'de> for Option<T> {
 // PathBuf support
 impl<'de> FromKdlValue<'de> for std::path::PathBuf {
     #[inline]
-    fn from_kdl_value(value: &'de KdlValue) -> Result<Self> {
+    fn from_kdl_value(value: &'de Value<'de>) -> Result<Self> {
         value
             .as_string()
             .map(std::path::PathBuf::from)
@@ -240,26 +274,12 @@ impl<'de> FromKdlValue<'de> for std::path::PathBuf {
 }
 
 // ============================================================================
-// Document-level helpers
-// ============================================================================
-
-/// Create a wrapper KdlNode that contains all document nodes as children.
-/// Used by `#[kdl(document)]` derive to support document-level deserialization.
-pub fn doc_to_wrapper_node(doc: &KdlDocument) -> KdlNode {
-    let mut wrapper = KdlNode::new(kdl::KdlIdentifier::from("__document__"));
-    let mut children = KdlDocument::new();
-    for node in doc.nodes() {
-        children.nodes_mut().push(node.clone());
-    }
-    wrapper.set_children(children);
-    wrapper
-}
-
-// ============================================================================
 // Node access helpers
 // ============================================================================
 
-/// Extension trait for KdlNode with convenient accessor methods
+/// Extension trait for kdl-rs's [`KdlNode`] with convenient accessor methods.
+///
+/// club-kdl's own [`Node`] has the same accessors as inherent methods.
 pub trait KdlNodeExt {
     /// Get argument at index
     fn arg(&self, index: usize) -> Option<&KdlValue>;

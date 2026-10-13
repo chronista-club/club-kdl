@@ -21,7 +21,7 @@ fn fixture(scenario: &str, entry: &str) -> PathBuf {
 }
 
 /// Names (first string arg) of each top-level node, in source order.
-fn top_level_names(doc: &kdl::KdlDocument) -> Vec<String> {
+fn top_level_names(doc: &club_kdl::Document<'_>) -> Vec<String> {
     doc.nodes()
         .iter()
         .map(|n| {
@@ -45,9 +45,9 @@ fn simple_include_splices_child_at_directive_position() {
     let nodes = doc.nodes();
     // child's two nodes splice in where (<)file used to be, then top remains.
     assert_eq!(nodes.len(), 3);
-    assert_eq!(nodes[0].name().value(), "child");
-    assert_eq!(nodes[1].name().value(), "child");
-    assert_eq!(nodes[2].name().value(), "top");
+    assert_eq!(nodes[0].name(), "child");
+    assert_eq!(nodes[1].name(), "child");
+    assert_eq!(nodes[2].name(), "top");
     assert_eq!(top_level_names(&doc), vec!["first", "second", "root-node"]);
 }
 
@@ -111,7 +111,7 @@ fn directive_node_does_not_appear_in_output() {
     let doc = compose(fixture("simple", "root.kdl")).expect("compose");
     for node in doc.nodes() {
         assert_ne!(
-            node.ty().map(kdl::KdlIdentifier::value),
+            node.ty(),
             Some("<"),
             "directive node leaked into output: {node}"
         );
@@ -128,15 +128,15 @@ fn directive_inside_block_splices_into_that_block() {
     // Top-level has one `protocol` node.
     assert_eq!(doc.nodes().len(), 1);
     let protocol = &doc.nodes()[0];
-    assert_eq!(protocol.name().value(), "protocol");
+    assert_eq!(protocol.name(), "protocol");
 
     // Drill into protocol > channel > children.
-    let channel = &protocol.children().unwrap().nodes()[0];
-    assert_eq!(channel.name().value(), "channel");
-    let children = channel.children().unwrap().nodes();
+    let channel = &protocol.children()[0];
+    assert_eq!(channel.name(), "channel");
+    let children = channel.children();
 
     // reqs.kdl contributed two `request` nodes, then the local `request` follows.
-    let names: Vec<&str> = children.iter().map(|n| n.name().value()).collect();
+    let names: Vec<&str> = children.iter().map(|n| n.name()).collect();
     assert_eq!(names, vec!["request", "request", "request"]);
 
     let request_args: Vec<&str> = children
@@ -174,7 +174,7 @@ fn as_prefix_renames_first_string_arg_of_each_top_level_node() {
 
     // Internal references inside children are *not* touched by as=.
     let user = &doc.nodes()[0];
-    let field = &user.children().unwrap().nodes()[0];
+    let field = &user.children()[0];
     assert_eq!(
         field
             .entries()
@@ -316,7 +316,7 @@ fn multiple_directives_in_same_block_splice_in_source_order() {
     // node follows.
     let doc = compose(fixture("multi-directive", "root.kdl")).expect("compose");
     let protocol = &doc.nodes()[0];
-    let children = protocol.children().unwrap().nodes();
+    let children = protocol.children();
     let args: Vec<&str> = children
         .iter()
         .map(|n| {
@@ -336,9 +336,9 @@ fn deeply_nested_directive_resolves_at_third_level() {
     // first non-directive block.
     let doc = compose(fixture("deeply-nested", "root.kdl")).expect("compose");
     let protocol = &doc.nodes()[0];
-    let channel = &protocol.children().unwrap().nodes()[0];
-    let group = &channel.children().unwrap().nodes()[0];
-    let leaves = group.children().unwrap().nodes();
+    let channel = &protocol.children()[0];
+    let group = &channel.children()[0];
+    let leaves = group.children();
     let args: Vec<&str> = leaves
         .iter()
         .map(|n| {

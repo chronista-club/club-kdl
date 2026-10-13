@@ -11,6 +11,9 @@ homepage.workspace = true
 keywords = ["kdl", "serialization", "derive", "macro"]
 categories = ["encoding", "parsing"]
 readme = "README.md"
+# The spec test cases are large and only used by the two tests that read
+# them; ship neither, so `cargo test` on the published crate stays green.
+exclude = ["tests/kdl-spec", "tests/spec_compliance.rs", "tests/robustness.rs"]
 
 [package.metadata.docs.rs]
 all-features = true

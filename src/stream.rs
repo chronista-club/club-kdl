@@ -43,12 +43,8 @@ use crate::ser::KdlSerialize;
 /// に包まれる)。
 pub fn append_node<T: KdlSerialize>(path: impl AsRef<Path>, value: &T) -> Result<()> {
     let path = path.as_ref();
-    let node = value.to_kdl_node()?;
-
-    let mut line = node.to_string();
-    if !line.ends_with('\n') {
-        line.push('\n');
-    }
+    let mut line = String::with_capacity(128);
+    value.__write_node(&mut line, 0, None)?;
 
     let mut file = OpenOptions::new()
         .create(true)

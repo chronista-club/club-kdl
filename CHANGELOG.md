@@ -7,6 +7,86 @@
 
 ## [Unreleased]
 
+### 変更 (破壊的)
+
+- **読み込みを独自の KDL v2 パーサーに置き換えた**。 従来は kdl-rs (`kdl` 6) で
+  書式保持の AST を組み立ててから struct に写していたため、 読み込み時間の 97% が
+  kdl-rs のパースに消えていた。 新パーサーは書式を捨てた軽量ツリー
+  (`club_kdl::ast::{Document, Node, Entry, Value}`) を作り、 エスケープ不要な文字列は
+  ソースから借用する。 公式 KDL テストスイート (320 件) 全件で準拠を検証
+  (`tests/spec_compliance.rs`)。 壊した入力でも panic しないこと、 任意の文字列が
+  書き出し → 読み戻しで変わらないことも常設テストで確かめる (`tests/robustness.rs`、
+  `CLUB_KDL_FUZZ_SCALE` で反復回数を増やせる)。
+  - read (1.7 KB → struct): 1288 µs → 20.0 µs (同一計測内の比較、 約 64 倍)
+  - parse スループット: 約 1.3 MiB/s → 約 110 MiB/s (85 KB 文書、 同一計測)
+  - 引用符付き文字列と行コメントは、 8 バイト単位の SWAR 判定でまとめて読み飛ばす
+  - パースエラーに行・列が付く (`line 2, column 3: ...`)
+- `KdlDeserialize::from_kdl_node` / `from_kdl_doc` の引数を
+  `&KdlNode` / `&KdlDocument` から `&Node<'de>` / `&Document<'de>` に変更。
+  `FromKdlValue::from_kdl_value` も `&KdlValue` から `&Value<'de>` に変更。
+- `from_doc` / `from_node` は新しい `Document` / `Node` を受け取る。
+- `doc_to_wrapper_node` を削除 (document 構造体は `Document` をコピーせずに読む)。
+- **書き出しも独自の writer に置き換えた**。 `KdlSerialize::to_kdl_node` は
+  `Result<Node<'_>>` を返し、 文字列は struct から借用する (コピーしない)。
+  `ToKdlValue::to_kdl_value` は `Value<'_>` を返す。 `NodeBuilder<'a>` は値を
+  参照で受け取る (`arg(&value)`)。
+  - derive は中間ツリーを作らずに直接テキストへ書くコードも生成する
+    (`to_string` / `to_string_into` / `append_node` が使う)。 ツリー経由と
+    バイト単位で同じ出力になることをテストで固定 (`tests/write_equivalence.rs`)
+  - write (struct → テキスト): 146 µs → 4.4 µs (同一計測内の比較、 約 33 倍。 JSON 4.3 µs と同等)
+- **`to_string` / `to_string_pretty` の出力書式が変わる**。 従来は kdl-rs の
+  未整形出力そのままで、 `{` が名前に密着し、 子ノードのインデントも崩れていた
+  (`port host=80{` / 閉じ括弧だけ字下げ)。 これを 4 スペースのインデントで
+  `name args {` の形に整えた。 値の書き方 (裸の識別子にできる文字列は引用符なし、
+  `1.0`、 `#inf` など) は従来どおり。 制御文字は `\u{7}` のようにエスケープする
+  (従来は不正な KDL を出していた)。 2 つの関数は同じ出力になる。
+- **compose (`club-kdl-compose`) も独自パーサーで読む**。 `compose()` は
+  `club_kdl::Document<'static>` を返し、 `ComposeError::Parse` の `source` は
+  `club_kdl::Error` になった。 ノードの複製をやめて所有権を移すようにした。
+  - codegen の `parse_path` (vantage-point の vp-daemon.kdl、 15 KB):
+    10.5 ms → 0.31 ms (約 34 倍)
+- codegen の `parse_doc` は `&club_kdl::Document` を受け取る。 compose と codegen は
+  `kdl` crate に依存しなくなった。
+- `club_kdl::{KdlDocument, KdlIdentifier, KdlNode, KdlValue}` の再エクスポートを
+  やめ、 kdl-rs crate そのものを `club_kdl::kdl` として再エクスポートする。
+
+### 修正
+
+- `Option` の argument / property / `child, unwrap_arg` が `#null` を読めなかった
+  (v0.12 以前から)。 `None` の argument は位置を保つため `#null` と書き出すので、
+  書き出した結果を読み戻せなかった。 `#null` は `None` として読む。
+
+### 追加
+
+- `from_kdl_document` / `from_kdl_node`: kdl-rs の `KdlDocument` / `KdlNode`
+  から読む互換 API (文字列はコピーせず借用)。
+- `Document::into_nodes`、 `Document::parse`、 `Node` の accessor (`arg` / `args` / `prop` / `child` /
+  `children_named` / `children`)、 kdl-rs との相互変換 (`From`)。
+- `to_string_into`: 既存の `String` に追記する (多数の値を書くときにバッファを使い回せる)。
+- `to_kdl_document`: 書き出し結果を kdl-rs の `KdlDocument` で受け取る
+  (`autoformat` やコメント挿入など、 書式を保った編集をしたいとき)。
+- `Document` / `Node` の `Display` と `write_to(&mut String)`。
+- `NodeBuilder::flatten`、 `Node::set_name` / `into_children` / `into_parts`。
+- `ToKdlValue` を `i8` / `i16` / `isize` / `u8` / `f32` / `Cow<str>` / `Value`
+  にも実装し、 `&T` は blanket impl にした。
+
+### 移行
+
+- kdl-rs でパースしてから `T::from_kdl_node(&kdl_node)` を呼んでいた箇所は、
+  テキストからなら `club_kdl::from_str` (最速)、 kdl-rs のツリーを持っているなら
+  `club_kdl::from_kdl_node(&kdl_node)` / `club_kdl::from_kdl_document(&doc)` に置き換える。
+- 手書きの `FromKdlValue` impl はシグネチャを `fn from_kdl_value(value: &'de Value<'de>)`
+  に変える (`as_string` / `as_integer` などのメソッド名は同じ)。
+- 手書きの `ToKdlValue` impl は `fn to_kdl_value(&self) -> Value<'_>` に変える。
+  文字列は `Value::String(Cow::Borrowed(&self.0))`、 その場で組み立てる文字列は
+  `Value::String(s.into())`。
+- `to_kdl_node()` の結果を kdl-rs で整形していた箇所 (sizma など) は
+  `club_kdl::to_string(&value)` で済む。 kdl-rs のツリーが必要なら
+  `club_kdl::to_kdl_document(&value)`。
+- `club_kdl::KdlDocument` などは `club_kdl::kdl::KdlDocument` に置き換える。
+- `kdl_compose::compose` の結果を kdl-rs として扱っていた箇所は
+  `club_kdl::kdl::KdlDocument::from(&doc)` で変換する。
+
 ## [0.12.0] - 2026-07-26
 
 ### 追加
