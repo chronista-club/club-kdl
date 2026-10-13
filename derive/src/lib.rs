@@ -322,8 +322,10 @@ fn generate_field_deserializers<'a>(
                             .unwrap_or_default(),
                     }
                 } else if is_option_type(&field.ty) {
+                    // `#null` reads as `None`: it is what `None` writes.
                     quote! {
                         #field_name: node.arg(#idx)
+                            .filter(|v| !v.is_null())
                             .map(|v| ::club_kdl::FromKdlValue::from_kdl_value(v))
                             .transpose()?,
                     }
@@ -346,6 +348,7 @@ fn generate_field_deserializers<'a>(
                 } else if is_option_type(&field.ty) {
                     quote! {
                         #field_name: node.prop(#kdl_name)
+                            .filter(|v| !v.is_null())
                             .map(|v| ::club_kdl::FromKdlValue::from_kdl_value(v))
                             .transpose()?,
                     }
@@ -364,6 +367,7 @@ fn generate_field_deserializers<'a>(
                         quote! {
                             #field_name: node.child(#child_name)
                                 .and_then(|n| n.arg(0))
+                                .filter(|v| !v.is_null())
                                 .map(|v| ::club_kdl::FromKdlValue::from_kdl_value(v))
                                 .transpose()?,
                         }

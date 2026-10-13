@@ -14,7 +14,9 @@
   kdl-rs のパースに消えていた。 新パーサーは書式を捨てた軽量ツリー
   (`club_kdl::ast::{Document, Node, Entry, Value}`) を作り、 エスケープ不要な文字列は
   ソースから借用する。 公式 KDL テストスイート (320 件) 全件で準拠を検証
-  (`tests/spec_compliance.rs`)。
+  (`tests/spec_compliance.rs`)。 壊した入力でも panic しないこと、 任意の文字列が
+  書き出し → 読み戻しで変わらないことも常設テストで確かめる (`tests/robustness.rs`、
+  `CLUB_KDL_FUZZ_SCALE` で反復回数を増やせる)。
   - read (1.7 KB → struct): 1288 µs → 20.0 µs (同一計測内の比較、 約 64 倍)
   - parse スループット: 約 1.3 MiB/s → 約 110 MiB/s (85 KB 文書、 同一計測)
   - 引用符付き文字列と行コメントは、 8 バイト単位の SWAR 判定でまとめて読み飛ばす
@@ -47,6 +49,12 @@
   `kdl` crate に依存しなくなった。
 - `club_kdl::{KdlDocument, KdlIdentifier, KdlNode, KdlValue}` の再エクスポートを
   やめ、 kdl-rs crate そのものを `club_kdl::kdl` として再エクスポートする。
+
+### 修正
+
+- `Option` の argument / property / `child, unwrap_arg` が `#null` を読めなかった
+  (v0.12 以前から)。 `None` の argument は位置を保つため `#null` と書き出すので、
+  書き出した結果を読み戻せなかった。 `#null` は `None` として読む。
 
 ### 追加
 

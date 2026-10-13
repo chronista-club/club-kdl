@@ -723,3 +723,47 @@ fn test_document_empty() {
     assert!(schema.messages.is_empty());
     assert!(schema.enums.is_empty());
 }
+
+// `None` is written as `#null` for positional arguments (to keep later
+// arguments in place), so every `Option` field must read `#null` back as
+// `None` instead of failing to parse it as the inner type.
+#[derive(Debug, PartialEq, KdlDeserialize, KdlSerialize)]
+#[kdl(name = "opt")]
+struct OptionalEverywhere {
+    #[kdl(argument)]
+    first: Option<String>,
+    #[kdl(argument)]
+    second: Option<String>,
+    #[kdl(property)]
+    port: Option<u16>,
+    #[kdl(child, unwrap_arg)]
+    note: Option<String>,
+}
+
+#[test]
+fn option_fields_read_null_as_none() {
+    let v: OptionalEverywhere =
+        club_kdl::from_str("opt #null \"b\" port=#null { note #null; }").unwrap();
+    assert_eq!(
+        v,
+        OptionalEverywhere {
+            first: None,
+            second: Some("b".into()),
+            port: None,
+            note: None,
+        }
+    );
+}
+
+#[test]
+fn option_argument_none_round_trips() {
+    let v = OptionalEverywhere {
+        first: None,
+        second: Some("b".into()),
+        port: None,
+        note: None,
+    };
+    let text = club_kdl::to_string(&v).unwrap();
+    assert_eq!(text, "opt #null b\n");
+    assert_eq!(club_kdl::from_str::<OptionalEverywhere>(&text).unwrap(), v);
+}
