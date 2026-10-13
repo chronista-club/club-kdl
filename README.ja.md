@@ -477,10 +477,10 @@ service "api" interval=30 timeout=5
 
 | operation | KDL (club-kdl) | kdl-rs 経由の KDL (≤ v0.12) | JSON (serde_json) |
 |-----------|----------------|-----------------------------|-------------------|
-| read (1.7 KB テキスト → struct) | 26.6 µs | 1651 µs | 12.0 µs |
-| write (struct → テキスト) | 13.5 µs | 174 µs | 4.9 µs |
+| read (1.7 KB テキスト → struct) | 20.0 µs | 1288 µs | 9.7 µs |
+| write (struct → テキスト) | 4.4 µs | 146 µs | 4.3 µs |
 
-パースのスループット (`parse` グループ、 85 KB の文書): 同じ計測で club-kdl は約 80 MiB/s、 kdl-rs は約 1 MiB/s (負荷の無いマシンでは club-kdl は約 160 MiB/s)。
+パースのスループット (`parse` グループ、 85 KB の文書): 同じ計測で club-kdl は約 110 MiB/s、 kdl-rs は約 1.3 MiB/s (負荷の無いマシンではさらに速い)。
 
 実行:
 

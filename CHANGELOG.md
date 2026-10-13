@@ -15,8 +15,9 @@
   (`club_kdl::ast::{Document, Node, Entry, Value}`) を作り、 エスケープ不要な文字列は
   ソースから借用する。 公式 KDL テストスイート (320 件) 全件で準拠を検証
   (`tests/spec_compliance.rs`)。
-  - read (1.7 KB → struct): 1651 µs → 26.6 µs (同一計測内の比較、 約 60 倍)
-  - parse スループット: 約 1 MiB/s → 約 80〜160 MiB/s (85 KB 文書、 マシン負荷で変動)
+  - read (1.7 KB → struct): 1288 µs → 20.0 µs (同一計測内の比較、 約 64 倍)
+  - parse スループット: 約 1.3 MiB/s → 約 110 MiB/s (85 KB 文書、 同一計測)
+  - 引用符付き文字列と行コメントは、 8 バイト単位の SWAR 判定でまとめて読み飛ばす
   - パースエラーに行・列が付く (`line 2, column 3: ...`)
 - `KdlDeserialize::from_kdl_node` / `from_kdl_doc` の引数を
   `&KdlNode` / `&KdlDocument` から `&Node<'de>` / `&Document<'de>` に変更。
@@ -27,7 +28,10 @@
   `Result<Node<'_>>` を返し、 文字列は struct から借用する (コピーしない)。
   `ToKdlValue::to_kdl_value` は `Value<'_>` を返す。 `NodeBuilder<'a>` は値を
   参照で受け取る (`arg(&value)`)。
-  - write (struct → テキスト): 174 µs → 13.5 µs (同一計測内の比較、 約 13 倍)
+  - derive は中間ツリーを作らずに直接テキストへ書くコードも生成する
+    (`to_string` / `to_string_into` / `append_node` が使う)。 ツリー経由と
+    バイト単位で同じ出力になることをテストで固定 (`tests/write_equivalence.rs`)
+  - write (struct → テキスト): 146 µs → 4.4 µs (同一計測内の比較、 約 33 倍。 JSON 4.3 µs と同等)
 - **`to_string` / `to_string_pretty` の出力書式が変わる**。 従来は kdl-rs の
   未整形出力そのままで、 `{` が名前に密着し、 子ノードのインデントも崩れていた
   (`port host=80{` / 閉じ括弧だけ字下げ)。 これを 4 スペースのインデントで
@@ -50,6 +54,7 @@
   から読む互換 API (文字列はコピーせず借用)。
 - `Document::into_nodes`、 `Document::parse`、 `Node` の accessor (`arg` / `args` / `prop` / `child` /
   `children_named` / `children`)、 kdl-rs との相互変換 (`From`)。
+- `to_string_into`: 既存の `String` に追記する (多数の値を書くときにバッファを使い回せる)。
 - `to_kdl_document`: 書き出し結果を kdl-rs の `KdlDocument` で受け取る
   (`autoformat` やコメント挿入など、 書式を保った編集をしたいとき)。
 - `Document` / `Node` の `Display` と `write_to(&mut String)`。

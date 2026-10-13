@@ -263,6 +263,9 @@ impl<'a> Parser<'a> {
         }
         self.pos += 2;
         loop {
+            // `"` and `\` are ordinary in a comment; the chunk skip just
+            // treats them as "look closer", which the byte loop then accepts.
+            self.pos = skip_plain_ascii(self.b, self.pos);
             match self.peek() {
                 Some(b) if (0x20..0x7F).contains(&b) || b == b'\t' => self.pos += 1,
                 None => break,
@@ -733,6 +736,7 @@ impl<'a> Parser<'a> {
         let body_start = self.pos;
         let mut has_escape = false;
         loop {
+            self.pos = skip_plain_ascii(self.b, self.pos);
             match self.peek() {
                 Some(b) if (0x20..0x7F).contains(&b) && b != b'"' && b != b'\\' => {
                     self.pos += 1;
@@ -869,6 +873,36 @@ impl<'a> Parser<'a> {
         self.pos += 1 + hashes;
         Ok(Cow::Borrowed(body))
     }
+}
+
+/// Advance `pos` over whole 8-byte chunks made only of plain ASCII
+/// (`0x20..=0x7E` other than `"` and `\`), using SWAR bit tricks to test
+/// eight bytes at once. Stops at the first chunk that contains anything
+/// else; the caller's byte loop handles that chunk exactly.
+#[inline]
+fn skip_plain_ascii(b: &[u8], mut pos: usize) -> usize {
+    const LO: u64 = 0x0101_0101_0101_0101;
+    const HI: u64 = 0x8080_8080_8080_8080;
+    // Non-zero iff some byte of `v` is zero.
+    #[inline(always)]
+    fn has_zero(v: u64) -> u64 {
+        v.wrapping_sub(LO) & !v & HI
+    }
+    while let Some(chunk) = b.get(pos..pos + 8) {
+        let x = u64::from_le_bytes(chunk.try_into().unwrap());
+        let special = has_zero(x ^ (LO * b'"' as u64))
+            | has_zero(x ^ (LO * b'\\' as u64))
+            | has_zero(x ^ (LO * 0x7F))
+            // some byte < 0x20
+            | (x.wrapping_sub(LO * 0x20) & !x & HI)
+            // some byte >= 0x80
+            | (x & HI);
+        if special != 0 {
+            break;
+        }
+        pos += 8;
+    }
+    pos
 }
 
 fn strip_underscores(s: &str) -> Cow<'_, str> {
@@ -1091,6 +1125,38 @@ mod tests {
     fn error_has_position() {
         let err = parse_document("a\nb true").unwrap_err().to_string();
         assert!(err.contains("line 2, column 3"), "{err}");
+    }
+
+    #[test]
+    fn skip_plain_ascii_matches_bytewise_scan() {
+        fn plain(b: u8) -> bool {
+            (0x20..0x7F).contains(&b) && b != b'"' && b != b'\\'
+        }
+        let specials = [b'"', b'\\', 0x7F, 0x1F, 0x00, b'\n', b'\t', 0x80, 0xE3];
+        let base = b"abcdefghijklmnopqrstuvwxyz0123456789-./:=ABCDEFGH";
+        for len in 0..base.len() {
+            for (si, &sp) in specials.iter().enumerate() {
+                for at in 0..=len {
+                    let mut v = base[..len].to_vec();
+                    v.insert(at, sp);
+                    for start in 0..=2.min(v.len()) {
+                        let skipped = skip_plain_ascii(&v, start);
+                        // Everything skipped must be plain, and skipping
+                        // must stop at whole-chunk granularity.
+                        assert!(
+                            v[start..skipped].iter().all(|&b| plain(b)),
+                            "{si} {len} {at}"
+                        );
+                        assert_eq!((skipped - start) % 8, 0);
+                        // It must not stop early when a full plain chunk follows.
+                        let rest = &v[skipped..];
+                        if rest.len() >= 8 {
+                            assert!(!rest[..8].iter().all(|&b| plain(b)), "{si} {len} {at}");
+                        }
+                    }
+                }
+            }
+        }
     }
 
     #[test]

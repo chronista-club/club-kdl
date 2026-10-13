@@ -96,9 +96,15 @@ pub use de::{
 pub use error::{Error, Result};
 pub use ser::{
     KdlSerialize, NodeBuilder, ToKdlValue, to_doc, to_kdl_document, to_node, to_string,
-    to_string_pretty,
+    to_string_into, to_string_pretty,
 };
 pub use stream::append_node;
+
+/// Items used by code generated with the derive macros. Not a stable API.
+#[doc(hidden)]
+pub mod __private {
+    pub use crate::write::NodeWriter;
+}
 
 /// The [kdl-rs](https://docs.rs/kdl) crate, for interop: reading its trees
 /// with [`from_kdl_document`] / [`from_kdl_node`], or converting club-kdl

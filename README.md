@@ -475,10 +475,10 @@ Measured values (Apple Silicon, Rust 1.95, criterion median, all from one run �
 
 | operation | KDL (club-kdl) | KDL via kdl-rs (≤ v0.12) | JSON (serde_json) |
 |-----------|----------------|--------------------------|-------------------|
-| read (1.7 KB text → structs) | 26.6 µs | 1651 µs | 12.0 µs |
-| write (structs → text) | 13.5 µs | 174 µs | 4.9 µs |
+| read (1.7 KB text → structs) | 20.0 µs | 1288 µs | 9.7 µs |
+| write (structs → text) | 4.4 µs | 146 µs | 4.3 µs |
 
-Parse throughput (`parse` group, 85 KB document): ~80 MiB/s for club-kdl vs ~1 MiB/s for kdl-rs in the same run (up to ~160 MiB/s on an idle machine).
+Parse throughput (`parse` group, 85 KB document): ~110 MiB/s for club-kdl vs ~1.3 MiB/s for kdl-rs in the same run (higher on an idle machine).
 
 Run it with:
 

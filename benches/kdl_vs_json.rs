@@ -314,8 +314,19 @@ fn bench_write(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("write");
 
-    // KDL書き出し (struct → テキスト)
+    // KDL書き出し (struct → テキストへ直接)
     group.bench_function("kdl", |b| {
+        b.iter(|| {
+            let mut out = String::with_capacity(2048);
+            for s in black_box(&kdl_services) {
+                club_kdl::to_string_into(s, &mut out).unwrap();
+            }
+            black_box(out)
+        })
+    });
+
+    // 比較用: ツリー (Node) を組んでからテキスト化
+    group.bench_function("kdl-tree", |b| {
         b.iter(|| {
             let doc = to_doc(black_box(&kdl_services));
             let mut out = String::with_capacity(2048);

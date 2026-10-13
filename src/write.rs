@@ -41,6 +41,121 @@ pub(crate) fn write_node(out: &mut String, node: &Node<'_>, depth: usize) {
     out.push('\n');
 }
 
+/// Streams one node straight to text, without building a [`Node`].
+///
+/// Derived [`KdlSerialize`](crate::KdlSerialize) impls drive this: the node
+/// name is written on creation, entries are appended in order, and the
+/// children block (` {` … `}`) is opened lazily by the first child, so a node
+/// without children stays on one line — the same text the tree path writes.
+pub struct NodeWriter<'o> {
+    out: &'o mut String,
+    depth: usize,
+    has_children: bool,
+    /// A document root writes neither a name, entries nor braces; its
+    /// children are top-level nodes.
+    root: bool,
+}
+
+impl<'o> NodeWriter<'o> {
+    /// Start a node named `name` at `depth`.
+    #[inline]
+    pub fn new(out: &'o mut String, depth: usize, name: &str) -> Self {
+        for _ in 0..depth {
+            out.push_str(INDENT);
+        }
+        write_string(out, name);
+        Self {
+            out,
+            depth,
+            has_children: false,
+            root: false,
+        }
+    }
+
+    /// A document root: children are written as top-level nodes.
+    #[inline]
+    pub fn document(out: &'o mut String) -> Self {
+        Self {
+            out,
+            depth: 0,
+            has_children: false,
+            root: true,
+        }
+    }
+
+    /// Append a positional argument.
+    #[inline]
+    pub fn arg<V: crate::ToKdlValue + ?Sized>(&mut self, value: &V) {
+        if !self.root {
+            self.out.push(' ');
+            write_value(self.out, &value.to_kdl_value());
+        }
+    }
+
+    /// Append a `key=value` property.
+    #[inline]
+    pub fn prop<V: crate::ToKdlValue + ?Sized>(&mut self, key: &str, value: &V) {
+        if !self.root {
+            self.out.push(' ');
+            write_string(self.out, key);
+            self.out.push('=');
+            write_value(self.out, &value.to_kdl_value());
+        }
+    }
+
+    /// Append a ready-made entry.
+    #[inline]
+    pub fn entry(&mut self, entry: &Entry<'_>) {
+        if !self.root {
+            self.out.push(' ');
+            write_entry(self.out, entry);
+        }
+    }
+
+    /// Open the children block if needed and return the buffer and depth a
+    /// child node must be written at.
+    #[inline]
+    pub fn nested(&mut self) -> (&mut String, usize) {
+        if self.root {
+            return (self.out, 0);
+        }
+        if !self.has_children {
+            self.out.push_str(" {\n");
+            self.has_children = true;
+        }
+        (self.out, self.depth + 1)
+    }
+
+    /// Start a child node named `name`.
+    #[inline]
+    pub fn child(&mut self, name: &str) -> NodeWriter<'_> {
+        let (out, depth) = self.nested();
+        NodeWriter::new(out, depth, name)
+    }
+
+    /// Write a ready-made child node.
+    #[inline]
+    pub fn child_node(&mut self, node: &Node<'_>) {
+        let (out, depth) = self.nested();
+        write_node(out, node, depth);
+    }
+
+    /// Close the node: the children block if one was opened, then the newline.
+    #[inline]
+    pub fn finish(self) {
+        if self.root {
+            return;
+        }
+        if self.has_children {
+            for _ in 0..self.depth {
+                self.out.push_str(INDENT);
+            }
+            self.out.push('}');
+        }
+        self.out.push('\n');
+    }
+}
+
 fn write_entry(out: &mut String, entry: &Entry<'_>) {
     if let Some(name) = entry.name() {
         write_string(out, name);

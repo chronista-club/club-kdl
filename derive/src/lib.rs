@@ -859,8 +859,41 @@ fn impl_kdl_serialize(input: &DeriveInput) -> syn::Result<TokenStream2> {
     let node_name = container_attrs
         .name
         .unwrap_or_else(|| to_snake_case(&name.to_string()));
+    let node_name_tokens = if container_attrs.document {
+        "__document__".to_string()
+    } else {
+        node_name.clone()
+    };
 
     let all_serializers = generate_field_serializers(fields.iter(), false)?;
+    let (entry_writers, child_writers) = generate_field_writers(fields.iter(), false)?;
+
+    let direct_writers = quote! {
+        fn __write_node(
+            &self,
+            out: &mut ::std::string::String,
+            depth: usize,
+            name: ::std::option::Option<&str>,
+        ) -> ::club_kdl::Result<()> {
+            let mut __w = ::club_kdl::__private::NodeWriter::new(out, depth, name.unwrap_or(#node_name_tokens));
+            ::club_kdl::KdlSerialize::__write_entries(self, &mut __w)?;
+            ::club_kdl::KdlSerialize::__write_children(self, &mut __w)?;
+            __w.finish();
+            Ok(())
+        }
+
+        #[allow(unused_variables)]
+        fn __write_entries(&self, w: &mut ::club_kdl::__private::NodeWriter<'_>) -> ::club_kdl::Result<()> {
+            #(#entry_writers)*
+            Ok(())
+        }
+
+        #[allow(unused_variables)]
+        fn __write_children(&self, w: &mut ::club_kdl::__private::NodeWriter<'_>) -> ::club_kdl::Result<()> {
+            #(#child_writers)*
+            Ok(())
+        }
+    };
 
     if container_attrs.document {
         Ok(quote! {
@@ -875,6 +908,16 @@ fn impl_kdl_serialize(input: &DeriveInput) -> syn::Result<TokenStream2> {
                     let wrapper = ::club_kdl::KdlSerialize::to_kdl_node(self)?;
                     Ok(::club_kdl::ast::Document::from_nodes(wrapper.into_children()))
                 }
+
+                #direct_writers
+
+                fn __write_doc(&self, out: &mut ::std::string::String) -> ::club_kdl::Result<()> {
+                    // A document's entries are dropped, as in `to_kdl_doc`.
+                    let mut __w = ::club_kdl::__private::NodeWriter::document(out);
+                    ::club_kdl::KdlSerialize::__write_children(self, &mut __w)?;
+                    __w.finish();
+                    Ok(())
+                }
             }
         })
     } else {
@@ -884,6 +927,12 @@ fn impl_kdl_serialize(input: &DeriveInput) -> syn::Result<TokenStream2> {
                     let mut builder = ::club_kdl::NodeBuilder::new(#node_name);
                     #(#all_serializers)*
                     Ok(builder.build())
+                }
+
+                #direct_writers
+
+                fn __write_doc(&self, out: &mut ::std::string::String) -> ::club_kdl::Result<()> {
+                    ::club_kdl::KdlSerialize::__write_node(self, out, 0, None)
                 }
             }
         })
@@ -1113,6 +1162,202 @@ fn generate_field_serializers<'a>(
     Ok(serializers)
 }
 
+/// Generate direct-to-text writer tokens for struct fields.
+///
+/// Returns `(entries, children)`: the first list appends arguments and
+/// properties to the node writer `w`, the second writes child nodes. The
+/// order matches [`generate_field_serializers`] exactly — arguments,
+/// multi-arguments, properties, then flattened entries; children, child maps,
+/// then flattened children — so both paths emit the same text.
+fn generate_field_writers<'a>(
+    fields: impl Iterator<Item = &'a Field>,
+    is_variant: bool,
+) -> syn::Result<(Vec<TokenStream2>, Vec<TokenStream2>)> {
+    let mut arguments: Vec<(&Field, FieldAttrs)> = Vec::new();
+    let mut multi_arguments: Vec<(&Field, FieldAttrs)> = Vec::new();
+    let mut properties: Vec<(&Field, FieldAttrs)> = Vec::new();
+    let mut children: Vec<(&Field, FieldAttrs)> = Vec::new();
+    let mut child_maps: Vec<(&Field, FieldAttrs)> = Vec::new();
+    let mut flattens: Vec<(&Field, FieldAttrs)> = Vec::new();
+
+    for field in fields {
+        let attrs = parse_field_attrs(&field.attrs)?;
+        if attrs.skip {
+            continue;
+        }
+        match attrs.kind {
+            FieldKind::Argument => arguments.push((field, attrs)),
+            FieldKind::Arguments => multi_arguments.push((field, attrs)),
+            FieldKind::Property => properties.push((field, attrs)),
+            FieldKind::Child | FieldKind::Children => children.push((field, attrs)),
+            FieldKind::ChildMap => child_maps.push((field, attrs)),
+            FieldKind::Flatten => flattens.push((field, attrs)),
+        }
+    }
+
+    arguments.sort_by_key(|(_, attrs)| attrs.index.unwrap_or(usize::MAX));
+
+    let access = |f: &syn::Ident| {
+        if is_variant {
+            quote! { #f }
+        } else {
+            quote! { self.#f }
+        }
+    };
+    let field_ref = |f: &syn::Ident| {
+        if is_variant {
+            quote! { #f }
+        } else {
+            quote! { &self.#f }
+        }
+    };
+    let option_some = |f: &syn::Ident| {
+        if is_variant {
+            quote! { if let Some(v) = #f }
+        } else {
+            quote! { if let Some(ref v) = self.#f }
+        }
+    };
+
+    let mut entries = Vec::new();
+    let mut nodes = Vec::new();
+
+    for (field, _) in &arguments {
+        let r = field_ref(field.ident.as_ref().unwrap());
+        entries.push(quote! { w.arg(#r); });
+    }
+    for (field, _) in &multi_arguments {
+        let r = field_ref(field.ident.as_ref().unwrap());
+        entries.push(quote! {
+            for item in #r {
+                w.arg(item);
+            }
+        });
+    }
+    for (field, attrs) in &properties {
+        let field_name = field.ident.as_ref().unwrap();
+        let kdl_name = attrs
+            .rename
+            .clone()
+            .unwrap_or_else(|| field_name.to_string());
+        if is_option_type(&field.ty) {
+            let pat = option_some(field_name);
+            entries.push(quote! {
+                #pat {
+                    w.prop(#kdl_name, v);
+                }
+            });
+        } else {
+            let r = field_ref(field_name);
+            entries.push(quote! { w.prop(#kdl_name, #r); });
+        }
+    }
+
+    for (field, attrs) in &children {
+        let field_name = field.ident.as_ref().unwrap();
+        let kdl_name = attrs
+            .child_name
+            .clone()
+            .unwrap_or_else(|| field_name.to_string());
+        let r = field_ref(field_name);
+        let tokens = match attrs.kind {
+            FieldKind::Child if attrs.unwrap_arg => {
+                if is_option_type(&field.ty) {
+                    let pat = option_some(field_name);
+                    quote! {
+                        #pat {
+                            let mut __c = w.child(#kdl_name);
+                            __c.arg(v);
+                            __c.finish();
+                        }
+                    }
+                } else {
+                    quote! {
+                        {
+                            let mut __c = w.child(#kdl_name);
+                            __c.arg(#r);
+                            __c.finish();
+                        }
+                    }
+                }
+            }
+            FieldKind::Child if attrs.unwrap_args => {
+                let a = access(field_name);
+                quote! {
+                    if !#a.is_empty() {
+                        let mut __c = w.child(#kdl_name);
+                        for item in #r {
+                            __c.arg(item);
+                        }
+                        __c.finish();
+                    }
+                }
+            }
+            FieldKind::Child => {
+                if is_option_type(&field.ty) {
+                    let pat = option_some(field_name);
+                    quote! {
+                        #pat {
+                            let (__out, __depth) = w.nested();
+                            ::club_kdl::KdlSerialize::__write_node(v, __out, __depth, None)?;
+                        }
+                    }
+                } else {
+                    quote! {
+                        {
+                            let (__out, __depth) = w.nested();
+                            ::club_kdl::KdlSerialize::__write_node(#r, __out, __depth, None)?;
+                        }
+                    }
+                }
+            }
+            FieldKind::Children => quote! {
+                for item in #r {
+                    let (__out, __depth) = w.nested();
+                    ::club_kdl::KdlSerialize::__write_node(item, __out, __depth, None)?;
+                }
+            },
+            _ => unreachable!(),
+        };
+        nodes.push(tokens);
+    }
+
+    for (field, attrs) in &child_maps {
+        let field_name = field.ident.as_ref().unwrap();
+        let a = access(field_name);
+        let r = field_ref(field_name);
+        if let Some(wname) = attrs.child_name.as_ref() {
+            nodes.push(quote! {
+                if !#a.is_empty() {
+                    let mut __wrapper = w.child(#wname);
+                    for (key, value) in #r {
+                        let mut __c = __wrapper.child(key.as_str());
+                        __c.arg(value);
+                        __c.finish();
+                    }
+                    __wrapper.finish();
+                }
+            });
+        } else {
+            nodes.push(quote! {
+                for (key, value) in #r {
+                    let mut __c = w.child(key.as_str());
+                    __c.arg(value);
+                    __c.finish();
+                }
+            });
+        }
+    }
+
+    for (field, _) in &flattens {
+        let r = field_ref(field.ident.as_ref().unwrap());
+        entries.push(quote! { ::club_kdl::KdlSerialize::__write_entries(#r, w)?; });
+        nodes.push(quote! { ::club_kdl::KdlSerialize::__write_children(#r, w)?; });
+    }
+
+    Ok((entries, nodes))
+}
+
 // ============================================================================
 // Enum serialization
 // ============================================================================
@@ -1164,6 +1409,22 @@ fn impl_kdl_serialize_scalar_enum(
                     .arg(self)
                     .build())
             }
+
+            fn __write_node(
+                &self,
+                out: &mut ::std::string::String,
+                depth: usize,
+                name: ::std::option::Option<&str>,
+            ) -> ::club_kdl::Result<()> {
+                let mut __w = ::club_kdl::__private::NodeWriter::new(out, depth, name.unwrap_or(#node_name));
+                __w.arg(self);
+                __w.finish();
+                Ok(())
+            }
+
+            fn __write_doc(&self, out: &mut ::std::string::String) -> ::club_kdl::Result<()> {
+                ::club_kdl::KdlSerialize::__write_node(self, out, 0, None)
+            }
         }
     })
 }
@@ -1174,6 +1435,7 @@ fn impl_kdl_serialize_data_enum(
     variants: &syn::punctuated::Punctuated<Variant, syn::token::Comma>,
 ) -> syn::Result<TokenStream2> {
     let mut match_arms = Vec::new();
+    let mut write_arms = Vec::new();
 
     for variant in variants {
         let variant_ident = &variant.ident;
@@ -1185,6 +1447,12 @@ fn impl_kdl_serialize_data_enum(
                 match_arms.push(quote! {
                     #name::#variant_ident => {
                         Ok(::club_kdl::NodeBuilder::new(#kdl_name).build())
+                    },
+                });
+                write_arms.push(quote! {
+                    #name::#variant_ident => {
+                        ::club_kdl::__private::NodeWriter::new(out, depth, name.unwrap_or(#kdl_name)).finish();
+                        Ok(())
                     },
                 });
             }
@@ -1203,6 +1471,20 @@ fn impl_kdl_serialize_data_enum(
                         Ok(builder.build())
                     },
                 });
+                let (entry_writers, child_writers) =
+                    generate_field_writers(fields.named.iter(), true)?;
+                write_arms.push(quote! {
+                    #name::#variant_ident { #(#field_names),* } => {
+                        let mut __w = ::club_kdl::__private::NodeWriter::new(out, depth, name.unwrap_or(#kdl_name));
+                        {
+                            let w = &mut __w;
+                            #(#entry_writers)*
+                            #(#child_writers)*
+                        }
+                        __w.finish();
+                        Ok(())
+                    },
+                });
             }
             Fields::Unnamed(fields) => {
                 if fields.unnamed.len() != 1 {
@@ -1211,6 +1493,11 @@ fn impl_kdl_serialize_data_enum(
                         "KdlSerialize for enum tuple variants only supports single-field (newtype) variants",
                     ));
                 }
+                write_arms.push(quote! {
+                    #name::#variant_ident(inner) => {
+                        ::club_kdl::KdlSerialize::__write_node(inner, out, depth, Some(name.unwrap_or(#kdl_name)))
+                    },
+                });
                 match_arms.push(quote! {
                     #name::#variant_ident(inner) => {
                         let mut __node = ::club_kdl::KdlSerialize::to_kdl_node(inner)?;
@@ -1229,6 +1516,22 @@ fn impl_kdl_serialize_data_enum(
                 match self {
                     #(#match_arms)*
                 }
+            }
+
+            #[allow(unused_variables)]
+            fn __write_node(
+                &self,
+                out: &mut ::std::string::String,
+                depth: usize,
+                name: ::std::option::Option<&str>,
+            ) -> ::club_kdl::Result<()> {
+                match self {
+                    #(#write_arms)*
+                }
+            }
+
+            fn __write_doc(&self, out: &mut ::std::string::String) -> ::club_kdl::Result<()> {
+                ::club_kdl::KdlSerialize::__write_node(self, out, 0, None)
             }
         }
     })

@@ -39,6 +39,45 @@ pub trait KdlSerialize {
     fn to_kdl_doc(&self) -> Result<Document<'_>> {
         Ok(Document::from_nodes(vec![self.to_kdl_node()?]))
     }
+
+    /// Write this value as a node straight to text, optionally renamed.
+    ///
+    /// Derived impls write directly without building a [`Node`]; the
+    /// default goes through [`to_kdl_node`](Self::to_kdl_node).
+    #[doc(hidden)]
+    fn __write_node(&self, out: &mut String, depth: usize, name: Option<&str>) -> Result<()> {
+        let mut node = self.to_kdl_node()?;
+        if let Some(name) = name {
+            node.set_name(name);
+        }
+        crate::write::write_node(out, &node, depth);
+        Ok(())
+    }
+
+    /// Append this value's entries to a node being written (`#[kdl(flatten)]`).
+    #[doc(hidden)]
+    fn __write_entries(&self, w: &mut crate::__private::NodeWriter<'_>) -> Result<()> {
+        for entry in self.to_kdl_node()?.entries() {
+            w.entry(entry);
+        }
+        Ok(())
+    }
+
+    /// Append this value's children to a node being written (`#[kdl(flatten)]`).
+    #[doc(hidden)]
+    fn __write_children(&self, w: &mut crate::__private::NodeWriter<'_>) -> Result<()> {
+        for child in self.to_kdl_node()?.children() {
+            w.child_node(child);
+        }
+        Ok(())
+    }
+
+    /// Write this value as a whole document straight to text.
+    #[doc(hidden)]
+    fn __write_doc(&self, out: &mut String) -> Result<()> {
+        crate::write::write_document(out, &self.to_kdl_doc()?);
+        Ok(())
+    }
 }
 
 /// Serialize a type to a KDL string.
@@ -63,10 +102,17 @@ pub trait KdlSerialize {
 /// assert_eq!(kdl_string, "config my-app\n");
 /// ```
 pub fn to_string<T: KdlSerialize + ?Sized>(value: &T) -> Result<String> {
-    let doc = value.to_kdl_doc()?;
     let mut out = String::with_capacity(256);
-    crate::write::write_document(&mut out, &doc);
+    value.__write_doc(&mut out)?;
     Ok(out)
+}
+
+/// Serialize a type and append the KDL text to `out`.
+///
+/// Lets callers reuse one buffer across many values (e.g. writing a stream
+/// of records) instead of allocating a `String` per value.
+pub fn to_string_into<T: KdlSerialize + ?Sized>(value: &T, out: &mut String) -> Result<()> {
+    value.__write_doc(out)
 }
 
 /// Serialize a type to a KDL string.
