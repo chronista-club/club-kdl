@@ -612,7 +612,7 @@ fn sidebar_ipc_typescript_output_really_compiles() {
 // `parse_path` — multi-file schemas via club-kdl-compose `(<)` directive
 // =============================================================================
 //
-// `parse_path` runs the entry file through `kdl_compose::compose` before
+// `parse_path` runs the entry file through `club_kdl::compose::compose` before
 // lowering, so a schema split across files via `(<)file` resolves
 // transparently. We assert that the multi-file form produces byte-equivalent
 // Rust to its inline equivalent, then check the CLI end-to-end.
@@ -667,7 +667,7 @@ fn parse_path_emits_same_rust_as_inline() {
 fn parse_doc_works_on_composed_kdl_document() {
     // Library consumers who hold a `KdlDocument` directly (custom IO or
     // in-memory build) should be able to skip the string round-trip.
-    let doc = kdl_compose::compose(multi_file_root()).expect("compose");
+    let doc = club_kdl::compose::compose(multi_file_root()).expect("compose");
     let schema = kdl_codegen::parser::parse_doc(&doc).expect("parse_doc");
     let names: Vec<&str> = schema
         .types

@@ -1,21 +1,24 @@
-//! End-to-end tests for `club-kdl-compose`.
+//! End-to-end tests for `club_kdl::compose` (the `compose` feature).
 //!
-//! Every test points at a fixture under `tests/fixtures/<scenario>/`. The
+//! Every test points at a fixture under `tests/fixtures/compose/<scenario>/`. The
 //! fixture files are real `.kdl` so that the path-resolution and IO paths
 //! get exercised end-to-end — that is the point of the crate, and inlining
 //! the schemas as strings would defeat it.
 
+#![cfg(feature = "compose")]
+
 use std::path::{Path, PathBuf};
 
-use kdl_compose::{ComposeError, compose};
+use club_kdl::compose::{ComposeError, compose};
 
-/// Resolve `<cargo manifest>/tests/fixtures/<scenario>/<entry>`. Every
+/// Resolve `<cargo manifest>/tests/fixtures/compose/<scenario>/<entry>`. Every
 /// scenario has its own subdirectory so the relative paths inside each
 /// fixture file stay short and self-contained.
 fn fixture(scenario: &str, entry: &str) -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("tests")
         .join("fixtures")
+        .join("compose")
         .join(scenario)
         .join(entry)
 }
@@ -232,7 +235,7 @@ fn from_path_deserializes_through_compose() {
     // The `simple` fixture composes to: child "first", child "second", top "root-node".
     // We deserialize only the `top` field — child entries are extra siblings,
     // ignored by the derive (it picks the named child).
-    let parsed: SimpleDoc = kdl_compose::from_path(fixture("simple", "root.kdl"))
+    let parsed: SimpleDoc = club_kdl::compose::from_path(fixture("simple", "root.kdl"))
         .expect("from_path should resolve and deserialize");
     assert_eq!(parsed.top.name, "root-node");
 }
@@ -242,7 +245,7 @@ fn from_path_surfaces_deserialize_error() {
     // The composed document does not contain a `top` child, so the derive
     // call fails — compose itself succeeded, the error must therefore be
     // a `Deserialize` variant, not Io / Parse.
-    let err = kdl_compose::from_path::<SimpleDoc>(fixture("bad-deserialize", "root.kdl"))
+    let err = club_kdl::compose::from_path::<SimpleDoc>(fixture("bad-deserialize", "root.kdl"))
         .expect_err("missing required child should surface a Deserialize error");
     assert!(
         matches!(err, ComposeError::Deserialize { .. }),

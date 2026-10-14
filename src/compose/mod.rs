@@ -1,5 +1,5 @@
 //! Multi-file composition for KDL documents — resolves `(<)file` and
-//! `(<)glob` directives into a single composed [`club_kdl::Document`].
+//! `(<)glob` directives into a single composed [`Document`].
 //!
 //! `club-kdl` itself is a **pure parser** — `from_str` takes a string, returns
 //! a value, no IO. This crate adds the **composer** layer on top: it reads
@@ -7,12 +7,19 @@
 //! referenced by an include directive — including transitively, with cycle
 //! detection.
 //!
-//! ## Why a separate crate
+//! ## Why a feature
 //!
-//! Putting include resolution in core would force every `club-kdl` user to
-//! buy into filesystem IO. Keeping it in a companion crate lets users who
-//! want pure-parser behavior keep it (parse a string, deserialize), and lets
-//! users who want multi-file composition opt in with a single `use`.
+//! Putting include resolution in the default build would make every
+//! `club-kdl` user buy into filesystem IO and the `glob` dependency. Behind
+//! the `compose` feature, users who want pure-parser behavior keep it (parse
+//! a string, deserialize), and users who want multi-file composition opt in:
+//!
+//! ```toml
+//! club-kdl = { version = "0.14", features = ["compose"] }
+//! ```
+//!
+//! Until 0.13 this lived in the separate `club-kdl-compose` crate
+//! (`kdl_compose::compose` is now `club_kdl::compose::compose`).
 //!
 //! ## Directive syntax — `(<)variant`
 //!
@@ -80,7 +87,7 @@
 //! `compose` / `from_path` breaks the docs and the test suite at once.
 //!
 //! ```
-//! # fn main() -> Result<(), kdl_compose::ComposeError> {
+//! # fn main() -> Result<(), club_kdl::compose::ComposeError> {
 //! // Lay out a two-file schema under a scratch directory.
 //! let dir = tempfile::tempdir().unwrap();
 //! std::fs::write(
@@ -93,7 +100,7 @@
 //! ).unwrap();
 //!
 //! // Resolve all (<) directives, returning a single composed Document.
-//! let doc = kdl_compose::compose(dir.path().join("schema.kdl"))?;
+//! let doc = club_kdl::compose::compose(dir.path().join("schema.kdl"))?;
 //! assert_eq!(doc.nodes().len(), 2);                          // struct + local
 //! assert_eq!(doc.nodes()[0].name(), "struct");
 //! assert_eq!(doc.nodes()[1].name(), "local");
@@ -108,7 +115,7 @@ use std::path::{Path, PathBuf};
 
 use std::borrow::Cow;
 
-use club_kdl::{Document, Node, Value};
+use crate::{Document, Node, Value};
 
 pub mod error;
 pub use error::{ComposeError, Result};
@@ -137,14 +144,14 @@ pub fn compose(path: impl AsRef<Path>) -> Result<Document<'static>> {
     Ok(Document::from_nodes(nodes))
 }
 
-/// Compose then deserialize via [`club_kdl::from_doc`] — a thin convenience
+/// Compose then deserialize via [`crate::from_doc`] — a thin convenience
 /// for the common case of "I have a typed schema and a root KDL file".
 pub fn from_path<T>(path: impl AsRef<Path>) -> Result<T>
 where
-    T: for<'de> club_kdl::KdlDeserialize<'de>,
+    T: for<'de> crate::KdlDeserialize<'de>,
 {
     let doc = compose(path)?;
-    club_kdl::from_doc(&doc).map_err(|source| ComposeError::Deserialize { source })
+    crate::from_doc(&doc).map_err(|source| ComposeError::Deserialize { source })
 }
 
 // =============================================================================
@@ -491,7 +498,7 @@ fn first_string_arg<'n>(node: &'n Node<'_>) -> Option<&'n str> {
 fn set_first_string_arg(node: &mut Node<'_>, new_value: String) {
     for entry in node.entries_mut() {
         if entry.name().is_none() && entry.value().as_string().is_some() {
-            *entry = club_kdl::Entry::arg(Value::String(Cow::Owned(new_value)));
+            *entry = crate::Entry::arg(Value::String(Cow::Owned(new_value)));
             return;
         }
     }

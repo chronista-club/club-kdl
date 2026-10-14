@@ -21,7 +21,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [workspace]
 resolver = "2"
-members = [".", "derive", "codegen", "compose"]
+members = [".", "derive", "codegen"]
 
 [workspace.package]
 version = "0.13.0"
@@ -40,11 +40,28 @@ quote = "1"
 proc-macro2 = "1"
 
 [dependencies]
-kdl.workspace = true
 thiserror.workspace = true
 club-kdl-derive = { path = "./derive", version = "=0.13.0" }
+# `kdl-rs` feature: conversions to and from kdl-rs trees. The engine itself
+# does not use kdl-rs.
+kdl = { workspace = true, optional = true }
+# `compose` feature: `(<)glob` include directives.
+glob = { version = "0.3", optional = true }
+
+[features]
+default = []
+# Interop with kdl-rs: `from_kdl_document` / `from_kdl_node` /
+# `to_kdl_document`, `From` conversions, `KdlNodeExt`, `club_kdl::kdl`.
+kdl-rs = ["dep:kdl"]
+# Multi-file composition: `club_kdl::compose` resolves `(<)file` /
+# `(<)glob` include directives.
+compose = ["dep:glob"]
 
 [dev-dependencies]
+# Tests, examples and benches always see every feature.
+club-kdl = { path = ".", features = ["kdl-rs", "compose"] }
+# Scratch directories for the compose doc-tests.
+tempfile = "3"
 criterion = "0.8"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

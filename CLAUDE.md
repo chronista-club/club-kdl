@@ -36,7 +36,7 @@ Phase 1 (`club-kdl-codegen`) は spec/design 確定・実装着手前。
 
 ## 開発の基本
 
-- workspace 構成: `club-kdl` (`.`) + `club-kdl-derive` (`derive/`)。 Phase 1 で `club-kdl-codegen` を追加予定
+- workspace 構成: `club-kdl` (`.`、 feature `compose` / `kdl-rs`、 どちらも既定 off) + `club-kdl-derive` (`derive/`) + `club-kdl-codegen` (`codegen/`)。 `club-kdl-compose` は 0.14 で `club-kdl` の `compose` feature に統合した
 - リリースは tag push (`v*.*.*`) で `.github/workflows/release.yml` が derive→main を自動 publish
 - PR は CI 8 job (fmt/clippy/doc + 3OS×2toolchain test + MSRV + deny + semver-checks) を通すこと
 - **TS ツールの実行は `bun` / `bunx` を使う** (`npm` / `npx` は使わない)。 chronista-style ecosystem が bun ベース。 codegen の TS/Zod ターゲット出力も bun 消費を前提とする

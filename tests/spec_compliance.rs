@@ -80,7 +80,7 @@ fn spec_compliance() {
         });
         match expected {
             Ok(expected_src) => {
-                let reference: kdl::KdlDocument = match expected_src.parse() {
+                let reference: club_kdl::kdl::KdlDocument = match expected_src.parse() {
                     Ok(d) => d,
                     // kdl-rs itself cannot read a handful of expected files;
                     // fall back to parsing the expected file with our parser.

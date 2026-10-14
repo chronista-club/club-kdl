@@ -269,7 +269,7 @@ fn bench_read(c: &mut Criterion) {
     // 比較用: v0.12 までの経路 (kdl-rs でパース → struct)
     group.bench_function("kdl-rs", |b| {
         b.iter(|| {
-            let doc: kdl::KdlDocument = black_box(KDL_DATA).parse().unwrap();
+            let doc: club_kdl::kdl::KdlDocument = black_box(KDL_DATA).parse().unwrap();
             black_box(read_services(&club_kdl::Document::from(&doc)))
         })
     });
@@ -295,7 +295,13 @@ fn bench_parse(c: &mut Criterion) {
             b.iter(|| black_box(club_kdl::Document::parse(black_box(src)).unwrap()))
         });
         group.bench_with_input(BenchmarkId::new("kdl-rs", label), src, |b, src| {
-            b.iter(|| black_box(black_box(src).parse::<kdl::KdlDocument>().unwrap()))
+            b.iter(|| {
+                black_box(
+                    black_box(src)
+                        .parse::<club_kdl::kdl::KdlDocument>()
+                        .unwrap(),
+                )
+            })
         });
     }
 
@@ -339,7 +345,7 @@ fn bench_write(c: &mut Criterion) {
     group.bench_function("kdl-rs", |b| {
         b.iter(|| {
             let doc = to_doc(black_box(&kdl_services));
-            black_box(kdl::KdlDocument::from(&doc).to_string())
+            black_box(club_kdl::kdl::KdlDocument::from(&doc).to_string())
         })
     });
 

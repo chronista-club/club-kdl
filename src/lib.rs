@@ -14,8 +14,18 @@
 //! - **Spec-checked** - Runs the full official KDL 2.0 test suite in CI
 //!
 //! Comments and layout are not preserved. For format-preserving edits, hand
-//! data to [kdl-rs](crate::kdl) with [`to_kdl_document`] /
-//! [`from_kdl_document`].
+//! data to [kdl-rs](https://docs.rs/kdl) with `to_kdl_document` /
+//! `from_kdl_document`.
+//!
+//! ## Cargo features
+//!
+//! Both are off by default.
+//!
+//! - `compose` - `club_kdl::compose` module: multi-file KDL via
+//!   `(<)file` / `(<)glob` include directives (adds the `glob` dependency)
+//! - `kdl-rs` - interop with [kdl-rs](https://docs.rs/kdl): `from_kdl_document`,
+//!   `from_kdl_node`, `to_kdl_document`, `From` conversions between the two
+//!   trees, and the `club_kdl::kdl` re-export (adds the `kdl` dependency)
 //!
 //! ## Example
 //!
@@ -85,6 +95,8 @@
 //! - `skip` - Skip this field during serialization/deserialization
 
 pub mod ast;
+#[cfg(feature = "compose")]
+pub mod compose;
 pub mod de;
 pub mod error;
 mod parse;
@@ -94,14 +106,15 @@ mod write;
 
 // Re-exports
 pub use ast::{Document, Entry, Node, Value};
-pub use de::{
-    FromKdlValue, KdlDeserialize, KdlNodeExt, from_doc, from_kdl_document, from_kdl_node,
-    from_node, from_str,
-};
+pub use de::{FromKdlValue, KdlDeserialize, from_doc, from_node, from_str};
+#[cfg(feature = "kdl-rs")]
+pub use de::{KdlNodeExt, from_kdl_document, from_kdl_node};
 pub use error::{Error, Result};
+#[cfg(feature = "kdl-rs")]
+pub use ser::to_kdl_document;
 pub use ser::{
-    KdlSerialize, NodeBuilder, ToKdlValue, to_doc, to_kdl_document, to_node, to_string,
-    to_string_into, to_string_pretty,
+    KdlSerialize, NodeBuilder, ToKdlValue, to_doc, to_node, to_string, to_string_into,
+    to_string_pretty,
 };
 pub use stream::append_node;
 
@@ -114,7 +127,8 @@ pub mod __private {
 /// The [kdl-rs](https://docs.rs/kdl) crate, for interop: reading its trees
 /// with [`from_kdl_document`] / [`from_kdl_node`], or converting club-kdl
 /// trees into it (`kdl::KdlDocument::from(&doc)`, [`to_kdl_document`]) for
-/// format-preserving edits.
+/// format-preserving edits. Requires the `kdl-rs` feature.
+#[cfg(feature = "kdl-rs")]
 pub use kdl;
 
 // Derive macros

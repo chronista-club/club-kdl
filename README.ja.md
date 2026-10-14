@@ -13,21 +13,31 @@ Rust で [KDL](https://kdl.dev) を扱う **クレートファミリー** — �
 
 ```toml
 [dependencies]
-club-kdl = "0.13"
+club-kdl = "0.14"
+# 任意の feature (どちらも既定は off):
+# club-kdl = { version = "0.14", features = ["compose", "kdl-rs"] }
 ```
 
 ## クレートファミリー
 
-`club-kdl` は workspace version を共有する 4 つの crate で構成され、まとめてリリースされる。用途に応じて使い分ける。
+`club-kdl` は workspace version を共有する 3 つの crate で構成され、まとめてリリースされる。用途に応じて使い分ける。
 
 | Crate | 役割 | 使うとき |
 |-------|------|---------|
 | **[`club-kdl`](https://crates.io/crates/club-kdl)** | Rust 構造体 ↔ KDL テキストの derive ベース ser/de | Rust 型を KDL と往復させたい |
 | [`club-kdl-derive`](https://crates.io/crates/club-kdl-derive) | `#[derive(KdlDeserialize, KdlSerialize)]` を実装する proc-macro | (内部依存 — `club-kdl` が引き込むので直接依存することはほぼ無い) |
 | **[`club-kdl-codegen`](https://crates.io/crates/club-kdl-codegen)** | KDL schema → Rust / TypeScript / Zod / SurrealQL コード生成 (CLI + ライブラリ) | 1 つの KDL schema から多言語の型を生成したい |
-| **[`club-kdl-compose`](https://crates.io/crates/club-kdl-compose)** | `(<)file` / `(<)glob` include directive による複数ファイル合成 | schema / config が肥大化したのでファイル分割したい |
 
-このREADMEのほとんどは `club-kdl` 本体 (derive とそのエンジン) の説明。schema codegen と compose については下の [Schema codegen](#schema-codegen--club-kdl-codegen) / [複数ファイル schema](#複数ファイル-schema--club-kdl-compose) を参照。
+`club-kdl` には任意の feature が 2 つある。 どちらも既定は off なので、 既定のビルドが依存するのは `club-kdl-derive` と `thiserror` だけ。
+
+| Feature | 追加されるもの | 追加の依存 |
+|---------|---------------|-----------|
+| `compose` | `club_kdl::compose` — `(<)file` / `(<)glob` include directive による複数ファイル合成 ([下記](#複数ファイルの-kdl--compose-feature)) | `glob` |
+| `kdl-rs` | kdl-rs との相互運用: `from_kdl_document` / `from_kdl_node` / `to_kdl_document`、 `From` 変換、 `club_kdl::kdl` の再エクスポート ([下記](#kdl-rs-との相互運用)) | `kdl` |
+
+0.13 までは `compose` は別 crate の `club-kdl-compose` だった。 `kdl_compose::compose` は `club_kdl::compose::compose` になった。
+
+このREADMEのほとんどは `club-kdl` 本体 (derive とそのエンジン) の説明。schema codegen と compose については下の [Schema codegen](#schema-codegen--club-kdl-codegen) / [複数ファイルの KDL](#複数ファイルの-kdl--compose-feature) を参照。
 
 ## なぜ `club-kdl`？
 
@@ -39,7 +49,7 @@ KDL の公式 Rust 実装 [`kdl-rs`](https://crates.io/crates/kdl) は **文書�
 | [`knuffel`](https://crates.io/crates/knuffel) / [`knus`](https://crates.io/crates/knus) | derive ベースの parser | spec 準拠重視 / parse 側に偏る |
 | **`club-kdl`** | **自前エンジンの上の derive ベース ser/de** | **高速な struct ↔ KDL 双方向 / 親子ノード名自動解決 / enum data variants** |
 
-両者は組み合わせて使える。 kdl-rs のツリーは `from_kdl_document` / `from_kdl_node` で読め、 書式を保ったまま編集したいときは `to_kdl_document` で kdl-rs に渡せる。
+両者は組み合わせて使える (`kdl-rs` feature が必要)。 kdl-rs のツリーは `from_kdl_document` / `from_kdl_node` で読め、 書式を保ったまま編集したいときは `to_kdl_document` で kdl-rs に渡せる。
 
 ---
 
@@ -138,7 +148,7 @@ kdl-rs はファイルの編集のために、 ノードや値ごとに元のテ
 
 ### 手放したもの
 
-コメントとレイアウトは **保持しない**。 ファイルを struct に読んで書き戻すと、 整形し直した KDL になる。 コメントを残したままファイルを書き換えたいときは、 その部分だけ kdl-rs を使う。 `to_kdl_document` / `from_kdl_document` で両者の間を行き来できる。
+コメントとレイアウトは **保持しない**。 ファイルを struct に読んで書き戻すと、 整形し直した KDL になる。 コメントを残したままファイルを書き換えたいときは、 その部分だけ kdl-rs を使う。 `kdl-rs` feature を有効にすれば、 `to_kdl_document` / `from_kdl_document` で両者の間を行き来できる。
 
 ### 正しさの担保
 
@@ -179,9 +189,13 @@ schema 文法は **data 方言**（`struct` / `enum`）に加えて、 関係デ
 
 ---
 
-## 複数ファイル schema — `club-kdl-compose`
+## 複数ファイルの KDL — `compose` feature
 
-schema が大きくなったら、 `(<)file`（または batch import 用に `(<)glob`）で分割する:
+schema や設定が大きくなったら、 `(<)file`（または batch import 用に `(<)glob`）で分割する。 まず feature を有効にする:
+
+```toml
+club-kdl = { version = "0.14", features = ["compose"] }
+```
 
 ```kdl
 # schema.kdl
@@ -209,9 +223,9 @@ directive は **top-level でも任意の block の中でも**書けて、 cycle
 }
 ```
 
-これで取り込まれる top-level ノードの **first string argument** が `shared.Acct` / `shared.Memory` に rewrite される。 `club-kdl-codegen` CLI は内部で `club-kdl-compose` を使うので `(<)` directive はそのまま動く。 ライブラリから直接使うなら `kdl_compose::compose(path) -> club_kdl::Document` か `kdl_compose::from_path::<T>(path)`。
+これで取り込まれる top-level ノードの **first string argument** が `shared.Acct` / `shared.Memory` に rewrite される。 `club-kdl-codegen` CLI は内部でこれを使うので `(<)` directive はそのまま動く。 ライブラリから使うなら、 合成した `club_kdl::Document` を受け取る `club_kdl::compose::compose(path)` か、 合成と struct への読み込みを一度に行う `club_kdl::compose::from_path::<T>(path)` を呼ぶ。
 
-directive 構文と制約は [`club-kdl-compose` の docs.rs](https://docs.rs/club-kdl-compose) 参照。
+directive 構文と制約は [docs.rs の `club_kdl::compose`](https://docs.rs/club-kdl/latest/club_kdl/compose/) 参照。
 
 ---
 
@@ -528,6 +542,12 @@ for event in &events {
 
 ### kdl-rs との相互運用
 
+`kdl-rs` feature が必要:
+
+```toml
+club-kdl = { version = "0.14", features = ["kdl-rs"] }
+```
+
 ```rust
 // kdl-rs の文書 → struct (文字列はコピーせず借用する)
 let kdl_doc: club_kdl::kdl::KdlDocument = text.parse()?;
@@ -538,7 +558,7 @@ let mut kdl_doc = club_kdl::to_kdl_document(&config)?;
 kdl_doc.autoformat();
 ```
 
-`club_kdl::kdl` で kdl-rs crate を再エクスポートしているので、 別途依存を足す必要は無い。
+feature を有効にすると `club_kdl::kdl` で kdl-rs crate を再エクスポートするので、 別途依存を足す必要は無い。
 
 ---
 
@@ -589,7 +609,7 @@ cargo bench --bench kdl_vs_json
 
 **用途のガイド**: read は serde_json と同じ桁に収まったので、 リクエストごとに設定ファイルを読み直す使い方でも問題ありません。 ただし KDL は人が読み書きするためのフォーマットなので、 通信プロトコルや大量データには JSON / binary フォーマット (rkyv 等) が引き続き向いています。
 
-0.12 以前から上げる場合は、 破壊的変更と移行手順を [CHANGELOG](CHANGELOG.md) (0.13.0) にまとめてある。
+以前の版から上げる場合は、 破壊的変更と移行手順を [CHANGELOG](CHANGELOG.md) (0.14.0 と 0.13.0) にまとめてある。
 
 ## MSRV (Minimum Supported Rust Version)
 

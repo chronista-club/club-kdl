@@ -7,6 +7,22 @@
 
 ## [Unreleased]
 
+### 変更 (破壊的)
+
+- **`club-kdl-compose` crate を `club-kdl` の `compose` feature に統合した**。
+  `kdl_compose::compose` / `from_path` / `ComposeError` は
+  `club_kdl::compose::{compose, from_path, ComposeError}` になった。 compose を
+  使うのは codegen だけで、 crate を分けておく理由が薄かったため。 crate が
+  4 → 3 になり、 リリース時に公開する crate も 1 つ減る。 `club-kdl-compose` は
+  0.13.0 で公開を終える。
+- **kdl-rs との相互運用を `kdl-rs` feature の裏に移した**。 対象は
+  `from_kdl_document` / `from_kdl_node` / `to_kdl_document`、 `Document` / `Node` /
+  `Value` と kdl-rs の型の間の `From` 変換、 `KdlNodeExt`、 `club_kdl::kdl` の
+  再エクスポート。 エンジン本体は kdl-rs を使っていないので、 既定のビルドから
+  kdl-rs (と miette / winnow などの依存) が消える。 既定のビルドの依存は
+  `club-kdl-derive` と `thiserror` だけになる。
+- どちらの feature も既定は off。
+
 ### 追加
 
 - 読み込み側でも `u8` / `i8` / `i16` / `isize` / `f32` に対応した
@@ -21,6 +37,14 @@
   正しさの担保を説明している。 あわせて、 ツリーの直接操作と kdl-rs との相互運用の例、
   読み込み / 書き出し別の対応型の表を加えた。
 - crate のドキュメント (docs.rs) の機能説明を、 自前エンジンの実態に合わせた。
+
+### 移行
+
+- `club-kdl-compose` を使っていた場合: 依存を
+  `club-kdl = { version = "0.14", features = ["compose"] }` に替え、
+  `kdl_compose::` を `club_kdl::compose::` に置き換える。
+- `from_kdl_document` / `from_kdl_node` / `to_kdl_document`、 `club_kdl::kdl`、
+  kdl-rs の型との `From` 変換を使っていた場合: `features = ["kdl-rs"]` を足す。
 
 ## [0.13.0] - 2026-10-14
 
