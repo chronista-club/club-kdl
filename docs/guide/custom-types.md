@@ -9,7 +9,7 @@ types, your own newtypes, etc.) to KDL values.
 
 club-kdl supports the following types out of the box:
 
-- Integers (`i32` `i64` `i128` `u16` `u32` `u64` `usize`) / floats (`f64`) / booleans (`bool`)
+- Integers (`i8` `i16` `i32` `i64` `i128` `isize` `u8` `u16` `u32` `u64` `usize`) / floats (`f32` `f64`) / booleans (`bool`)
 - Strings (`String` `&str`) / paths (`PathBuf`)
 - Collections (`Vec<T>` `HashMap<String, String>`) / `Option<T>`
 

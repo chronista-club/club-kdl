@@ -8,7 +8,7 @@ club-kdl が標準で対応しない型 (外部 crate の型・独自 newtype �
 
 club-kdl は以下の型を標準でサポートします:
 
-- 整数 (`i32` `i64` `i128` `u16` `u32` `u64` `usize`) / 浮動小数 (`f64`) / 真偽値 (`bool`)
+- 整数 (`i8` `i16` `i32` `i64` `i128` `isize` `u8` `u16` `u32` `u64` `usize`) / 浮動小数 (`f32` `f64`) / 真偽値 (`bool`)
 - 文字列 (`String` `&str`) / パス (`PathBuf`)
 - コレクション (`Vec<T>` `HashMap<String, String>`) / `Option<T>`
 

@@ -9,7 +9,7 @@
 
 English | **[日本語](README.ja.md)**
 
-A **family of crates** for working with [KDL](https://kdl.dev) in Rust — derive-based serde, schema-driven multi-language code generation, and multi-file composition.
+A **family of crates** for working with [KDL](https://kdl.dev) in Rust — derive-based serde on its own fast KDL v2 engine, schema-driven multi-language code generation, and multi-file composition.
 
 ```toml
 [dependencies]
@@ -27,19 +27,19 @@ club-kdl = "0.13"
 | **[`club-kdl-codegen`](https://crates.io/crates/club-kdl-codegen)** | KDL schema → Rust / TypeScript / Zod / SurrealQL code generator (CLI + library) | A single KDL schema should drive types in multiple languages |
 | **[`club-kdl-compose`](https://crates.io/crates/club-kdl-compose)** | Multi-file KDL composition via the `(<)file` / `(<)glob` include directive | Your schemas / configs grow large and you want to split them across files |
 
-The rest of this README is about `club-kdl` (the derive layer). For the schema generator and the composer, jump to [Schema codegen](#schema-codegen-with-club-kdl-codegen) and [Multi-file schemas](#multi-file-schemas-with-club-kdl-compose) below.
+The rest of this README is about `club-kdl` itself (the derive crate and its engine). For the schema generator and the composer, jump to [Schema codegen](#schema-codegen-with-club-kdl-codegen) and [Multi-file schemas](#multi-file-schemas-with-club-kdl-compose) below.
 
-## Why `club-kdl` (the derive layer)?
+## Why `club-kdl`?
 
-The official Rust implementation of KDL, [`kdl-rs`](https://crates.io/crates/kdl), focuses on **AST-level** manipulation — converting to and from Rust structs is left to you. `club-kdl` adds an **attribute-based derive layer**, so `#[derive(KdlDeserialize, KdlSerialize)]` is all you need for a full struct ↔ KDL round trip.
+The official Rust implementation of KDL, [`kdl-rs`](https://crates.io/crates/kdl), focuses on **document editing** — it keeps every comment and every bit of whitespace so a file can be changed and written back as it was. Converting to and from Rust structs is left to you. `club-kdl` is built for that other job: `#[derive(KdlDeserialize, KdlSerialize)]` is all you need for a full struct ↔ KDL round trip, and it runs on **its own KDL v2 engine** tuned for exactly that (see [How it works](#how-it-works)).
 
 | Library | Role | Best for |
 |---------|------|----------|
-| [`kdl`](https://crates.io/crates/kdl) | KDL parser / AST | Building and editing KDL dynamically / spec-compliant low-level work |
+| [`kdl`](https://crates.io/crates/kdl) | KDL parser / format-preserving document | Editing KDL files while keeping comments and layout / spec-compliant low-level work |
 | [`knuffel`](https://crates.io/crates/knuffel) / [`knus`](https://crates.io/crates/knus) | derive-based parser | Spec-compliance focused / parsing-oriented |
-| **`club-kdl`** | **derive-based ser/de** | **Bidirectional struct ↔ KDL / automatic parent-child node name resolution / enum data variants** |
+| **`club-kdl`** | **derive-based ser/de on its own engine** | **Fast bidirectional struct ↔ KDL / automatic parent-child node name resolution / enum data variants** |
 
-`club-kdl` reads KDL with its **own zero-copy KDL v2 parser**, checked against the full official KDL test suite (`tests/spec_compliance.rs`). Serialization uses its own writer as well. For interop, kdl-rs trees can be read with `from_kdl_document` / `from_kdl_node`, and club-kdl trees convert into kdl-rs (`to_kdl_document`) when you need format-preserving edits.
+The two work together: kdl-rs trees can be read with `from_kdl_document` / `from_kdl_node`, and `to_kdl_document` hands a serialized value to kdl-rs when you need format-preserving edits.
 
 ---
 
@@ -98,6 +98,54 @@ let service: Service = club_kdl::from_str(kdl_text).unwrap();
 // Serialize (Rust → KDL)
 let kdl_text = club_kdl::to_string_pretty(&service).unwrap();
 ```
+
+---
+
+## How it works
+
+Since v0.13, `club-kdl` no longer parses through kdl-rs. It has **its own KDL v2 engine** — a parser and a writer designed for mapping to and from structs.
+
+```mermaid
+flowchart LR
+    subgraph read["Read: from_str"]
+        direction LR
+        T1["KDL text"] --> P["parser"]
+        P --> D["Document / Node / Value<br/>(lightweight tree)"]
+        D --> R["derived<br/>from_kdl_node"]
+        R --> S1["Rust struct"]
+    end
+    subgraph write["Write: to_string"]
+        direction LR
+        S2["Rust struct"] --> W["derived writer"]
+        W --> T2["KDL text"]
+    end
+```
+
+### Reading
+
+1. **Parse once, front to back.** The parser walks the input bytes a single time. Plain ASCII takes a fast path; inside quoted strings and comments it skips 8 bytes at a time with SWAR checks (plain 64-bit integer tricks, no `unsafe`, no extra dependency). UTF-8 is decoded only when a non-ASCII byte appears.
+2. **Keep only the meaning.** The result is a lightweight tree — node names, type annotations, arguments, properties, children — and nothing else. Whitespace, comments and the original spelling of numbers and strings are not stored.
+3. **Borrow instead of copying.** Strings that need no unescaping (identifiers, most quoted strings, single-line raw strings) point into the input text instead of being copied.
+4. **Map.** The code generated by `#[derive(KdlDeserialize)]` reads fields straight from that tree.
+
+### Writing
+
+The code generated by `#[derive(KdlSerialize)]` writes **straight into a `String`** — no intermediate tree is built. Strings are written bare when they are valid identifiers and quoted with escapes otherwise; children are indented by four spaces. (`to_kdl_node` / `to_doc` still build a tree when you want one.)
+
+### Why it is fast
+
+kdl-rs builds a format-preserving document: every node and value carries its original text, surrounding whitespace, comments and source spans, because it is made for editing files. Turning KDL into structs needs none of that, so `club-kdl` skips it — that alone accounts for most of the difference. Single-pass scanning, borrowed strings and allocation-free writing do the rest. See [Benchmarks](#benchmarks) for numbers.
+
+### What it gives up
+
+Comments and layout are **not preserved**: reading a file into structs and writing it back produces normalized KDL. If you need to edit a file in place and keep its comments, use kdl-rs for that step — `to_kdl_document` and `from_kdl_document` move data between the two.
+
+### How correctness is checked
+
+- The **full official KDL 2.0 test suite** (320 cases) runs in CI (`tests/spec_compliance.rs`).
+- Every valid spec document must survive **parse → write → parse** unchanged.
+- **Robustness tests** (`tests/robustness.rs`) feed mutated inputs to the parser and to derived structs (no panics allowed) and check that arbitrary strings — quotes, escapes, control characters, newline variants, text like `true` or `-1` — survive a write → read round trip. Run them deeper with `CLUB_KDL_FUZZ_SCALE=50 cargo test --release --test robustness`.
+- Children nesting is capped at 256 levels so hostile input cannot exhaust the stack, and parse errors report a line and column (`line 2, column 3: ...`).
 
 ---
 
@@ -446,18 +494,67 @@ struct HealthCheck {
 service "api" interval=30 timeout=5
 ```
 
+### Working with the tree directly
+
+`Document` / `Node` / `Value` are public, for code that inspects KDL without a fixed schema, or deserializes only part of a document:
+
+```rust
+use club_kdl::{Document, KdlDeserialize};
+
+let doc = Document::parse(text)?;
+for node in doc.nodes() {
+    println!("{} {:?}", node.name(), node.arg(0));
+    if let Some(image) = node.prop("image").and_then(|v| v.as_string()) {
+        println!("  image = {image}");
+    }
+    for port in node.children_named("port") {
+        let port: Port = club_kdl::from_node(port)?;
+    }
+}
+```
+
+Reuse one buffer when writing many values (e.g. a stream of records):
+
+```rust
+let mut out = String::new();
+for event in &events {
+    club_kdl::to_string_into(event, &mut out)?;
+}
+```
+
+To append records to a file one node at a time (NDKDL — "newline-delimited KDL"), use `club_kdl::append_node(path, &value)`; the file stays a valid KDL document that a `#[kdl(document)]` struct can read back.
+
+### Interop with kdl-rs
+
+```rust
+// kdl-rs document → struct (strings are borrowed, not copied)
+let kdl_doc: club_kdl::kdl::KdlDocument = text.parse()?;
+let config: Config = club_kdl::from_kdl_document(&kdl_doc)?;
+
+// struct → kdl-rs document, e.g. to add comments or autoformat
+let mut kdl_doc = club_kdl::to_kdl_document(&config)?;
+kdl_doc.autoformat();
+```
+
+`club_kdl::kdl` re-exports the kdl-rs crate, so no separate dependency is needed.
+
 ---
 
 ## Supported types
 
-- Integers: `i32`, `i64`, `i128`, `u16`, `u32`, `u64`, `usize`
-- Floating point: `f64`
-- Boolean: `bool`
-- Strings: `String`, `&str` (zero-copy)
-- Path: `PathBuf`
-- Collections: `Vec<T>`, `HashMap<String, String>`
-- Optional: `Option<T>`
-- Custom types: implement `FromKdlValue` / `ToKdlValue`
+| Type | Read | Write |
+|------|------|-------|
+| `i8`, `i16`, `i32`, `i64`, `i128`, `isize`, `u8`, `u16`, `u32`, `u64`, `usize` | ✓ (out-of-range values are an error) | ✓ |
+| `f32`, `f64` | ✓ | ✓ |
+| `bool` | ✓ | ✓ |
+| `String` | ✓ | ✓ |
+| `&str`, `Cow<str>` | via `FromKdlValue` / tree only (see below) | ✓ |
+| `PathBuf` | ✓ | ✓ (`Path` too) |
+| `Option<T>` (`#null` and a missing value both read as `None`) | ✓ | ✓ |
+| `Vec<T>`, `HashMap<String, String>` | ✓ | ✓ |
+
+- Custom types: implement `FromKdlValue` / `ToKdlValue` ([guide](docs/guide/custom-types.md)).
+- Derived structs own their data today: a field typed `&'a str` is not supported by the derive yet. The engine itself is zero-copy — `Document` borrows from the input, and `FromKdlValue for &str` borrows from the tree — so hand-written code can read without copying.
 
 ## Guides
 
@@ -489,6 +586,8 @@ cargo bench --bench kdl_vs_json
 Detailed results are available in the HTML report (`target/criterion/report/index.html`).
 
 **Usage guidance**: reads are now within a small factor of serde_json, so re-reading config files on every request is fine. KDL is still a human-oriented format: for wire protocols and bulk data, JSON or a binary format (such as rkyv) remains the better fit.
+
+Upgrading from 0.12 or earlier? The breaking changes and migration steps are in the [CHANGELOG](CHANGELOG.md) (0.13.0).
 
 ## MSRV (Minimum Supported Rust Version)
 
