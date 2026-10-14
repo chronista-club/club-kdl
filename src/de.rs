@@ -8,6 +8,7 @@
 
 use crate::ast::{Document, Node, Value};
 use crate::error::{Error, Result};
+#[cfg(feature = "kdl-rs")]
 use kdl::{KdlDocument, KdlNode, KdlValue};
 
 /// Trait for types that can be deserialized from KDL.
@@ -118,9 +119,12 @@ where
 
 /// Deserialize a type from a [`kdl::KdlDocument`] built or parsed with kdl-rs.
 ///
+/// Requires the `kdl-rs` feature.
+///
 /// The kdl-rs tree is first viewed as a [`Document`] (strings are borrowed,
 /// not copied). Prefer [`from_str`] when starting from text: it skips kdl-rs
 /// entirely and is much faster.
+#[cfg(feature = "kdl-rs")]
 pub fn from_kdl_document<T>(doc: &KdlDocument) -> Result<T>
 where
     T: for<'de> KdlDeserialize<'de>,
@@ -129,6 +133,9 @@ where
 }
 
 /// Deserialize a type from a [`kdl::KdlNode`] built or parsed with kdl-rs.
+///
+/// Requires the `kdl-rs` feature.
+#[cfg(feature = "kdl-rs")]
 pub fn from_kdl_node<T>(node: &KdlNode) -> Result<T>
 where
     T: for<'de> KdlDeserialize<'de>,
@@ -312,8 +319,10 @@ impl<'de> FromKdlValue<'de> for std::path::PathBuf {
 // ============================================================================
 
 /// Extension trait for kdl-rs's [`KdlNode`] with convenient accessor methods.
+/// Requires the `kdl-rs` feature.
 ///
 /// club-kdl's own [`Node`] has the same accessors as inherent methods.
+#[cfg(feature = "kdl-rs")]
 pub trait KdlNodeExt {
     /// Get argument at index
     fn arg(&self, index: usize) -> Option<&KdlValue>;
@@ -334,6 +343,7 @@ pub trait KdlNodeExt {
     fn all_children(&self) -> Vec<&KdlNode>;
 }
 
+#[cfg(feature = "kdl-rs")]
 impl KdlNodeExt for KdlNode {
     #[inline]
     fn arg(&self, index: usize) -> Option<&KdlValue> {

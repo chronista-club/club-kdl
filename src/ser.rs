@@ -134,6 +134,9 @@ pub fn to_node<T: KdlSerialize + ?Sized>(value: &T) -> Result<Node<'_>> {
 
 /// Serialize a type to a [`kdl::KdlDocument`] for further editing with kdl-rs
 /// (e.g. `autoformat`, comment insertion).
+///
+/// Requires the `kdl-rs` feature.
+#[cfg(feature = "kdl-rs")]
 pub fn to_kdl_document<T: KdlSerialize + ?Sized>(value: &T) -> Result<kdl::KdlDocument> {
     Ok(kdl::KdlDocument::from(&value.to_kdl_doc()?))
 }

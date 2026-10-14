@@ -1,4 +1,4 @@
-//! Error type for [`crate::compose`] and [`crate::from_path`].
+//! Error type for [`compose`](super::compose) and [`from_path`](super::from_path).
 
 use std::path::PathBuf;
 
@@ -24,7 +24,7 @@ pub enum ComposeError {
         path: PathBuf,
         /// The underlying parse error.
         #[source]
-        source: club_kdl::Error,
+        source: crate::Error,
     },
 
     /// A canonical path appears twice on the include stack — the resolver
@@ -59,12 +59,12 @@ pub enum ComposeError {
     },
 
     /// `club-kdl` failed to deserialize the composed document. Only surfaced
-    /// from [`crate::from_path`] — `compose()` itself never deserializes.
+    /// from [`from_path`](super::from_path) — `compose()` itself never deserializes.
     #[error("deserialize error: {source}")]
     Deserialize {
-        /// The underlying [`club_kdl::Error`].
+        /// The underlying [`crate::Error`].
         #[source]
-        source: club_kdl::Error,
+        source: crate::Error,
     },
 }
 

@@ -1,6 +1,6 @@
 //! Lightweight KDL document tree used by deserialization.
 //!
-//! Unlike [`kdl::KdlDocument`], this tree drops all formatting (whitespace,
+//! Unlike kdl-rs's `KdlDocument`, this tree drops all formatting (whitespace,
 //! comments, original number/string spelling) and borrows string data from
 //! the source text whenever no unescaping is needed. It is what
 //! [`crate::from_str`] parses into and what derived
@@ -358,91 +358,98 @@ impl fmt::Display for Document<'_> {
 // kdl-rs interop
 // ============================================================================
 
-impl<'a> From<&'a kdl::KdlDocument> for Document<'a> {
-    fn from(doc: &'a kdl::KdlDocument) -> Self {
-        Document::from_nodes(doc.nodes().iter().map(Node::from).collect())
-    }
-}
+#[cfg(feature = "kdl-rs")]
+mod kdl_rs_interop {
+    use std::borrow::Cow;
 
-impl<'a> From<&'a kdl::KdlNode> for Node<'a> {
-    fn from(node: &'a kdl::KdlNode) -> Self {
-        Node {
-            name: Cow::Borrowed(node.name().value()),
-            ty: node.ty().map(|t| Cow::Borrowed(t.value())),
-            entries: node
-                .entries()
-                .iter()
-                .map(|e| Entry {
-                    name: e.name().map(|n| Cow::Borrowed(n.value())),
-                    ty: e.ty().map(|t| Cow::Borrowed(t.value())),
-                    value: Value::from(e.value()),
-                })
-                .collect(),
-            children: node
-                .children()
-                .map(|doc| doc.nodes().iter().map(Node::from).collect())
-                .unwrap_or_default(),
+    use super::{Document, Entry, Node, Value};
+
+    impl<'a> From<&'a kdl::KdlDocument> for Document<'a> {
+        fn from(doc: &'a kdl::KdlDocument) -> Self {
+            Document::from_nodes(doc.nodes().iter().map(Node::from).collect())
         }
     }
-}
 
-impl<'a> From<&'a kdl::KdlValue> for Value<'a> {
-    fn from(value: &'a kdl::KdlValue) -> Self {
-        match value {
-            kdl::KdlValue::String(s) => Value::String(Cow::Borrowed(s)),
-            kdl::KdlValue::Integer(i) => Value::Integer(*i),
-            kdl::KdlValue::Float(f) => Value::Float(*f),
-            kdl::KdlValue::Bool(b) => Value::Bool(*b),
-            kdl::KdlValue::Null => Value::Null,
-        }
-    }
-}
-
-impl From<&Document<'_>> for kdl::KdlDocument {
-    fn from(doc: &Document<'_>) -> Self {
-        let mut out = kdl::KdlDocument::new();
-        out.nodes_mut()
-            .extend(doc.nodes().iter().map(kdl::KdlNode::from));
-        out
-    }
-}
-
-impl From<&Node<'_>> for kdl::KdlNode {
-    fn from(node: &Node<'_>) -> Self {
-        let mut out = kdl::KdlNode::new(kdl::KdlIdentifier::from(node.name()));
-        if let Some(ty) = node.ty() {
-            out.set_ty(kdl::KdlIdentifier::from(ty));
-        }
-        for e in node.entries() {
-            let value = kdl::KdlValue::from(e.value());
-            let mut entry = match e.name() {
-                Some(name) => kdl::KdlEntry::new_prop(kdl::KdlIdentifier::from(name), value),
-                None => kdl::KdlEntry::new(value),
-            };
-            if let Some(ty) = e.ty() {
-                entry.set_ty(kdl::KdlIdentifier::from(ty));
+    impl<'a> From<&'a kdl::KdlNode> for Node<'a> {
+        fn from(node: &'a kdl::KdlNode) -> Self {
+            Node {
+                name: Cow::Borrowed(node.name().value()),
+                ty: node.ty().map(|t| Cow::Borrowed(t.value())),
+                entries: node
+                    .entries()
+                    .iter()
+                    .map(|e| Entry {
+                        name: e.name().map(|n| Cow::Borrowed(n.value())),
+                        ty: e.ty().map(|t| Cow::Borrowed(t.value())),
+                        value: Value::from(e.value()),
+                    })
+                    .collect(),
+                children: node
+                    .children()
+                    .map(|doc| doc.nodes().iter().map(Node::from).collect())
+                    .unwrap_or_default(),
             }
-            out.push(entry);
         }
-        if !node.children().is_empty() {
-            let mut children = kdl::KdlDocument::new();
-            children
-                .nodes_mut()
-                .extend(node.children().iter().map(kdl::KdlNode::from));
-            out.set_children(children);
-        }
-        out
     }
-}
 
-impl From<&Value<'_>> for kdl::KdlValue {
-    fn from(value: &Value<'_>) -> Self {
-        match value {
-            Value::String(s) => kdl::KdlValue::String(s.to_string()),
-            Value::Integer(i) => kdl::KdlValue::Integer(*i),
-            Value::Float(f) => kdl::KdlValue::Float(*f),
-            Value::Bool(b) => kdl::KdlValue::Bool(*b),
-            Value::Null => kdl::KdlValue::Null,
+    impl<'a> From<&'a kdl::KdlValue> for Value<'a> {
+        fn from(value: &'a kdl::KdlValue) -> Self {
+            match value {
+                kdl::KdlValue::String(s) => Value::String(Cow::Borrowed(s)),
+                kdl::KdlValue::Integer(i) => Value::Integer(*i),
+                kdl::KdlValue::Float(f) => Value::Float(*f),
+                kdl::KdlValue::Bool(b) => Value::Bool(*b),
+                kdl::KdlValue::Null => Value::Null,
+            }
+        }
+    }
+
+    impl From<&Document<'_>> for kdl::KdlDocument {
+        fn from(doc: &Document<'_>) -> Self {
+            let mut out = kdl::KdlDocument::new();
+            out.nodes_mut()
+                .extend(doc.nodes().iter().map(kdl::KdlNode::from));
+            out
+        }
+    }
+
+    impl From<&Node<'_>> for kdl::KdlNode {
+        fn from(node: &Node<'_>) -> Self {
+            let mut out = kdl::KdlNode::new(kdl::KdlIdentifier::from(node.name()));
+            if let Some(ty) = node.ty() {
+                out.set_ty(kdl::KdlIdentifier::from(ty));
+            }
+            for e in node.entries() {
+                let value = kdl::KdlValue::from(e.value());
+                let mut entry = match e.name() {
+                    Some(name) => kdl::KdlEntry::new_prop(kdl::KdlIdentifier::from(name), value),
+                    None => kdl::KdlEntry::new(value),
+                };
+                if let Some(ty) = e.ty() {
+                    entry.set_ty(kdl::KdlIdentifier::from(ty));
+                }
+                out.push(entry);
+            }
+            if !node.children().is_empty() {
+                let mut children = kdl::KdlDocument::new();
+                children
+                    .nodes_mut()
+                    .extend(node.children().iter().map(kdl::KdlNode::from));
+                out.set_children(children);
+            }
+            out
+        }
+    }
+
+    impl From<&Value<'_>> for kdl::KdlValue {
+        fn from(value: &Value<'_>) -> Self {
+            match value {
+                Value::String(s) => kdl::KdlValue::String(s.to_string()),
+                Value::Integer(i) => kdl::KdlValue::Integer(*i),
+                Value::Float(f) => kdl::KdlValue::Float(*f),
+                Value::Bool(b) => kdl::KdlValue::Bool(*b),
+                Value::Null => kdl::KdlValue::Null,
+            }
         }
     }
 }

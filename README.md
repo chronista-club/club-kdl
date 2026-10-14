@@ -13,21 +13,31 @@ A **family of crates** for working with [KDL](https://kdl.dev) in Rust — deriv
 
 ```toml
 [dependencies]
-club-kdl = "0.13"
+club-kdl = "0.14"
+# optional features, both off by default:
+# club-kdl = { version = "0.14", features = ["compose", "kdl-rs"] }
 ```
 
 ## The crate family
 
-`club-kdl` ships as four crates sharing a workspace version; reach for the one that matches the job.
+`club-kdl` ships as three crates sharing a workspace version; reach for the one that matches the job.
 
 | Crate | What it does | Reach for it when |
 |-------|--------------|-------------------|
 | **[`club-kdl`](https://crates.io/crates/club-kdl)** | Derive-based serialization / deserialization between Rust structs and KDL text | You have Rust types and want them to round-trip with KDL |
 | [`club-kdl-derive`](https://crates.io/crates/club-kdl-derive) | Proc-macro behind `#[derive(KdlDeserialize, KdlSerialize)]` | (Internal — pulled in by `club-kdl`; rarely depended on directly) |
 | **[`club-kdl-codegen`](https://crates.io/crates/club-kdl-codegen)** | KDL schema → Rust / TypeScript / Zod / SurrealQL code generator (CLI + library) | A single KDL schema should drive types in multiple languages |
-| **[`club-kdl-compose`](https://crates.io/crates/club-kdl-compose)** | Multi-file KDL composition via the `(<)file` / `(<)glob` include directive | Your schemas / configs grow large and you want to split them across files |
 
-The rest of this README is about `club-kdl` itself (the derive crate and its engine). For the schema generator and the composer, jump to [Schema codegen](#schema-codegen-with-club-kdl-codegen) and [Multi-file schemas](#multi-file-schemas-with-club-kdl-compose) below.
+`club-kdl` has two optional features, both off by default, so the default build depends only on `club-kdl-derive` and `thiserror`:
+
+| Feature | What it adds | Extra dependency |
+|---------|--------------|------------------|
+| `compose` | `club_kdl::compose` — multi-file KDL via the `(<)file` / `(<)glob` include directive ([below](#multi-file-kdl-with-the-compose-feature)) | `glob` |
+| `kdl-rs` | Interop with kdl-rs: `from_kdl_document` / `from_kdl_node` / `to_kdl_document`, `From` conversions, the `club_kdl::kdl` re-export ([below](#interop-with-kdl-rs)) | `kdl` |
+
+Until 0.13, `compose` was the separate `club-kdl-compose` crate; `kdl_compose::compose` is now `club_kdl::compose::compose`.
+
+The rest of this README is about `club-kdl` itself (the derive crate and its engine). For the schema generator and the composer, jump to [Schema codegen](#schema-codegen-with-club-kdl-codegen) and [Multi-file KDL](#multi-file-kdl-with-the-compose-feature) below.
 
 ## Why `club-kdl`?
 
@@ -39,7 +49,7 @@ The official Rust implementation of KDL, [`kdl-rs`](https://crates.io/crates/kdl
 | [`knuffel`](https://crates.io/crates/knuffel) / [`knus`](https://crates.io/crates/knus) | derive-based parser | Spec-compliance focused / parsing-oriented |
 | **`club-kdl`** | **derive-based ser/de on its own engine** | **Fast bidirectional struct ↔ KDL / automatic parent-child node name resolution / enum data variants** |
 
-The two work together: kdl-rs trees can be read with `from_kdl_document` / `from_kdl_node`, and `to_kdl_document` hands a serialized value to kdl-rs when you need format-preserving edits.
+The two work together (with the `kdl-rs` feature): kdl-rs trees can be read with `from_kdl_document` / `from_kdl_node`, and `to_kdl_document` hands a serialized value to kdl-rs when you need format-preserving edits.
 
 ---
 
@@ -138,7 +148,7 @@ kdl-rs builds a format-preserving document: every node and value carries its ori
 
 ### What it gives up
 
-Comments and layout are **not preserved**: reading a file into structs and writing it back produces normalized KDL. If you need to edit a file in place and keep its comments, use kdl-rs for that step — `to_kdl_document` and `from_kdl_document` move data between the two.
+Comments and layout are **not preserved**: reading a file into structs and writing it back produces normalized KDL. If you need to edit a file in place and keep its comments, use kdl-rs for that step — with the `kdl-rs` feature, `to_kdl_document` and `from_kdl_document` move data between the two.
 
 ### How correctness is checked
 
@@ -179,9 +189,13 @@ See [`club-kdl-codegen` on docs.rs](https://docs.rs/club-kdl-codegen) for the fu
 
 ---
 
-## Multi-file schemas with `club-kdl-compose`
+## Multi-file KDL with the `compose` feature
 
-When a schema gets large, split it across files and include with `(<)file` (or `(<)glob` for batch import):
+When a schema or config gets large, split it across files and include with `(<)file` (or `(<)glob` for batch import). Enable the feature first:
+
+```toml
+club-kdl = { version = "0.14", features = ["compose"] }
+```
 
 ```kdl
 # schema.kdl
@@ -209,9 +223,9 @@ The directive lives anywhere — top-level or inside any block — and resolves 
 }
 ```
 
-This renames the first string argument of each top-level included node to `shared.Acct` / `shared.Memory`. The `club-kdl-codegen` CLI uses `club-kdl-compose` internally, so `(<)` directives just work; library consumers can also call `kdl_compose::compose(path) -> club_kdl::Document` or `kdl_compose::from_path::<T>(path)` directly.
+This renames the first string argument of each top-level included node to `shared.Acct` / `shared.Memory`. The `club-kdl-codegen` CLI uses it internally, so `(<)` directives just work. From a library, call `club_kdl::compose::compose(path)` to get the composed `club_kdl::Document`, or `club_kdl::compose::from_path::<T>(path)` to compose and deserialize in one step.
 
-See [`club-kdl-compose` on docs.rs](https://docs.rs/club-kdl-compose) for directive syntax and limits.
+See [`club_kdl::compose` on docs.rs](https://docs.rs/club-kdl/latest/club_kdl/compose/) for directive syntax and limits.
 
 ---
 
@@ -526,6 +540,12 @@ To append records to a file one node at a time (NDKDL — "newline-delimited KDL
 
 ### Interop with kdl-rs
 
+Requires the `kdl-rs` feature:
+
+```toml
+club-kdl = { version = "0.14", features = ["kdl-rs"] }
+```
+
 ```rust
 // kdl-rs document → struct (strings are borrowed, not copied)
 let kdl_doc: club_kdl::kdl::KdlDocument = text.parse()?;
@@ -536,7 +556,7 @@ let mut kdl_doc = club_kdl::to_kdl_document(&config)?;
 kdl_doc.autoformat();
 ```
 
-`club_kdl::kdl` re-exports the kdl-rs crate, so no separate dependency is needed.
+With the feature on, `club_kdl::kdl` re-exports the kdl-rs crate, so no separate dependency is needed.
 
 ---
 
@@ -587,7 +607,7 @@ Detailed results are available in the HTML report (`target/criterion/report/inde
 
 **Usage guidance**: reads are now within a small factor of serde_json, so re-reading config files on every request is fine. KDL is still a human-oriented format: for wire protocols and bulk data, JSON or a binary format (such as rkyv) remains the better fit.
 
-Upgrading from 0.12 or earlier? The breaking changes and migration steps are in the [CHANGELOG](CHANGELOG.md) (0.13.0).
+Upgrading from an earlier version? The breaking changes and migration steps are in the [CHANGELOG](CHANGELOG.md) (0.14.0 and 0.13.0).
 
 ## MSRV (Minimum Supported Rust Version)
 

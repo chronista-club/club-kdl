@@ -55,10 +55,6 @@ jobs:
         if: github.event_name == 'workflow_dispatch' && inputs.dry_run == 'true'
         run: cargo publish --dry-run -p club-kdl-codegen --allow-dirty
 
-      - name: Publish compose crate (dry-run)
-        if: github.event_name == 'workflow_dispatch' && inputs.dry_run == 'true'
-        run: cargo publish --dry-run -p club-kdl-compose --allow-dirty
-
       - name: Publish derive crate
         if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.dry_run == 'false')
         run: cargo publish -p club-kdl-derive --token ${{ secrets.CRATES_IO_TOKEN }}
@@ -75,18 +71,10 @@ jobs:
         if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.dry_run == 'false')
         run: sleep 30
 
-      # 依存グラフ topological: codegen は compose に依存するため
-      # compose を **先に** publish して crates.io に index されている必要が
-      # ある（v0.11.0 release で codegen が compose `^0.11.0` を解決できず
-      # 失敗した教訓）。
-      - name: Publish compose crate
-        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.dry_run == 'false')
-        run: cargo publish -p club-kdl-compose --token ${{ secrets.CRATES_IO_TOKEN }}
-
-      - name: Wait for crates.io to index compose
-        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.dry_run == 'false')
-        run: sleep 30
-
+      # 依存グラフ topological: codegen は club-kdl (`compose` feature) に依存する
+      # ため、club-kdl が crates.io に index されてから publish する（v0.11.0
+      # release で codegen が依存先を解決できず失敗した教訓）。0.14 で
+      # club-kdl-compose は club-kdl の `compose` feature に統合した。
       - name: Publish codegen crate
         if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.dry_run == 'false')
         run: cargo publish -p club-kdl-codegen --token ${{ secrets.CRATES_IO_TOKEN }}
