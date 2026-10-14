@@ -13,7 +13,7 @@ A **family of crates** for working with [KDL](https://kdl.dev) in Rust — deriv
 
 ```toml
 [dependencies]
-club-kdl = "0.11"
+club-kdl = "0.13"
 ```
 
 ## The crate family
