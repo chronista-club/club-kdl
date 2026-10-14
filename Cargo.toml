@@ -24,7 +24,7 @@ resolver = "2"
 members = [".", "derive", "codegen"]
 
 [workspace.package]
-version = "0.13.0"
+version = "0.14.0"
 edition = "2024"
 rust-version = "1.95"
 authors = ["Mako <mito@chronista.club>"]
@@ -41,7 +41,7 @@ proc-macro2 = "1"
 
 [dependencies]
 thiserror.workspace = true
-club-kdl-derive = { path = "./derive", version = "=0.13.0" }
+club-kdl-derive = { path = "./derive", version = "=0.14.0" }
 # `kdl-rs` feature: conversions to and from kdl-rs trees. The engine itself
 # does not use kdl-rs.
 kdl = { workspace = true, optional = true }
