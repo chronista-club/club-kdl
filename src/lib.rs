@@ -7,10 +7,15 @@
 //!
 //! ## Features
 //!
-//! - **Zero-copy deserialization** - Borrow strings directly from KDL source
+//! - **Own KDL v2 engine** - A single-pass parser builds a lightweight
+//!   [`Document`] tree that borrows strings from the input; derived
+//!   serializers write straight to text without building a tree
 //! - **Attribute-based mapping** - Fine-grained control with `#[kdl(...)]`
-//! - **High performance** - Own KDL v2 parser and writer; reads and writes
-//!   borrow strings instead of copying them
+//! - **Spec-checked** - Runs the full official KDL 2.0 test suite in CI
+//!
+//! Comments and layout are not preserved. For format-preserving edits, hand
+//! data to [kdl-rs](crate::kdl) with [`to_kdl_document`] /
+//! [`from_kdl_document`].
 //!
 //! ## Example
 //!

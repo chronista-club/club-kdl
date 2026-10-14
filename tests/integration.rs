@@ -767,3 +767,54 @@ fn option_argument_none_round_trips() {
     assert_eq!(text, "opt #null b\n");
     assert_eq!(club_kdl::from_str::<OptionalEverywhere>(&text).unwrap(), v);
 }
+
+// Every integer / float type that can be written must also be readable, so a
+// struct using them round-trips.
+#[derive(Debug, PartialEq, KdlDeserialize, KdlSerialize)]
+#[kdl(name = "small")]
+struct SmallNumbers {
+    #[kdl(property)]
+    a: u8,
+    #[kdl(property)]
+    b: i8,
+    #[kdl(property)]
+    c: i16,
+    #[kdl(property)]
+    d: isize,
+    #[kdl(property)]
+    e: f32,
+}
+
+#[test]
+fn small_number_types_round_trip() {
+    let v = SmallNumbers {
+        a: 255,
+        b: -128,
+        c: -32768,
+        d: -7,
+        e: 1.5,
+    };
+    let text = club_kdl::to_string(&v).unwrap();
+    assert_eq!(text, "small a=255 b=-128 c=-32768 d=-7 e=1.5\n");
+    assert_eq!(club_kdl::from_str::<SmallNumbers>(&text).unwrap(), v);
+}
+
+#[test]
+fn small_number_types_reject_out_of_range() {
+    for bad in [
+        "small a=256 b=0 c=0 d=0 e=0.0",
+        "small a=-1 b=0 c=0 d=0 e=0.0",
+        "small a=0 b=128 c=0 d=0 e=0.0",
+        "small a=0 b=0 c=32768 d=0 e=0.0",
+        // finite f64 that overflows f32
+        "small a=0 b=0 c=0 d=0 e=1e300",
+    ] {
+        assert!(
+            club_kdl::from_str::<SmallNumbers>(bad).is_err(),
+            "should reject {bad:?}"
+        );
+    }
+    // Infinity and NaN are representable in f32 and pass through.
+    let v: SmallNumbers = club_kdl::from_str("small a=0 b=0 c=0 d=0 e=#inf").unwrap();
+    assert_eq!(v.e, f32::INFINITY);
+}

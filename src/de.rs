@@ -233,6 +233,40 @@ impl<'de> FromKdlValue<'de> for usize {
     }
 }
 
+macro_rules! impl_small_int_from_kdl_value {
+    ($($ty:ty),*) => {
+        $(
+            impl<'de> FromKdlValue<'de> for $ty {
+                #[inline]
+                fn from_kdl_value(value: &'de Value<'de>) -> Result<Self> {
+                    value
+                        .as_integer()
+                        .and_then(|v| v.try_into().ok())
+                        .ok_or_else(|| Error::type_mismatch(stringify!($ty), value))
+                }
+            }
+        )*
+    };
+}
+
+impl_small_int_from_kdl_value!(i8, i16, isize, u8);
+
+impl<'de> FromKdlValue<'de> for f32 {
+    /// Rejects finite values outside `f32`'s range rather than turning them
+    /// into infinity; `#inf`, `#-inf` and `#nan` pass through.
+    #[inline]
+    fn from_kdl_value(value: &'de Value<'de>) -> Result<Self> {
+        let v = value
+            .as_float()
+            .ok_or_else(|| Error::type_mismatch("float", value))?;
+        let narrowed = v as f32;
+        if v.is_finite() && !narrowed.is_finite() {
+            return Err(Error::type_mismatch("f32", value));
+        }
+        Ok(narrowed)
+    }
+}
+
 impl<'de> FromKdlValue<'de> for f64 {
     #[inline]
     fn from_kdl_value(value: &'de Value<'de>) -> Result<Self> {
