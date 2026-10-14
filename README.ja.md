@@ -13,7 +13,7 @@ Rust で [KDL](https://kdl.dev) を扱う **クレートファミリー** — de
 
 ```toml
 [dependencies]
-club-kdl = "0.11"
+club-kdl = "0.13"
 ```
 
 ## クレートファミリー
