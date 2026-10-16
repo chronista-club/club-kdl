@@ -37,6 +37,10 @@ Phase 1 (`club-kdl-codegen`) は spec/design 確定・実装着手前。
 ## 開発の基本
 
 - workspace 構成: `club-kdl` (`.`、 feature `compose` / `kdl-rs`、 どちらも既定 off) + `club-kdl-derive` (`derive/`) + `club-kdl-codegen` (`codegen/`)。 `club-kdl-compose` は 0.14 で `club-kdl` の `compose` feature に統合した
-- リリースは tag push (`v*.*.*`) で `.github/workflows/release.yml` が derive→main を自動 publish
+- リリースは tag push (`v*.*.*`) で `.github/workflows/release.yml` が動く。 `verify` ジョブ (版とタグの照合、全テスト) のあと、
+  `publish` ジョブは environment `crates-io` で **mako の承認待ち** になり、 承認されてから derive → club-kdl → codegen の順に publish する
+- **エージェントの決まり**: PR は作って CI 結果まで報告し、 **main へのマージは mako の OK を待つ**。 environment の承認 (Review deployments) は
+  **mako が画面で行い、 エージェントは `gh` などで代わりに承認しない**
+- main はルールセットで保護している (強制 push と削除の禁止、 PR 必須、 CI 7 ジョブ必須。 semver-checks は破壊的変更の PR で赤になるのが正常なので必須にしない)
 - PR は CI 8 job (fmt/clippy/doc + 3OS×2toolchain test + MSRV + deny + semver-checks) を通すこと
 - **TS ツールの実行は `bun` / `bunx` を使う** (`npm` / `npx` は使わない)。 chronista-style ecosystem が bun ベース。 codegen の TS/Zod ターゲット出力も bun 消費を前提とする
