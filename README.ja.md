@@ -512,7 +512,25 @@ service "api" interval=30 timeout=5
 
 ### ツリーを直接扱う
 
-`Document` / `Node` / `Value` は公開 API なので、 決まった schema 無しで KDL を調べるコードや、 文書の一部だけを struct に読むコードで使える。
+`Document::parse` でツリーそのものが手に入る (schema も Cargo feature も不要)。 形の決まっていない文書を読むとき、 struct が記述していないノードを含む文書を読むとき (ツリーはすべてのノードを残す)、 文書の一部だけを struct に読むときに使う。
+
+`(typ)service "api" image="nginx" { port 80; port 443; }` というノードなら:
+
+| 欲しいもの | 呼び方 | この例で返るもの |
+|-----------|-------|----------------|
+| ノード名 | `node.name()` | `"service"` |
+| 型注釈 | `node.ty()` | `Some("typ")` |
+| 位置で指定した argument | `node.arg(0)` | 文字列 `"api"` |
+| すべての argument | `node.args()` | `"api"` を返す iterator |
+| property | `node.prop("image")` | 文字列 `"nginx"` (同じキーが複数あれば最後のもの) |
+| argument と property を書かれた順に | `node.entries()` | `&[Entry]` |
+| 名前で指定した最初の子 | `node.child("port")` | `port 80` のノード |
+| 名前で指定したすべての子 | `node.children_named("port")` | 2 つの `port` ノードを返す iterator |
+| すべての子 | `node.children()` | `&[Node]` (`{ }` ブロックが無ければ空) |
+| トップレベルのノード | `doc.nodes()` | `&[Node]` |
+
+値は `as_string()` / `as_integer()` / `as_float()` / `as_bool()` / `is_null()` で読む。 ツリーはパース元のテキストから文字列を借りるので、 テキストより長く持ちたいときは `into_owned()` を呼ぶ。
+
 
 ```rust
 use club_kdl::{Document, KdlDeserialize};

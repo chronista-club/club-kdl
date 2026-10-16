@@ -13,6 +13,24 @@
 //! - **Attribute-based mapping** - Fine-grained control with `#[kdl(...)]`
 //! - **Spec-checked** - Runs the full official KDL 2.0 test suite in CI
 //!
+//! ## Reading KDL without types
+//!
+//! Not every document maps neatly onto structs. [`Document::parse`] gives you
+//! the tree itself — node names, arguments, properties, children — with no
+//! schema and no Cargo feature:
+//!
+//! ```
+//! let doc = club_kdl::Document::parse(r#"service "api" image="nginx" { port 80 }"#)?;
+//! let service = &doc.nodes()[0];
+//! assert_eq!(service.name(), "service");
+//! assert_eq!(service.prop("image").and_then(|v| v.as_string()), Some("nginx"));
+//! assert_eq!(service.child("port").and_then(|p| p.arg(0)).and_then(|v| v.as_integer()), Some(80));
+//! # Ok::<(), club_kdl::Error>(())
+//! ```
+//!
+//! See the [`ast`] module for a fuller example and an overview of what the
+//! tree gives you.
+//!
 //! Comments and layout are not preserved. For format-preserving edits, hand
 //! data to [kdl-rs](https://docs.rs/kdl) with `to_kdl_document` /
 //! `from_kdl_document`.

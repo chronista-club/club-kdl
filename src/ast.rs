@@ -1,10 +1,102 @@
-//! Lightweight KDL document tree used by deserialization.
+//! The KDL document tree — read KDL without mapping it to types.
 //!
-//! Unlike kdl-rs's `KdlDocument`, this tree drops all formatting (whitespace,
-//! comments, original number/string spelling) and borrows string data from
-//! the source text whenever no unescaping is needed. It is what
-//! [`crate::from_str`] parses into and what derived
-//! [`KdlDeserialize`](crate::KdlDeserialize) impls read from.
+//! [`Document::parse`] turns KDL text into a tree of [`Node`]s carrying node
+//! names, type annotations, arguments, properties and children. Use it
+//! directly when there is no fixed schema, when a document contains nodes
+//! your structs do not describe (the tree keeps them all), or when you want
+//! to deserialize only part of a document with [`from_node`](crate::from_node).
+//! It needs no Cargo feature.
+//!
+//! The same tree is what [`from_str`](crate::from_str) parses into and what
+//! derived [`KdlDeserialize`](crate::KdlDeserialize) impls read from.
+//!
+//! # Example: walk every node
+//!
+//! Collect each `route` node — at any depth — with its `request=` /
+//! `response=` properties:
+//!
+//! ```
+//! use club_kdl::{Document, Node};
+//!
+//! fn routes<'a>(node: &'a Node<'_>, out: &mut Vec<(&'a str, Option<&'a str>)>) {
+//!     if node.name() == "route" {
+//!         let name = node.arg(0).and_then(|v| v.as_string()).unwrap_or("");
+//!         out.push((name, node.prop("request").and_then(|v| v.as_string())));
+//!     }
+//!     for child in node.children() {
+//!         routes(child, out);
+//!     }
+//! }
+//!
+//! let doc = Document::parse(r#"
+//!     protocol "creo" {
+//!         route "memory.get" request="GetReq" response="GetRes"
+//!         group "admin" { route "user.ban" request="BanReq"; }
+//!     }
+//! "#)?;
+//! let mut out = Vec::new();
+//! for node in doc.nodes() {
+//!     routes(node, &mut out);
+//! }
+//! assert_eq!(out, [("memory.get", Some("GetReq")), ("user.ban", Some("BanReq"))]);
+//!
+//! // Errors carry a line and column.
+//! let err = Document::parse("protocol {").unwrap_err();
+//! assert!(err.to_string().contains("line 1, column 11"));
+//! # Ok::<(), club_kdl::Error>(())
+//! ```
+//!
+//! # What the tree gives you
+//!
+//! For a node like `(typ)service "api" image="nginx" { port 80; port 443; }`:
+//!
+//! | You want | Call | Here it returns |
+//! |----------|------|-----------------|
+//! | the node name | [`node.name()`](Node::name) | `"service"` |
+//! | its type annotation | [`node.ty()`](Node::ty) | `Some("typ")` |
+//! | an argument by position | [`node.arg(0)`](Node::arg) | `Some(&Value::String("api"))` |
+//! | all arguments | [`node.args()`](Node::args) | an iterator over `"api"` |
+//! | a property | [`node.prop("image")`](Node::prop) | `Some(&Value::String("nginx"))` (if a key repeats, the last one wins) |
+//! | arguments and properties in written order | [`node.entries()`](Node::entries) | `&[Entry]` |
+//! | the first child with a name | [`node.child("port")`](Node::child) | the `port 80` node |
+//! | every child with a name | [`node.children_named("port")`](Node::children_named) | an iterator over both `port` nodes |
+//! | all children | [`node.children()`](Node::children) | `&[Node]`, empty when there is no `{ }` block |
+//! | the top-level nodes | [`doc.nodes()`](Document::nodes) | `&[Node]` |
+//! | a top-level node by name | `doc.as_node().child("name")` | `Option<&Node>` |
+//!
+//! ```
+//! let doc = club_kdl::Document::parse(
+//!     r#"(typ)service "api" image="nginx" { port 80; port 443; }"#,
+//! )?;
+//! let node = &doc.nodes()[0];
+//! assert_eq!(node.name(), "service");
+//! assert_eq!(node.ty(), Some("typ"));
+//! assert_eq!(node.arg(0).and_then(|v| v.as_string()), Some("api"));
+//! assert_eq!(node.args().count(), 1);
+//! assert_eq!(node.prop("image").and_then(|v| v.as_string()), Some("nginx"));
+//! assert_eq!(node.entries().len(), 2);
+//! assert_eq!(node.child("port").and_then(|p| p.arg(0)).and_then(|v| v.as_integer()), Some(80));
+//! assert_eq!(node.children_named("port").count(), 2);
+//! assert_eq!(node.children().len(), 2);
+//! assert!(doc.as_node().child("service").is_some());
+//! # Ok::<(), club_kdl::Error>(())
+//! ```
+//!
+//! A [`Value`] is a string, integer, float, boolean or `#null`; read it with
+//! [`as_string`](Value::as_string), [`as_integer`](Value::as_integer),
+//! [`as_float`](Value::as_float), [`as_bool`](Value::as_bool) or
+//! [`is_null`](Value::is_null), each of which returns `None` / `false` for the
+//! other kinds.
+//!
+//! Good to know:
+//!
+//! - **Strings are borrowed.** A `Document<'a>` points into the text it was
+//!   parsed from instead of copying it. Call [`Document::into_owned`] to keep
+//!   the tree after the text is gone.
+//! - **Only meaning is kept.** Whitespace, comments and the original spelling
+//!   of values are dropped, so the tree is for reading and generating KDL.
+//!   To edit a file in place and keep its comments, use kdl-rs (the `kdl-rs`
+//!   feature converts between the two trees).
 
 use std::borrow::Cow;
 use std::fmt;
