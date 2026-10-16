@@ -7,6 +7,8 @@
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-10-16
+
 ### ドキュメント
 
 - 型に写さずに KDL を読むツリー API (`Document` / `Node` / `Value`) を、 公開 API として
@@ -460,7 +462,8 @@ chronista-club ecosystem の crates.io 公開 crate は **`club-` prefix** で�
 - `usize` 型対応
 - 網羅テスト整備
 
-[Unreleased]: https://github.com/chronista-club/club-kdl/compare/v0.14.0...HEAD
+[Unreleased]: https://github.com/chronista-club/club-kdl/compare/v0.14.1...HEAD
+[0.14.1]: https://github.com/chronista-club/club-kdl/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/chronista-club/club-kdl/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/chronista-club/club-kdl/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/chronista-club/club-kdl/compare/v0.11.1...v0.12.0
