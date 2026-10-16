@@ -510,7 +510,25 @@ service "api" interval=30 timeout=5
 
 ### Working with the tree directly
 
-`Document` / `Node` / `Value` are public, for code that inspects KDL without a fixed schema, or deserializes only part of a document:
+`Document::parse` gives you the tree itself — no schema, no Cargo feature. Use it when a document has no fixed shape, when it contains nodes your structs do not describe (the tree keeps them all), or to deserialize only part of a document.
+
+For a node like `(typ)service "api" image="nginx" { port 80; port 443; }`:
+
+| You want | Call | Here it returns |
+|----------|------|-----------------|
+| the node name | `node.name()` | `"service"` |
+| its type annotation | `node.ty()` | `Some("typ")` |
+| an argument by position | `node.arg(0)` | the string `"api"` |
+| all arguments | `node.args()` | an iterator over `"api"` |
+| a property | `node.prop("image")` | the string `"nginx"` (if a key repeats, the last one wins) |
+| arguments and properties in written order | `node.entries()` | `&[Entry]` |
+| the first child with a name | `node.child("port")` | the `port 80` node |
+| every child with a name | `node.children_named("port")` | an iterator over both `port` nodes |
+| all children | `node.children()` | `&[Node]`, empty when there is no `{ }` block |
+| the top-level nodes | `doc.nodes()` | `&[Node]` |
+
+Values are read with `as_string()` / `as_integer()` / `as_float()` / `as_bool()` / `is_null()`. The tree borrows strings from the text it was parsed from; call `into_owned()` to keep it longer.
+
 
 ```rust
 use club_kdl::{Document, KdlDeserialize};
