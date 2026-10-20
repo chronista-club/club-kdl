@@ -9,7 +9,7 @@ types, your own newtypes, etc.) to KDL values.
 
 club-kdl supports the following types out of the box:
 
-- Integers (`i32` `i64` `i128` `u16` `u32` `u64` `usize`) / floats (`f64`) / booleans (`bool`)
+- Integers (`i8` `i16` `i32` `i64` `i128` `isize` `u8` `u16` `u32` `u64` `usize`) / floats (`f32` `f64`) / booleans (`bool`)
 - Strings (`String` `&str`) / paths (`PathBuf`)
 - Collections (`Vec<T>` `HashMap<String, String>`) / `Option<T>`
 
@@ -28,15 +28,16 @@ field, **implement the `FromKdlValue` / `ToKdlValue` traits** for that type.
 use club_kdl::{FromKdlValue, ToKdlValue};
 
 pub trait FromKdlValue<'de>: Sized {
-    fn from_kdl_value(value: &'de KdlValue) -> Result<Self>;
+    fn from_kdl_value(value: &'de Value<'de>) -> Result<Self>;
 }
 
 pub trait ToKdlValue {
-    fn to_kdl_value(&self) -> KdlValue;
+    fn to_kdl_value(&self) -> Value<'_>;
 }
 ```
 
 - `FromKdlValue` is needed for deserialization, `ToKdlValue` for serialization. Implementing only one is fine.
+- Both traits work with `club_kdl::Value`, the value type of club-kdl's lightweight tree. `ToKdlValue` may return a `Value` that borrows from `self` (`Value::String(Cow::Borrowed(..))`); return an owned string (`.to_string().into()`) when the text is computed.
 - The `'de` lifetime enables zero-copy borrowing from the KDL source. Call `.to_owned()` if you need to own the value.
 
 ## Usage
@@ -46,18 +47,18 @@ pub trait ToKdlValue {
 A newtype like `UserId(u64)` simply delegates to the inner type's implementation.
 
 ```rust
-use club_kdl::{FromKdlValue, ToKdlValue, KdlValue, Result};
+use club_kdl::{FromKdlValue, Result, ToKdlValue, Value};
 
 struct UserId(u64);
 
 impl<'de> FromKdlValue<'de> for UserId {
-    fn from_kdl_value(value: &'de KdlValue) -> Result<Self> {
+    fn from_kdl_value(value: &'de Value<'de>) -> Result<Self> {
         u64::from_kdl_value(value).map(UserId)
     }
 }
 
 impl ToKdlValue for UserId {
-    fn to_kdl_value(&self) -> KdlValue {
+    fn to_kdl_value(&self) -> Value<'_> {
         self.0.to_kdl_value()
     }
 }
@@ -70,13 +71,13 @@ You **cannot** implement club-kdl's traits directly on an external crate's type
 live outside your crate). Work around it by **wrapping in a newtype**.
 
 ```rust
-use club_kdl::{FromKdlValue, ToKdlValue, KdlValue, Error, Result};
+use club_kdl::{Error, FromKdlValue, Result, ToKdlValue, Value};
 use chrono::NaiveDate;
 
 struct Date(NaiveDate);
 
 impl<'de> FromKdlValue<'de> for Date {
-    fn from_kdl_value(value: &'de KdlValue) -> Result<Self> {
+    fn from_kdl_value(value: &'de Value<'de>) -> Result<Self> {
         // First extract as &str, then parse with chrono
         let s = <&str>::from_kdl_value(value)?;
         NaiveDate::parse_from_str(s, "%Y-%m-%d")
@@ -86,8 +87,8 @@ impl<'de> FromKdlValue<'de> for Date {
 }
 
 impl ToKdlValue for Date {
-    fn to_kdl_value(&self) -> KdlValue {
-        KdlValue::String(self.0.format("%Y-%m-%d").to_string())
+    fn to_kdl_value(&self) -> Value<'_> {
+        Value::String(self.0.format("%Y-%m-%d").to_string().into())
     }
 }
 ```
@@ -106,7 +107,7 @@ record created="2026-05-17"
 struct Port(u16);
 
 impl<'de> FromKdlValue<'de> for Port {
-    fn from_kdl_value(value: &'de KdlValue) -> Result<Self> {
+    fn from_kdl_value(value: &'de Value<'de>) -> Result<Self> {
         let n = u16::from_kdl_value(value)?;
         if n == 0 {
             return Err(Error::Custom("port must not be 0".into()));

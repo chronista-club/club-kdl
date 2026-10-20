@@ -194,11 +194,11 @@ fn main() {
 
     // ウォームアップ
     for _ in 0..100 {
-        let doc: kdl::KdlDocument = KDL_DATA.parse().unwrap();
+        let doc = club_kdl::Document::parse(KDL_DATA).unwrap();
         let _: Vec<KdlService> = doc
             .nodes()
             .iter()
-            .filter(|n| n.name().value() == "service")
+            .filter(|n| n.name() == "service")
             .map(|n| KdlService::from_kdl_node(n).unwrap())
             .collect();
         let _: Config = serde_json::from_str(JSON_DATA).unwrap();
@@ -212,11 +212,11 @@ fn main() {
     // KDL Read
     let start = Instant::now();
     for _ in 0..ITERATIONS {
-        let doc: kdl::KdlDocument = KDL_DATA.parse().unwrap();
+        let doc = club_kdl::Document::parse(KDL_DATA).unwrap();
         let _: Vec<KdlService> = doc
             .nodes()
             .iter()
-            .filter(|n| n.name().value() == "service")
+            .filter(|n| n.name() == "service")
             .map(|n| KdlService::from_kdl_node(n).unwrap())
             .collect();
     }
@@ -270,21 +270,21 @@ fn main() {
     println!("\n【Write（構造体 → バイト列）】");
 
     // 事前にデータ準備
-    let doc: kdl::KdlDocument = KDL_DATA.parse().unwrap();
+    let doc = club_kdl::Document::parse(KDL_DATA).unwrap();
     let kdl_services: Vec<KdlService> = doc
         .nodes()
         .iter()
-        .filter(|n| n.name().value() == "service")
+        .filter(|n| n.name() == "service")
         .map(|n| KdlService::from_kdl_node(n).unwrap())
         .collect();
 
     // KDL Write
     let start = Instant::now();
     for _ in 0..ITERATIONS {
-        let _: Vec<kdl::KdlNode> = kdl_services
-            .iter()
-            .map(|s| s.to_kdl_node().unwrap())
-            .collect();
+        let mut out = String::new();
+        for s in &kdl_services {
+            s.to_kdl_node().unwrap().write_to(&mut out);
+        }
     }
     let kdl_write_total = start.elapsed();
     let kdl_write_avg = kdl_write_total / ITERATIONS;

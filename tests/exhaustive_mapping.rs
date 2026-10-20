@@ -3,7 +3,7 @@
 //! Every `#[kdl(...)]` attribute combination is tested here.
 //! Each section tests: Deserialize, Serialize (where applicable), and Roundtrip.
 
-use club_kdl::{FromKdlValue, KdlDeserialize, KdlNodeExt, KdlSerialize, KdlValue};
+use club_kdl::{FromKdlValue, KdlDeserialize, KdlSerialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -959,7 +959,7 @@ mod enums {
             ("warn", LogLevel::Warn),
             ("error", LogLevel::Error),
         ] {
-            let val = KdlValue::String(s.to_string());
+            let val = club_kdl::Value::String(::std::borrow::Cow::from(s.to_string()));
             let v = LogLevel::from_kdl_value(&val).unwrap();
             assert_eq!(v, expected);
         }
@@ -967,7 +967,7 @@ mod enums {
 
     #[test]
     fn de_enum_invalid() {
-        let val = KdlValue::String("trace".into());
+        let val = club_kdl::Value::String(::std::borrow::Cow::from("trace"));
         assert!(LogLevel::from_kdl_value(&val).is_err());
     }
 
@@ -982,7 +982,7 @@ mod enums {
 
     #[test]
     fn de_enum_auto_snake_case() {
-        let val = KdlValue::String("rel_with_deb_info".into());
+        let val = club_kdl::Value::String(::std::borrow::Cow::from("rel_with_deb_info"));
         let v = BuildMode::from_kdl_value(&val).unwrap();
         assert_eq!(v, BuildMode::RelWithDebInfo);
     }
@@ -1869,7 +1869,6 @@ mod flatten {
         let node = original.to_kdl_node().unwrap();
 
         // Verify flattened properties are on the node directly
-        use club_kdl::KdlNodeExt;
         assert_eq!(
             node.prop("description").and_then(|v| v.as_string()),
             Some("Web server")
@@ -1960,7 +1959,7 @@ mod enum_data_variants {
 
     #[test]
     fn de_struct_variant_properties() {
-        let doc: kdl::KdlDocument = r#"move x=10 y=20"#.parse().unwrap();
+        let doc = club_kdl::Document::parse(r#"move x=10 y=20"#).unwrap();
         let node = doc.nodes().first().unwrap();
         let cmd = Command::from_kdl_node(node).unwrap();
         assert_eq!(cmd, Command::Move { x: 10, y: 20 });
@@ -1968,7 +1967,7 @@ mod enum_data_variants {
 
     #[test]
     fn de_struct_variant_arguments() {
-        let doc: kdl::KdlDocument = r#"resize 800 600"#.parse().unwrap();
+        let doc = club_kdl::Document::parse(r#"resize 800 600"#).unwrap();
         let node = doc.nodes().first().unwrap();
         let cmd = Command::from_kdl_node(node).unwrap();
         assert_eq!(
@@ -1982,7 +1981,7 @@ mod enum_data_variants {
 
     #[test]
     fn de_unit_variant_in_data_enum() {
-        let doc: kdl::KdlDocument = "quit".parse().unwrap();
+        let doc = club_kdl::Document::parse("quit").unwrap();
         let node = doc.nodes().first().unwrap();
         let cmd = Command::from_kdl_node(node).unwrap();
         assert_eq!(cmd, Command::Quit);
@@ -1990,7 +1989,7 @@ mod enum_data_variants {
 
     #[test]
     fn de_unknown_variant_errors() {
-        let doc: kdl::KdlDocument = "unknown".parse().unwrap();
+        let doc = club_kdl::Document::parse("unknown").unwrap();
         let node = doc.nodes().first().unwrap();
         let result = Command::from_kdl_node(node);
         assert!(result.is_err());
@@ -2002,7 +2001,7 @@ mod enum_data_variants {
     fn ser_struct_variant_properties() {
         let cmd = Command::Move { x: 10, y: 20 };
         let node = cmd.to_kdl_node().unwrap();
-        assert_eq!(node.name().value(), "move");
+        assert_eq!(node.name(), "move");
         // Properties are serialized as key=value entries
         assert_eq!(node.entries().len(), 2);
     }
@@ -2014,7 +2013,7 @@ mod enum_data_variants {
             height: 600,
         };
         let node = cmd.to_kdl_node().unwrap();
-        assert_eq!(node.name().value(), "resize");
+        assert_eq!(node.name(), "resize");
         // Two positional arguments
         assert_eq!(node.entries().len(), 2);
     }
@@ -2023,7 +2022,7 @@ mod enum_data_variants {
     fn ser_unit_variant_in_data_enum() {
         let cmd = Command::Quit;
         let node = cmd.to_kdl_node().unwrap();
-        assert_eq!(node.name().value(), "quit");
+        assert_eq!(node.name(), "quit");
         assert!(node.entries().is_empty());
     }
 
@@ -2063,7 +2062,7 @@ mod enum_data_variants {
 
     #[test]
     fn de_newtype_variant() {
-        let doc: kdl::KdlDocument = "configure debug=#true level=3".parse().unwrap();
+        let doc = club_kdl::Document::parse("configure debug=#true level=3").unwrap();
         let node = doc.nodes().first().unwrap();
         let action = Action::from_kdl_node(node).unwrap();
         assert_eq!(
@@ -2077,7 +2076,7 @@ mod enum_data_variants {
 
     #[test]
     fn de_unit_variant_mixed_enum() {
-        let doc: kdl::KdlDocument = "start".parse().unwrap();
+        let doc = club_kdl::Document::parse("start").unwrap();
         let node = doc.nodes().first().unwrap();
         let action = Action::from_kdl_node(node).unwrap();
         assert_eq!(action, Action::Start);
@@ -2091,7 +2090,7 @@ mod enum_data_variants {
         });
         let node = action.to_kdl_node().unwrap();
         // Node name should be overridden to "configure" (variant name), not "config" (inner struct name)
-        assert_eq!(node.name().value(), "configure");
+        assert_eq!(node.name(), "configure");
     }
 
     #[test]
@@ -2137,7 +2136,7 @@ mod enum_data_variants {
             target "web-01"
             target "web-02"
         }"#;
-        let doc: kdl::KdlDocument = kdl.parse().unwrap();
+        let doc = club_kdl::Document::parse(kdl).unwrap();
         let node = doc.nodes().first().unwrap();
         let step = Step::from_kdl_node(node).unwrap();
         assert_eq!(
@@ -2201,7 +2200,7 @@ mod enum_data_variants {
             }
             clean
         }"#;
-        let doc: kdl::KdlDocument = kdl.parse().unwrap();
+        let doc = club_kdl::Document::parse(kdl).unwrap();
         let node = doc.nodes().first().unwrap();
         let pipeline = Pipeline::from_kdl_node(node).unwrap();
         assert_eq!(pipeline.name, "deploy-flow");
@@ -2243,7 +2242,7 @@ mod enum_data_variants {
 
     #[test]
     fn err_context_on_struct_variant() {
-        let doc: kdl::KdlDocument = r#"move x="not_a_number" y=20"#.parse().unwrap();
+        let doc = club_kdl::Document::parse(r#"move x="not_a_number" y=20"#).unwrap();
         let node = doc.nodes().first().unwrap();
         let result = Command::from_kdl_node(node);
         assert!(result.is_err());
@@ -2274,7 +2273,7 @@ mod enum_data_variants {
 
     #[test]
     fn de_optional_field_present() {
-        let doc: kdl::KdlDocument = r#"click x=100 y=200 button="left""#.parse().unwrap();
+        let doc = club_kdl::Document::parse(r#"click x=100 y=200 button="left""#).unwrap();
         let node = doc.nodes().first().unwrap();
         let event = Event::from_kdl_node(node).unwrap();
         assert_eq!(
@@ -2289,7 +2288,7 @@ mod enum_data_variants {
 
     #[test]
     fn de_optional_field_absent() {
-        let doc: kdl::KdlDocument = r#"click x=100 y=200"#.parse().unwrap();
+        let doc = club_kdl::Document::parse(r#"click x=100 y=200"#).unwrap();
         let node = doc.nodes().first().unwrap();
         let event = Event::from_kdl_node(node).unwrap();
         assert_eq!(

@@ -39,7 +39,7 @@ pub enum ParseError {
     /// [`parse_path`] — the pure-text [`parse`] and [`parse_doc`] entries
     /// never read the filesystem and therefore cannot emit this variant.
     #[error("compose error: {0}")]
-    Compose(#[from] kdl_compose::ComposeError),
+    Compose(#[from] club_kdl::compose::ComposeError),
 }
 
 /// Parse a KDL schema source string into a [`Schema`](ir::Schema). Pure text
@@ -56,26 +56,26 @@ pub fn parse(src: &str) -> Result<ir::Schema, ParseError> {
     lower_schema(raw)
 }
 
-/// Parse an already-loaded [`kdl::KdlDocument`] into a [`Schema`](ir::Schema).
+/// Parse an already-loaded [`club_kdl::Document`] into a [`Schema`](ir::Schema).
 ///
 /// The intended caller is [`parse_path`], which composes a multi-file schema
-/// via [`kdl_compose::compose`] and then hands the resolved document to
-/// this entry; exposed publicly so library consumers who build a `KdlDocument`
+/// via [`club_kdl::compose::compose`] and then hands the resolved document to
+/// this entry; exposed publicly so library consumers who build a `Document`
 /// some other way (custom IO, in-memory generation) can skip the string round
-/// trip.
+/// trip. A kdl-rs `KdlDocument` converts with `club_kdl::Document::from(&doc)` (club-kdl's `kdl-rs` feature).
 ///
 /// # Errors
 ///
 /// Same shape as [`parse`] — [`ParseError::Kdl`] on a deserialization failure,
 /// [`ParseError::Validation`] on a schema-rule violation.
-pub fn parse_doc(doc: &kdl::KdlDocument) -> Result<ir::Schema, ParseError> {
+pub fn parse_doc(doc: &club_kdl::Document<'_>) -> Result<ir::Schema, ParseError> {
     let raw: raw::RawSchema =
         club_kdl::from_doc(doc).map_err(|e| ParseError::Kdl(e.to_string()))?;
     lower_schema(raw)
 }
 
 /// Read a KDL schema file from disk, resolve every `(<)file` / `(<)glob`
-/// directive in it via [`kdl_compose::compose`], then parse the composed
+/// directive in it via [`club_kdl::compose::compose`], then parse the composed
 /// document into a [`Schema`](ir::Schema).
 ///
 /// A schema that contains no directives is composed to a document
@@ -89,7 +89,7 @@ pub fn parse_doc(doc: &kdl::KdlDocument) -> Result<ir::Schema, ParseError> {
 /// when the composer cannot read a referenced file, detects an include cycle,
 /// or rejects a malformed directive.
 pub fn parse_path(path: impl AsRef<Path>) -> Result<ir::Schema, ParseError> {
-    let doc = kdl_compose::compose(path)?;
+    let doc = club_kdl::compose::compose(path)?;
     parse_doc(&doc)
 }
 

@@ -15,11 +15,12 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  publish:
-    name: publish to crates.io
+  # 承認なしで走る検査。版とタグの照合、全テスト、dry-run。
+  verify:
+    name: verify before publish
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
     steps:
       - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
@@ -55,45 +56,67 @@ jobs:
         if: github.event_name == 'workflow_dispatch' && inputs.dry_run == 'true'
         run: cargo publish --dry-run -p club-kdl-codegen --allow-dirty
 
-      - name: Publish compose crate (dry-run)
-        if: github.event_name == 'workflow_dispatch' && inputs.dry_run == 'true'
-        run: cargo publish --dry-run -p club-kdl-compose --allow-dirty
+  # crates.io への公開は取り消せないので、environment `crates-io` で止まり、
+  # 承認者 (mako) が Actions の画面で承認してから走る。environment は `v*` の
+  # tag からしか使えない (branch からの workflow_dispatch では公開できない)。
+  publish:
+    name: publish to crates.io
+    needs: verify
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.dry_run == 'false')
+    runs-on: ubuntu-latest
+    environment:
+      name: crates-io
+      url: https://crates.io/crates/club-kdl
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # 前の版の tag を git describe で探すため、tag を含む全履歴を取る。
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
 
       - name: Publish derive crate
-        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.dry_run == 'false')
         run: cargo publish -p club-kdl-derive --token ${{ secrets.CRATES_IO_TOKEN }}
 
       - name: Wait for crates.io to index derive
-        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.dry_run == 'false')
         run: sleep 30
 
       - name: Publish main crate
-        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.dry_run == 'false')
         run: cargo publish -p club-kdl --token ${{ secrets.CRATES_IO_TOKEN }}
 
       - name: Wait for crates.io to index main crate
-        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.dry_run == 'false')
         run: sleep 30
 
-      # 依存グラフ topological: codegen は compose に依存するため
-      # compose を **先に** publish して crates.io に index されている必要が
-      # ある（v0.11.0 release で codegen が compose `^0.11.0` を解決できず
-      # 失敗した教訓）。
-      - name: Publish compose crate
-        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.dry_run == 'false')
-        run: cargo publish -p club-kdl-compose --token ${{ secrets.CRATES_IO_TOKEN }}
-
-      - name: Wait for crates.io to index compose
-        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.dry_run == 'false')
-        run: sleep 30
-
+      # 依存グラフ topological: codegen は club-kdl (`compose` feature) に依存する
+      # ため、club-kdl が crates.io に index されてから publish する（v0.11.0
+      # release で codegen が依存先を解決できず失敗した教訓）。0.14 で
+      # club-kdl-compose は club-kdl の `compose` feature に統合した。
       - name: Publish codegen crate
-        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.dry_run == 'false')
         run: cargo publish -p club-kdl-codegen --token ${{ secrets.CRATES_IO_TOKEN }}
+
+      # Release の本文は CHANGELOG の該当版の節だけにする (全文を入れない)。
+      - name: Extract release notes from CHANGELOG
+        if: github.event_name == 'push'
+        run: |
+          ver="${GITHUB_REF_NAME#v}"
+          awk -v v="$ver" '
+            index($0, "## [" v "]") == 1 { f = 1; next }
+            /^## \[/ { f = 0 }
+            f
+          ' CHANGELOG.md > release-notes.md
+          if [ ! -s release-notes.md ]; then
+            echo "No CHANGELOG section for $ver" >&2
+            exit 1
+          fi
+          printf '\n**Full Changelog**: %s/%s/compare/%s...%s\n' \
+            "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" \
+            "$(git describe --tags --abbrev=0 "${GITHUB_REF_NAME}^" 2>/dev/null || echo "${GITHUB_REF_NAME}")" \
+            "$GITHUB_REF_NAME" >> release-notes.md
 
       - name: Create GitHub Release
         if: github.event_name == 'push'
         uses: softprops/action-gh-release@v3
         with:
-          generate_release_notes: true
-          body_path: ${{ github.workspace }}/CHANGELOG.md
+          body_path: release-notes.md

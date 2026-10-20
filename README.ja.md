@@ -4,42 +4,52 @@
 [![docs.rs](https://docs.rs/club-kdl/badge.svg)](https://docs.rs/club-kdl)
 [![CI](https://github.com/chronista-club/club-kdl/actions/workflows/ci.yml/badge.svg)](https://github.com/chronista-club/club-kdl/actions/workflows/ci.yml)
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/License-MIT%20OR%20Apache--2.0-blue.svg)](#license)
-[![MSRV](https://img.shields.io/badge/MSRV-1.94-orange.svg)](https://github.com/chronista-club/club-kdl/blob/main/Cargo.toml)
+[![MSRV](https://img.shields.io/badge/MSRV-1.95-orange.svg)](https://github.com/chronista-club/club-kdl/blob/main/Cargo.toml)
 [![Downloads](https://img.shields.io/crates/d/club-kdl.svg)](https://crates.io/crates/club-kdl)
 
 **[English](README.md)** | 日本語
 
-Rust で [KDL](https://kdl.dev) を扱う **クレートファミリー** — derive ベースの serde、schema 駆動の多言語コード生成、複数ファイル合成までを 1 つの ecosystem に。
+Rust で [KDL](https://kdl.dev) を扱う **クレートファミリー** — 自前の高速 KDL v2 エンジンの上に載った derive ベースの serde、schema 駆動の多言語コード生成、複数ファイル合成までを 1 つの ecosystem に。
 
 ```toml
 [dependencies]
-club-kdl = "0.11"
+club-kdl = "0.14"
+# 任意の feature (どちらも既定は off):
+# club-kdl = { version = "0.14", features = ["compose", "kdl-rs"] }
 ```
 
 ## クレートファミリー
 
-`club-kdl` は workspace version を共有する 4 つの crate で構成され、まとめてリリースされる。用途に応じて使い分ける。
+`club-kdl` は workspace version を共有する 3 つの crate で構成され、まとめてリリースされる。用途に応じて使い分ける。
 
 | Crate | 役割 | 使うとき |
 |-------|------|---------|
 | **[`club-kdl`](https://crates.io/crates/club-kdl)** | Rust 構造体 ↔ KDL テキストの derive ベース ser/de | Rust 型を KDL と往復させたい |
 | [`club-kdl-derive`](https://crates.io/crates/club-kdl-derive) | `#[derive(KdlDeserialize, KdlSerialize)]` を実装する proc-macro | (内部依存 — `club-kdl` が引き込むので直接依存することはほぼ無い) |
 | **[`club-kdl-codegen`](https://crates.io/crates/club-kdl-codegen)** | KDL schema → Rust / TypeScript / Zod / SurrealQL コード生成 (CLI + ライブラリ) | 1 つの KDL schema から多言語の型を生成したい |
-| **[`club-kdl-compose`](https://crates.io/crates/club-kdl-compose)** | `(<)file` / `(<)glob` include directive による複数ファイル合成 | schema / config が肥大化したのでファイル分割したい |
 
-このREADMEのほとんどは `club-kdl` (derive 層) の説明。schema codegen と compose については下の [Schema codegen](#schema-codegen--club-kdl-codegen) / [複数ファイル schema](#複数ファイル-schema--club-kdl-compose) を参照。
+`club-kdl` には任意の feature が 2 つある。 どちらも既定は off なので、 既定のビルドが依存するのは `club-kdl-derive` と `thiserror` だけ。
 
-## なぜ `club-kdl` (derive 層)？
+| Feature | 追加されるもの | 追加の依存 |
+|---------|---------------|-----------|
+| `compose` | `club_kdl::compose` — `(<)file` / `(<)glob` include directive による複数ファイル合成 ([下記](#複数ファイルの-kdl--compose-feature)) | `glob` |
+| `kdl-rs` | kdl-rs との相互運用: `from_kdl_document` / `from_kdl_node` / `to_kdl_document`、 `From` 変換、 `club_kdl::kdl` の再エクスポート ([下記](#kdl-rs-との相互運用)) | `kdl` |
 
-KDL の公式 Rust 実装 [`kdl-rs`](https://crates.io/crates/kdl) は **AST レベル** の操作に集中したライブラリで、 Rust 構造体との往復は手書きが必要。 `club-kdl` は kdl-rs の上に **属性ベースの derive 層** を載せて、 `#[derive(KdlDeserialize, KdlSerialize)]` だけで struct ↔ KDL の往復を完結させる。
+0.13 までは `compose` は別 crate の `club-kdl-compose` だった。 `kdl_compose::compose` は `club_kdl::compose::compose` になった。
+
+このREADMEのほとんどは `club-kdl` 本体 (derive とそのエンジン) の説明。schema codegen と compose については下の [Schema codegen](#schema-codegen--club-kdl-codegen) / [複数ファイルの KDL](#複数ファイルの-kdl--compose-feature) を参照。
+
+## なぜ `club-kdl`？
+
+KDL の公式 Rust 実装 [`kdl-rs`](https://crates.io/crates/kdl) は **文書の編集** に向けたライブラリで、 コメントや空白まで保持し、 ファイルを書き換えても元の見た目のまま書き戻せる。 一方で Rust 構造体との往復は手書きが必要。 `club-kdl` はそちらの仕事のためのもので、 `#[derive(KdlDeserialize, KdlSerialize)]` だけで struct ↔ KDL の往復を完結させる。 しかも、 その用途に合わせた **自前の KDL v2 エンジン** で動く ([仕組み](#仕組み) を参照)。
 
 | ライブラリ | 立ち位置 | 適性 |
 |-----------|---------|------|
-| [`kdl`](https://crates.io/crates/kdl) | KDL parser / AST | 動的に KDL を構築・編集 / spec 準拠の low-level 操作 |
+| [`kdl`](https://crates.io/crates/kdl) | KDL parser / 書式を保持する文書 | コメントやレイアウトを保ったままの KDL 編集 / spec 準拠の low-level 操作 |
 | [`knuffel`](https://crates.io/crates/knuffel) / [`knus`](https://crates.io/crates/knus) | derive ベースの parser | spec 準拠重視 / parse 側に偏る |
-| **`club-kdl`** | **derive ベースの ser/de** | **struct ↔ KDL 双方向 / 親子ノード名自動解決 / enum data variants** |
+| **`club-kdl`** | **自前エンジンの上の derive ベース ser/de** | **高速な struct ↔ KDL 双方向 / 親子ノード名自動解決 / enum data variants** |
 
-`club-kdl` は内部で `kdl` crate (v6) の AST を使うので、 spec 準拠は kdl-rs に委譲されている。
+両者は組み合わせて使える (`kdl-rs` feature が必要)。 kdl-rs のツリーは `from_kdl_document` / `from_kdl_node` で読め、 書式を保ったまま編集したいときは `to_kdl_document` で kdl-rs に渡せる。
 
 ---
 
@@ -101,6 +111,54 @@ let kdl_text = club_kdl::to_string_pretty(&service).unwrap();
 
 ---
 
+## 仕組み
+
+v0.13 から、 `club-kdl` は kdl-rs を通さずに読み書きする。 struct との往復のために設計した **自前の KDL v2 エンジン** (パーサーと writer) を持っている。
+
+```mermaid
+flowchart LR
+    subgraph read["読み込み: from_str"]
+        direction LR
+        T1["KDL テキスト"] --> P["パーサー"]
+        P --> D["Document / Node / Value<br/>(軽量ツリー)"]
+        D --> R["derive が生成した<br/>from_kdl_node"]
+        R --> S1["Rust 構造体"]
+    end
+    subgraph write["書き出し: to_string"]
+        direction LR
+        S2["Rust 構造体"] --> W["derive が生成した writer"]
+        W --> T2["KDL テキスト"]
+    end
+```
+
+### 読み込み
+
+1. **前から 1 回だけ読む。** パーサーは入力のバイト列を 1 度だけ走査する。 普通の ASCII は速い経路で処理し、 引用符付き文字列とコメントの中は SWAR (64 ビット整数演算で 8 バイトをまとめて判定する手法。 `unsafe` も追加の依存も無し) で 8 バイトずつ読み飛ばす。 UTF-8 のデコードは非 ASCII のバイトが来たときだけ行う。
+2. **意味だけを残す。** 作るのは軽量なツリー (ノード名・型注釈・argument・property・子ノード) だけで、 空白・コメント・数値や文字列の元の書き方は持たない。
+3. **コピーせずに借りる。** エスケープの解除が要らない文字列 (識別子、 ほとんどの引用符付き文字列、 1 行の raw 文字列) は、 新しく確保せずに入力テキストの該当部分を指す。
+4. **写す。** `#[derive(KdlDeserialize)]` が生成したコードが、 そのツリーから直接フィールドを読む。
+
+### 書き出し
+
+`#[derive(KdlSerialize)]` が生成したコードは、 **中間のツリーを作らずに `String` へ直接書く**。 識別子として有効な文字列は引用符なしで、 それ以外は引用符とエスケープ付きで書き、 子ノードは 4 スペースで字下げする。 (ツリーが欲しいときは `to_kdl_node` / `to_doc` で引き続き作れる。)
+
+### なぜ速いのか
+
+kdl-rs はファイルの編集のために、 ノードや値ごとに元のテキスト・前後の空白・コメント・位置情報まで持った「書式を保持する文書」を組み立てる。 KDL を struct に変換するだけならそのどれも要らないので、 `club-kdl` は作らない。 差の大半はこれで説明できる。 残りは 1 回だけの走査、 文字列を借りること、 確保なしの書き出しによる。 数値は [ベンチマーク](#ベンチマーク) を参照。
+
+### 手放したもの
+
+コメントとレイアウトは **保持しない**。 ファイルを struct に読んで書き戻すと、 整形し直した KDL になる。 コメントを残したままファイルを書き換えたいときは、 その部分だけ kdl-rs を使う。 `kdl-rs` feature を有効にすれば、 `to_kdl_document` / `from_kdl_document` で両者の間を行き来できる。
+
+### 正しさの担保
+
+- **公式 KDL 2.0 テストスイート全件** (320 件) を CI で流している (`tests/spec_compliance.rs`)。
+- 有効な spec の文書は、 すべて **パース → 書き出し → パース** で変わらないこと。
+- **頑健性テスト** (`tests/robustness.rs`): 壊した入力をパーサーと derive の struct に読ませても panic しないこと、 任意の文字列 (引用符、 エスケープ、 制御文字、 各種の改行、 `true` や `-1` のような紛らわしいもの) が書き出し → 読み戻しで変わらないことを確かめる。 `CLUB_KDL_FUZZ_SCALE=50 cargo test --release --test robustness` で深く回せる。
+- 子ノードの入れ子は 256 段までに制限している (悪意のある入力でスタックを使い果たさないため)。 パースエラーには行と列が付く (`line 2, column 3: ...`)。
+
+---
+
 ## Schema codegen — `club-kdl-codegen`
 
 型・プロトコルを **KDL で 1 度だけ定義**し、必要な言語ぶん生成する:
@@ -131,9 +189,13 @@ schema 文法は **data 方言**（`struct` / `enum`）に加えて、 関係デ
 
 ---
 
-## 複数ファイル schema — `club-kdl-compose`
+## 複数ファイルの KDL — `compose` feature
 
-schema が大きくなったら、 `(<)file`（または batch import 用に `(<)glob`）で分割する:
+schema や設定が大きくなったら、 `(<)file`（または batch import 用に `(<)glob`）で分割する。 まず feature を有効にする:
+
+```toml
+club-kdl = { version = "0.14", features = ["compose"] }
+```
 
 ```kdl
 # schema.kdl
@@ -161,9 +223,9 @@ directive は **top-level でも任意の block の中でも**書けて、 cycle
 }
 ```
 
-これで取り込まれる top-level ノードの **first string argument** が `shared.Acct` / `shared.Memory` に rewrite される。 `club-kdl-codegen` CLI は内部で `club-kdl-compose` を使うので `(<)` directive はそのまま動く。 ライブラリから直接使うなら `kdl_compose::compose(path) -> KdlDocument` か `kdl_compose::from_path::<T>(path)`。
+これで取り込まれる top-level ノードの **first string argument** が `shared.Acct` / `shared.Memory` に rewrite される。 `club-kdl-codegen` CLI は内部でこれを使うので `(<)` directive はそのまま動く。 ライブラリから使うなら、 合成した `club_kdl::Document` を受け取る `club_kdl::compose::compose(path)` か、 合成と struct への読み込みを一度に行う `club_kdl::compose::from_path::<T>(path)` を呼ぶ。
 
-directive 構文と制約は [`club-kdl-compose` の docs.rs](https://docs.rs/club-kdl-compose) 参照。
+directive 構文と制約は [docs.rs の `club_kdl::compose`](https://docs.rs/club-kdl/latest/club_kdl/compose/) 参照。
 
 ---
 
@@ -448,18 +510,91 @@ struct HealthCheck {
 service "api" interval=30 timeout=5
 ```
 
+### ツリーを直接扱う
+
+`Document::parse` でツリーそのものが手に入る (schema も Cargo feature も不要)。 形の決まっていない文書を読むとき、 struct が記述していないノードを含む文書を読むとき (ツリーはすべてのノードを残す)、 文書の一部だけを struct に読むときに使う。
+
+`(typ)service "api" image="nginx" { port 80; port 443; }` というノードなら:
+
+| 欲しいもの | 呼び方 | この例で返るもの |
+|-----------|-------|----------------|
+| ノード名 | `node.name()` | `"service"` |
+| 型注釈 | `node.ty()` | `Some("typ")` |
+| 位置で指定した argument | `node.arg(0)` | 文字列 `"api"` |
+| すべての argument | `node.args()` | `"api"` を返す iterator |
+| property | `node.prop("image")` | 文字列 `"nginx"` (同じキーが複数あれば最後のもの) |
+| argument と property を書かれた順に | `node.entries()` | `&[Entry]` |
+| 名前で指定した最初の子 | `node.child("port")` | `port 80` のノード |
+| 名前で指定したすべての子 | `node.children_named("port")` | 2 つの `port` ノードを返す iterator |
+| すべての子 | `node.children()` | `&[Node]` (`{ }` ブロックが無ければ空) |
+| トップレベルのノード | `doc.nodes()` | `&[Node]` |
+
+値は `as_string()` / `as_integer()` / `as_float()` / `as_bool()` / `is_null()` で読む。 ツリーはパース元のテキストから文字列を借りるので、 テキストより長く持ちたいときは `into_owned()` を呼ぶ。
+
+
+```rust
+use club_kdl::{Document, KdlDeserialize};
+
+let doc = Document::parse(text)?;
+for node in doc.nodes() {
+    println!("{} {:?}", node.name(), node.arg(0));
+    if let Some(image) = node.prop("image").and_then(|v| v.as_string()) {
+        println!("  image = {image}");
+    }
+    for port in node.children_named("port") {
+        let port: Port = club_kdl::from_node(port)?;
+    }
+}
+```
+
+多数の値を書くとき (レコードのストリームなど) は、 バッファを使い回せる。
+
+```rust
+let mut out = String::new();
+for event in &events {
+    club_kdl::to_string_into(event, &mut out)?;
+}
+```
+
+ファイルにノードを 1 つずつ追記する (NDKDL — 「改行区切りの KDL」) には `club_kdl::append_node(path, &value)` を使う。 追記後のファイルも有効な KDL 文書なので、 `#[kdl(document)]` の struct でそのまま読み戻せる。
+
+### kdl-rs との相互運用
+
+`kdl-rs` feature が必要:
+
+```toml
+club-kdl = { version = "0.14", features = ["kdl-rs"] }
+```
+
+```rust
+// kdl-rs の文書 → struct (文字列はコピーせず借用する)
+let kdl_doc: club_kdl::kdl::KdlDocument = text.parse()?;
+let config: Config = club_kdl::from_kdl_document(&kdl_doc)?;
+
+// struct → kdl-rs の文書。 コメントを足したり autoformat したりするとき
+let mut kdl_doc = club_kdl::to_kdl_document(&config)?;
+kdl_doc.autoformat();
+```
+
+feature を有効にすると `club_kdl::kdl` で kdl-rs crate を再エクスポートするので、 別途依存を足す必要は無い。
+
 ---
 
 ## サポートする型
 
-- 整数: `i32`, `i64`, `i128`, `u16`, `u32`, `u64`, `usize`
-- 浮動小数点: `f64`
-- 真偽値: `bool`
-- 文字列: `String`, `&str`（ゼロコピー）
-- パス: `PathBuf`
-- コレクション: `Vec<T>`, `HashMap<String, String>`
-- オプショナル: `Option<T>`
-- カスタム型: `FromKdlValue` / `ToKdlValue` を実装
+| 型 | 読み込み | 書き出し |
+|----|---------|---------|
+| `i8`, `i16`, `i32`, `i64`, `i128`, `isize`, `u8`, `u16`, `u32`, `u64`, `usize` | ✓ (範囲外の値はエラー) | ✓ |
+| `f32`, `f64` | ✓ | ✓ |
+| `bool` | ✓ | ✓ |
+| `String` | ✓ | ✓ |
+| `&str`, `Cow<str>` | `FromKdlValue` / ツリー経由のみ (下記) | ✓ |
+| `PathBuf` | ✓ | ✓ (`Path` も) |
+| `Option<T>` (`#null` も値が無い場合も `None` として読む) | ✓ | ✓ |
+| `Vec<T>`, `HashMap<String, String>` | ✓ | ✓ |
+
+- カスタム型: `FromKdlValue` / `ToKdlValue` を実装する ([ガイド](docs/guide/custom-types.ja.md))。
+- 現状、 derive した struct はデータを所有する。 `&'a str` 型のフィールドは derive がまだ対応していない。 エンジン自体はゼロコピーで、 `Document` は入力から借用し、 `FromKdlValue for &str` はツリーから借用するので、 手書きのコードならコピーせずに読める。
 
 ## ガイド
 
@@ -473,12 +608,14 @@ service "api" interval=30 timeout=5
 
 `benches/kdl_vs_json.rs` に同等の docker-compose 風データを KDL と JSON で読み書きするマイクロベンチがあります。
 
-実測値 (Apple Silicon, Rust 1.95, criterion 中央値):
+実測値 (Apple Silicon, Rust 1.95, criterion 中央値、 すべて同じ 1 回の計測。 絶対値は回ごとに揺れるので比率を見てください):
 
-| operation | KDL (club-kdl) | JSON (serde_json) | 倍率 |
-|-----------|----------------|-------------------|------|
-| read  | 486 µs | 4.2 µs | KDL は ~115x 遅い |
-| write |  8.8 µs | 1.7 µs | KDL は ~5x 遅い |
+| operation | KDL (club-kdl) | kdl-rs 経由の KDL (≤ v0.12) | JSON (serde_json) |
+|-----------|----------------|-----------------------------|-------------------|
+| read (1.7 KB テキスト → struct) | 20.0 µs | 1288 µs | 9.7 µs |
+| write (struct → テキスト) | 4.4 µs | 146 µs | 4.3 µs |
+
+パースのスループット (`parse` グループ、 85 KB の文書): 同じ計測で club-kdl は約 110 MiB/s、 kdl-rs は約 1.3 MiB/s (負荷の無いマシンではさらに速い)。
 
 実行:
 
@@ -488,11 +625,13 @@ cargo bench --bench kdl_vs_json
 
 結果は HTML レポート (`target/criterion/report/index.html`) で詳細を確認できます。
 
-**用途のガイド**: KDL は人間可読性に最適化されたフォーマットで、 read は JSON より明確に重いです。 hot-path での頻繁な再パースには JSON / binary フォーマット (rkyv 等) を選び、 **設定ファイル / 宣言的 schema / human-edited DSL** に club-kdl を使ってください。
+**用途のガイド**: read は serde_json と同じ桁に収まったので、 リクエストごとに設定ファイルを読み直す使い方でも問題ありません。 ただし KDL は人が読み書きするためのフォーマットなので、 通信プロトコルや大量データには JSON / binary フォーマット (rkyv 等) が引き続き向いています。
+
+以前の版から上げる場合は、 破壊的変更と移行手順を [CHANGELOG](CHANGELOG.md) (0.14.0 と 0.13.0) にまとめてある。
 
 ## MSRV (Minimum Supported Rust Version)
 
-現在の MSRV は **Rust 1.94** です。 `Cargo.toml` の `rust-version` フィールドで管理し、 CI で継続的に検証しています。
+現在の MSRV は **Rust 1.95** です。 `Cargo.toml` の `rust-version` フィールドで管理し、 CI で継続的に検証しています。
 
 MSRV の引き上げは **patch リリースで行うことがあります** (semver の慣習に準拠)。
 
