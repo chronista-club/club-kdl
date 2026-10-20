@@ -7,9 +7,43 @@
 //!
 //! ## Features
 //!
-//! - **Zero-copy deserialization** - Borrow strings directly from KDL source
+//! - **Own KDL v2 engine** - A single-pass parser builds a lightweight
+//!   [`Document`] tree that borrows strings from the input; derived
+//!   serializers write straight to text without building a tree
 //! - **Attribute-based mapping** - Fine-grained control with `#[kdl(...)]`
-//! - **High performance** - Optimized for speed with minimal allocations
+//! - **Spec-checked** - Runs the full official KDL 2.0 test suite in CI
+//!
+//! ## Reading KDL without types
+//!
+//! Not every document maps neatly onto structs. [`Document::parse`] gives you
+//! the tree itself — node names, arguments, properties, children — with no
+//! schema and no Cargo feature:
+//!
+//! ```
+//! let doc = club_kdl::Document::parse(r#"service "api" image="nginx" { port 80 }"#)?;
+//! let service = &doc.nodes()[0];
+//! assert_eq!(service.name(), "service");
+//! assert_eq!(service.prop("image").and_then(|v| v.as_string()), Some("nginx"));
+//! assert_eq!(service.child("port").and_then(|p| p.arg(0)).and_then(|v| v.as_integer()), Some(80));
+//! # Ok::<(), club_kdl::Error>(())
+//! ```
+//!
+//! See the [`ast`] module for a fuller example and an overview of what the
+//! tree gives you.
+//!
+//! Comments and layout are not preserved. For format-preserving edits, hand
+//! data to [kdl-rs](https://docs.rs/kdl) with `to_kdl_document` /
+//! `from_kdl_document`.
+//!
+//! ## Cargo features
+//!
+//! Both are off by default.
+//!
+//! - `compose` - `club_kdl::compose` module: multi-file KDL via
+//!   `(<)file` / `(<)glob` include directives (adds the `glob` dependency)
+//! - `kdl-rs` - interop with [kdl-rs](https://docs.rs/kdl): `from_kdl_document`,
+//!   `from_kdl_node`, `to_kdl_document`, `From` conversions between the two
+//!   trees, and the `club_kdl::kdl` re-export (adds the `kdl` dependency)
 //!
 //! ## Example
 //!
@@ -78,23 +112,42 @@
 //! - `default` - Use Default::default() if missing
 //! - `skip` - Skip this field during serialization/deserialization
 
+pub mod ast;
+#[cfg(feature = "compose")]
+pub mod compose;
 pub mod de;
 pub mod error;
+mod parse;
 pub mod ser;
 pub mod stream;
+mod write;
 
 // Re-exports
-pub use de::{
-    FromKdlValue, KdlDeserialize, KdlNodeExt, doc_to_wrapper_node, from_doc, from_node, from_str,
-};
+pub use ast::{Document, Entry, Node, Value};
+pub use de::{FromKdlValue, KdlDeserialize, from_doc, from_node, from_str};
+#[cfg(feature = "kdl-rs")]
+pub use de::{KdlNodeExt, from_kdl_document, from_kdl_node};
 pub use error::{Error, Result};
+#[cfg(feature = "kdl-rs")]
+pub use ser::to_kdl_document;
 pub use ser::{
-    KdlSerialize, NodeBuilder, ToKdlValue, to_doc, to_node, to_string, to_string_pretty,
+    KdlSerialize, NodeBuilder, ToKdlValue, to_doc, to_node, to_string, to_string_into,
+    to_string_pretty,
 };
 pub use stream::append_node;
 
-// Re-export kdl types for convenience
-pub use kdl::{KdlDocument, KdlIdentifier, KdlNode, KdlValue};
+/// Items used by code generated with the derive macros. Not a stable API.
+#[doc(hidden)]
+pub mod __private {
+    pub use crate::write::NodeWriter;
+}
+
+/// The [kdl-rs](https://docs.rs/kdl) crate, for interop: reading its trees
+/// with [`from_kdl_document`] / [`from_kdl_node`], or converting club-kdl
+/// trees into it (`kdl::KdlDocument::from(&doc)`, [`to_kdl_document`]) for
+/// format-preserving edits. Requires the `kdl-rs` feature.
+#[cfg(feature = "kdl-rs")]
+pub use kdl;
 
 // Derive macros
 pub use club_kdl_derive::{KdlDeserialize, KdlSerialize};

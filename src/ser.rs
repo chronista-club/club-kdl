@@ -1,9 +1,15 @@
 //! KDL Serialization
 //!
 //! High-performance serialization from Rust types to KDL.
+//!
+//! Types serialize into the lightweight [`crate::ast`] tree, borrowing string
+//! data from `self` rather than copying it, and the tree is written out as
+//! KDL v2 text by club-kdl's own writer.
 
+use std::borrow::Cow;
+
+use crate::ast::{Document, Entry, Node, Value};
 use crate::error::Result;
-use kdl::{KdlDocument, KdlEntry, KdlIdentifier, KdlNode, KdlValue};
 
 /// Trait for types that can be serialized to KDL.
 ///
@@ -21,25 +27,63 @@ use kdl::{KdlDocument, KdlEntry, KdlIdentifier, KdlNode, KdlValue};
 ///     image: String,
 /// }
 ///
-/// let svc = Service { name: "api".into(), image: "myapp".into() };
+/// let svc = Service { name: "api".into(), image: "my app".into() };
 /// let kdl = club_kdl::to_string(&svc).unwrap();
-/// assert!(kdl.contains("api"));
-/// assert!(kdl.contains("myapp"));
+/// assert_eq!(kdl, "service api image=\"my app\"\n");
 /// ```
 pub trait KdlSerialize {
-    /// Serialize to a KDL node.
-    fn to_kdl_node(&self) -> Result<KdlNode>;
+    /// Serialize to a KDL node. The node may borrow strings from `self`.
+    fn to_kdl_node(&self) -> Result<Node<'_>>;
 
     /// Serialize to a KDL document.
-    fn to_kdl_doc(&self) -> Result<KdlDocument> {
-        let node = self.to_kdl_node()?;
-        let mut doc = KdlDocument::new();
-        doc.nodes_mut().push(node);
-        Ok(doc)
+    fn to_kdl_doc(&self) -> Result<Document<'_>> {
+        Ok(Document::from_nodes(vec![self.to_kdl_node()?]))
+    }
+
+    /// Write this value as a node straight to text, optionally renamed.
+    ///
+    /// Derived impls write directly without building a [`Node`]; the
+    /// default goes through [`to_kdl_node`](Self::to_kdl_node).
+    #[doc(hidden)]
+    fn __write_node(&self, out: &mut String, depth: usize, name: Option<&str>) -> Result<()> {
+        let mut node = self.to_kdl_node()?;
+        if let Some(name) = name {
+            node.set_name(name);
+        }
+        crate::write::write_node(out, &node, depth);
+        Ok(())
+    }
+
+    /// Append this value's entries to a node being written (`#[kdl(flatten)]`).
+    #[doc(hidden)]
+    fn __write_entries(&self, w: &mut crate::__private::NodeWriter<'_>) -> Result<()> {
+        for entry in self.to_kdl_node()?.entries() {
+            w.entry(entry);
+        }
+        Ok(())
+    }
+
+    /// Append this value's children to a node being written (`#[kdl(flatten)]`).
+    #[doc(hidden)]
+    fn __write_children(&self, w: &mut crate::__private::NodeWriter<'_>) -> Result<()> {
+        for child in self.to_kdl_node()?.children() {
+            w.child_node(child);
+        }
+        Ok(())
+    }
+
+    /// Write this value as a whole document straight to text.
+    #[doc(hidden)]
+    fn __write_doc(&self, out: &mut String) -> Result<()> {
+        crate::write::write_document(out, &self.to_kdl_doc()?);
+        Ok(())
     }
 }
 
 /// Serialize a type to a KDL string.
+///
+/// The output is normalized KDL v2: one node per line, children indented by
+/// four spaces, strings written bare when that is valid.
 ///
 /// # Example
 ///
@@ -55,182 +99,157 @@ pub trait KdlSerialize {
 ///
 /// let config = Config { name: "my-app".into() };
 /// let kdl_string = club_kdl::to_string(&config).unwrap();
-/// assert!(kdl_string.contains("my-app"));
+/// assert_eq!(kdl_string, "config my-app\n");
 /// ```
-pub fn to_string<T: KdlSerialize>(value: &T) -> Result<String> {
-    let doc = value.to_kdl_doc()?;
-    Ok(doc.to_string())
+pub fn to_string<T: KdlSerialize + ?Sized>(value: &T) -> Result<String> {
+    let mut out = String::with_capacity(256);
+    value.__write_doc(&mut out)?;
+    Ok(out)
 }
 
-/// Serialize a type to a KDL string with custom formatting.
-pub fn to_string_pretty<T: KdlSerialize>(value: &T) -> Result<String> {
-    let doc = value.to_kdl_doc()?;
-    // KDL's default formatting is already pretty
-    Ok(doc.to_string())
+/// Serialize a type and append the KDL text to `out`.
+///
+/// Lets callers reuse one buffer across many values (e.g. writing a stream
+/// of records) instead of allocating a `String` per value.
+pub fn to_string_into<T: KdlSerialize + ?Sized>(value: &T, out: &mut String) -> Result<()> {
+    value.__write_doc(out)
+}
+
+/// Serialize a type to a KDL string.
+///
+/// Same as [`to_string`]; the output is always indented.
+pub fn to_string_pretty<T: KdlSerialize + ?Sized>(value: &T) -> Result<String> {
+    to_string(value)
 }
 
 /// Serialize a type to a KDL document.
-pub fn to_doc<T: KdlSerialize>(value: &T) -> Result<KdlDocument> {
+pub fn to_doc<T: KdlSerialize + ?Sized>(value: &T) -> Result<Document<'_>> {
     value.to_kdl_doc()
 }
 
 /// Serialize a type to a KDL node.
-pub fn to_node<T: KdlSerialize>(value: &T) -> Result<KdlNode> {
+pub fn to_node<T: KdlSerialize + ?Sized>(value: &T) -> Result<Node<'_>> {
     value.to_kdl_node()
+}
+
+/// Serialize a type to a [`kdl::KdlDocument`] for further editing with kdl-rs
+/// (e.g. `autoformat`, comment insertion).
+///
+/// Requires the `kdl-rs` feature.
+#[cfg(feature = "kdl-rs")]
+pub fn to_kdl_document<T: KdlSerialize + ?Sized>(value: &T) -> Result<kdl::KdlDocument> {
+    Ok(kdl::KdlDocument::from(&value.to_kdl_doc()?))
 }
 
 // ============================================================================
 // Primitive implementations
 // ============================================================================
 
-/// Helper trait to convert Rust values to KDL values
+/// Helper trait to convert Rust values to KDL values.
+///
+/// The returned [`Value`] may borrow from `self` (strings are not copied).
 pub trait ToKdlValue {
-    fn to_kdl_value(&self) -> KdlValue;
+    fn to_kdl_value(&self) -> Value<'_>;
+}
+
+impl<T: ToKdlValue + ?Sized> ToKdlValue for &T {
+    #[inline]
+    fn to_kdl_value(&self) -> Value<'_> {
+        (**self).to_kdl_value()
+    }
 }
 
 impl ToKdlValue for str {
     #[inline]
-    fn to_kdl_value(&self) -> KdlValue {
-        KdlValue::String(self.to_string())
+    fn to_kdl_value(&self) -> Value<'_> {
+        Value::String(Cow::Borrowed(self))
     }
 }
 
 impl ToKdlValue for String {
     #[inline]
-    fn to_kdl_value(&self) -> KdlValue {
-        KdlValue::String(self.clone())
+    fn to_kdl_value(&self) -> Value<'_> {
+        Value::String(Cow::Borrowed(self))
     }
 }
 
-impl ToKdlValue for i64 {
+impl ToKdlValue for Cow<'_, str> {
     #[inline]
-    fn to_kdl_value(&self) -> KdlValue {
-        KdlValue::Integer(*self as i128)
+    fn to_kdl_value(&self) -> Value<'_> {
+        Value::String(Cow::Borrowed(self))
     }
 }
 
-impl ToKdlValue for i128 {
+impl ToKdlValue for Value<'_> {
     #[inline]
-    fn to_kdl_value(&self) -> KdlValue {
-        KdlValue::Integer(*self)
-    }
-}
-
-impl ToKdlValue for i32 {
-    #[inline]
-    fn to_kdl_value(&self) -> KdlValue {
-        KdlValue::Integer(*self as i128)
-    }
-}
-
-impl ToKdlValue for u64 {
-    #[inline]
-    fn to_kdl_value(&self) -> KdlValue {
-        KdlValue::Integer(*self as i128)
-    }
-}
-
-impl ToKdlValue for u32 {
-    #[inline]
-    fn to_kdl_value(&self) -> KdlValue {
-        KdlValue::Integer(*self as i128)
-    }
-}
-
-impl ToKdlValue for u16 {
-    #[inline]
-    fn to_kdl_value(&self) -> KdlValue {
-        KdlValue::Integer(*self as i128)
-    }
-}
-
-impl ToKdlValue for usize {
-    #[inline]
-    fn to_kdl_value(&self) -> KdlValue {
-        KdlValue::Integer(*self as i128)
-    }
-}
-
-impl ToKdlValue for f64 {
-    #[inline]
-    fn to_kdl_value(&self) -> KdlValue {
-        KdlValue::Float(*self)
-    }
-}
-
-impl ToKdlValue for bool {
-    #[inline]
-    fn to_kdl_value(&self) -> KdlValue {
-        KdlValue::Bool(*self)
-    }
-}
-
-// PathBuf support
-impl ToKdlValue for std::path::PathBuf {
-    #[inline]
-    fn to_kdl_value(&self) -> KdlValue {
-        KdlValue::String(self.to_string_lossy().into_owned())
-    }
-}
-
-impl ToKdlValue for &std::path::PathBuf {
-    #[inline]
-    fn to_kdl_value(&self) -> KdlValue {
-        KdlValue::String(self.to_string_lossy().into_owned())
-    }
-}
-
-impl ToKdlValue for std::path::Path {
-    #[inline]
-    fn to_kdl_value(&self) -> KdlValue {
-        KdlValue::String(self.to_string_lossy().into_owned())
-    }
-}
-
-impl ToKdlValue for &std::path::Path {
-    #[inline]
-    fn to_kdl_value(&self) -> KdlValue {
-        KdlValue::String(self.to_string_lossy().into_owned())
-    }
-}
-
-impl<T: ToKdlValue> ToKdlValue for Option<T> {
-    #[inline]
-    fn to_kdl_value(&self) -> KdlValue {
+    fn to_kdl_value(&self) -> Value<'_> {
         match self {
-            Some(v) => v.to_kdl_value(),
-            None => KdlValue::Null,
+            Value::String(s) => Value::String(Cow::Borrowed(s)),
+            Value::Integer(i) => Value::Integer(*i),
+            Value::Float(f) => Value::Float(*f),
+            Value::Bool(b) => Value::Bool(*b),
+            Value::Null => Value::Null,
         }
     }
 }
 
-// Reference implementations for derive macro support
-macro_rules! impl_ref_to_kdl_value {
+macro_rules! impl_int_to_kdl_value {
     ($($ty:ty),*) => {
         $(
-            impl ToKdlValue for &$ty {
+            impl ToKdlValue for $ty {
                 #[inline]
-                fn to_kdl_value(&self) -> KdlValue {
-                    (*self).to_kdl_value()
+                fn to_kdl_value(&self) -> Value<'_> {
+                    Value::Integer(*self as i128)
                 }
             }
         )*
     };
 }
 
-impl_ref_to_kdl_value!(i64, i128, i32, u64, u32, u16, usize, f64, bool);
+impl_int_to_kdl_value!(i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, usize);
 
-impl ToKdlValue for &String {
+impl ToKdlValue for f64 {
     #[inline]
-    fn to_kdl_value(&self) -> KdlValue {
-        KdlValue::String((*self).clone())
+    fn to_kdl_value(&self) -> Value<'_> {
+        Value::Float(*self)
     }
 }
 
-impl ToKdlValue for &str {
+impl ToKdlValue for f32 {
     #[inline]
-    fn to_kdl_value(&self) -> KdlValue {
-        KdlValue::String(self.to_string())
+    fn to_kdl_value(&self) -> Value<'_> {
+        Value::Float(f64::from(*self))
+    }
+}
+
+impl ToKdlValue for bool {
+    #[inline]
+    fn to_kdl_value(&self) -> Value<'_> {
+        Value::Bool(*self)
+    }
+}
+
+impl ToKdlValue for std::path::Path {
+    #[inline]
+    fn to_kdl_value(&self) -> Value<'_> {
+        Value::String(self.to_string_lossy())
+    }
+}
+
+impl ToKdlValue for std::path::PathBuf {
+    #[inline]
+    fn to_kdl_value(&self) -> Value<'_> {
+        Value::String(self.to_string_lossy())
+    }
+}
+
+impl<T: ToKdlValue> ToKdlValue for Option<T> {
+    #[inline]
+    fn to_kdl_value(&self) -> Value<'_> {
+        match self {
+            Some(v) => v.to_kdl_value(),
+            None => Value::Null,
+        }
     }
 }
 
@@ -238,69 +257,78 @@ impl ToKdlValue for &str {
 // Node builder helpers
 // ============================================================================
 
-/// Builder for constructing KDL nodes
-pub struct NodeBuilder {
-    node: KdlNode,
+/// Builder for constructing KDL nodes.
+///
+/// Values are taken by reference so that string data is borrowed, not
+/// copied, into the resulting [`Node`].
+pub struct NodeBuilder<'a> {
+    node: Node<'a>,
 }
 
-impl NodeBuilder {
+impl<'a> NodeBuilder<'a> {
     /// Create a new node builder with the given name
     #[inline]
-    pub fn new(name: impl Into<String>) -> Self {
+    pub fn new(name: impl Into<Cow<'a, str>>) -> Self {
         Self {
-            node: KdlNode::new(KdlIdentifier::from(name.into())),
+            node: Node::new(name),
         }
     }
 
     /// Add an argument (positional value)
     #[inline]
-    pub fn arg(mut self, value: impl ToKdlValue) -> Self {
-        self.node.push(KdlEntry::new(value.to_kdl_value()));
+    pub fn arg<V: ToKdlValue + ?Sized>(mut self, value: &'a V) -> Self {
+        self.node
+            .entries_mut()
+            .push(Entry::arg(value.to_kdl_value()));
         self
     }
 
     /// Add a property (key=value)
     #[inline]
-    pub fn prop(mut self, name: impl Into<String>, value: impl ToKdlValue) -> Self {
-        self.node.push(KdlEntry::new_prop(
-            KdlIdentifier::from(name.into()),
-            value.to_kdl_value(),
-        ));
+    pub fn prop<V: ToKdlValue + ?Sized>(
+        mut self,
+        name: impl Into<Cow<'a, str>>,
+        value: &'a V,
+    ) -> Self {
+        self.node
+            .entries_mut()
+            .push(Entry::prop(name, value.to_kdl_value()));
         self
     }
 
     /// Add a child node
     #[inline]
-    pub fn child(mut self, node: KdlNode) -> Self {
-        let children = self
-            .node
-            .children_mut()
-            .get_or_insert_with(KdlDocument::new);
-        children.nodes_mut().push(node);
+    pub fn child(mut self, node: Node<'a>) -> Self {
+        self.node.children_mut().push(node);
         self
     }
 
     /// Add multiple child nodes
     #[inline]
-    pub fn children(mut self, nodes: impl IntoIterator<Item = KdlNode>) -> Self {
-        let children = self
-            .node
-            .children_mut()
-            .get_or_insert_with(KdlDocument::new);
-        children.nodes_mut().extend(nodes);
+    pub fn children(mut self, nodes: impl IntoIterator<Item = Node<'a>>) -> Self {
+        self.node.children_mut().extend(nodes);
         self
     }
 
-    /// Add a raw entry (for flatten support)
+    /// Add a raw entry
     #[inline]
-    pub fn entry(mut self, entry: KdlEntry) -> Self {
-        self.node.push(entry);
+    pub fn entry(mut self, entry: Entry<'a>) -> Self {
+        self.node.entries_mut().push(entry);
+        self
+    }
+
+    /// Append another node's entries and children (for `#[kdl(flatten)]`).
+    #[inline]
+    pub fn flatten(mut self, node: Node<'a>) -> Self {
+        let (entries, children) = node.into_parts();
+        self.node.entries_mut().extend(entries);
+        self.node.children_mut().extend(children);
         self
     }
 
     /// Build the node
     #[inline]
-    pub fn build(self) -> KdlNode {
+    pub fn build(self) -> Node<'a> {
         self.node
     }
 }

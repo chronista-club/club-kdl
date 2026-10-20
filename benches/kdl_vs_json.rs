@@ -1,4 +1,4 @@
-use criterion::{Criterion, criterion_group, criterion_main};
+use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use std::collections::HashMap;
 use std::hint::black_box;
 
@@ -242,20 +242,35 @@ const JSON_DATA: &str = r#"
 // ベンチマーク
 // ============================================================
 
+fn read_services(doc: &club_kdl::Document<'_>) -> Vec<KdlService> {
+    doc.nodes()
+        .iter()
+        .filter(|n| n.name() == "service")
+        .map(|n| KdlService::from_kdl_node(n).unwrap())
+        .collect()
+}
+
+/// KDL_DATA を `n` 回繰り返した大きめの入力 (n=50 で約 85KB)。
+fn large_kdl(n: usize) -> String {
+    KDL_DATA.repeat(n)
+}
+
 fn bench_read(c: &mut Criterion) {
     let mut group = c.benchmark_group("read");
 
-    // KDL読み込み
+    // KDL読み込み (club-kdl 独自パーサ → struct)
     group.bench_function("kdl", |b| {
         b.iter(|| {
-            let doc: kdl::KdlDocument = black_box(KDL_DATA).parse().unwrap();
-            let mut services = Vec::new();
-            for node in doc.nodes() {
-                if node.name().value() == "service" {
-                    services.push(KdlService::from_kdl_node(node).unwrap());
-                }
-            }
-            black_box(services)
+            let doc = club_kdl::Document::parse(black_box(KDL_DATA)).unwrap();
+            black_box(read_services(&doc))
+        })
+    });
+
+    // 比較用: v0.12 までの経路 (kdl-rs でパース → struct)
+    group.bench_function("kdl-rs", |b| {
+        b.iter(|| {
+            let doc: club_kdl::kdl::KdlDocument = black_box(KDL_DATA).parse().unwrap();
+            black_box(read_services(&club_kdl::Document::from(&doc)))
         })
     });
 
@@ -270,28 +285,67 @@ fn bench_read(c: &mut Criterion) {
     group.finish();
 }
 
+fn bench_parse(c: &mut Criterion) {
+    let large = large_kdl(50);
+    let mut group = c.benchmark_group("parse");
+
+    for (label, src) in [("small", KDL_DATA), ("large", large.as_str())] {
+        group.throughput(Throughput::Bytes(src.len() as u64));
+        group.bench_with_input(BenchmarkId::new("club-kdl", label), src, |b, src| {
+            b.iter(|| black_box(club_kdl::Document::parse(black_box(src)).unwrap()))
+        });
+        group.bench_with_input(BenchmarkId::new("kdl-rs", label), src, |b, src| {
+            b.iter(|| {
+                black_box(
+                    black_box(src)
+                        .parse::<club_kdl::kdl::KdlDocument>()
+                        .unwrap(),
+                )
+            })
+        });
+    }
+
+    group.finish();
+}
+
+fn to_doc(services: &[KdlService]) -> club_kdl::Document<'_> {
+    club_kdl::Document::from_nodes(services.iter().map(|s| s.to_kdl_node().unwrap()).collect())
+}
+
 fn bench_write(c: &mut Criterion) {
     // 事前にデータを準備
-    let doc: kdl::KdlDocument = KDL_DATA.parse().unwrap();
-    let kdl_services: Vec<KdlService> = doc
-        .nodes()
-        .iter()
-        .filter(|n| n.name().value() == "service")
-        .map(|n| KdlService::from_kdl_node(n).unwrap())
-        .collect();
+    let kdl_services = read_services(&club_kdl::Document::parse(KDL_DATA).unwrap());
 
     let json_config: JsonConfig = serde_json::from_str(JSON_DATA).unwrap();
 
     let mut group = c.benchmark_group("write");
 
-    // KDL書き出し
+    // KDL書き出し (struct → テキストへ直接)
     group.bench_function("kdl", |b| {
         b.iter(|| {
-            let nodes: Vec<kdl::KdlNode> = kdl_services
-                .iter()
-                .map(|s| s.to_kdl_node().unwrap())
-                .collect();
-            black_box(nodes)
+            let mut out = String::with_capacity(2048);
+            for s in black_box(&kdl_services) {
+                club_kdl::to_string_into(s, &mut out).unwrap();
+            }
+            black_box(out)
+        })
+    });
+
+    // 比較用: ツリー (Node) を組んでからテキスト化
+    group.bench_function("kdl-tree", |b| {
+        b.iter(|| {
+            let doc = to_doc(black_box(&kdl_services));
+            let mut out = String::with_capacity(2048);
+            doc.write_to(&mut out);
+            black_box(out)
+        })
+    });
+
+    // 比較用: v0.12 までの経路 (kdl-rs のノードを組んでテキスト化)
+    group.bench_function("kdl-rs", |b| {
+        b.iter(|| {
+            let doc = to_doc(black_box(&kdl_services));
+            black_box(club_kdl::kdl::KdlDocument::from(&doc).to_string())
         })
     });
 
@@ -306,5 +360,5 @@ fn bench_write(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_read, bench_write);
+criterion_group!(benches, bench_read, bench_parse, bench_write);
 criterion_main!(benches);

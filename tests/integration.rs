@@ -1,6 +1,6 @@
 //! Integration tests for club-kdl
 
-use club_kdl::{KdlDeserialize, KdlDocument, KdlNodeExt, KdlSerialize};
+use club_kdl::{KdlDeserialize, KdlSerialize};
 
 // ============================================================================
 // Basic test structures
@@ -60,7 +60,7 @@ fn test_deserialize_simple_service() {
         service "surrealdb" image="surrealdb/surrealdb:v2.4.0" restart="unless-stopped"
     "#;
 
-    let doc: KdlDocument = kdl.parse().unwrap();
+    let doc = club_kdl::Document::parse(kdl).unwrap();
     let node = doc.nodes().first().unwrap();
     let service: Service = Service::from_kdl_node(node).unwrap();
 
@@ -82,7 +82,7 @@ fn test_deserialize_with_ports() {
         }
     "#;
 
-    let doc: KdlDocument = kdl.parse().unwrap();
+    let doc = club_kdl::Document::parse(kdl).unwrap();
     let node = doc.nodes().first().unwrap();
     let service: Service = Service::from_kdl_node(node).unwrap();
 
@@ -104,7 +104,7 @@ fn test_deserialize_with_volumes() {
         }
     "#;
 
-    let doc: KdlDocument = kdl.parse().unwrap();
+    let doc = club_kdl::Document::parse(kdl).unwrap();
     let node = doc.nodes().first().unwrap();
     let service: Service = Service::from_kdl_node(node).unwrap();
 
@@ -123,7 +123,7 @@ fn test_serialize_simple() {
     };
 
     let node = port.to_kdl_node().unwrap();
-    assert_eq!(node.name().value(), "port");
+    assert_eq!(node.name(), "port");
 
     // Check properties
     assert_eq!(node.prop("host").and_then(|v| v.as_integer()), Some(8080));
@@ -161,16 +161,16 @@ fn test_multiple_children() {
         }
     "#;
 
-    let doc: KdlDocument = kdl.parse().unwrap();
+    let doc = club_kdl::Document::parse(kdl).unwrap();
     let node = doc.nodes().first().unwrap();
 
     // Access port children directly
-    let ports = node.children_by_name("port");
-    assert_eq!(ports.len(), 2);
+    let ports = node.children_named("port").count();
+    assert_eq!(ports, 2);
 
     // Access volume children directly
-    let volumes = node.children_by_name("volume");
-    assert_eq!(volumes.len(), 1);
+    let volumes = node.children_named("volume").count();
+    assert_eq!(volumes, 1);
 }
 
 // ============================================================================
@@ -189,7 +189,7 @@ struct DependsOn {
 fn test_arguments_collection() {
     let kdl = r#"depends_on "db" "redis" "cache""#;
 
-    let doc: KdlDocument = kdl.parse().unwrap();
+    let doc = club_kdl::Document::parse(kdl).unwrap();
     let node = doc.nodes().first().unwrap();
     let deps: DependsOn = DependsOn::from_kdl_node(node).unwrap();
 
@@ -231,7 +231,7 @@ fn test_child_map_with_wrapper() {
         }
     "#;
 
-    let doc: KdlDocument = kdl.parse().unwrap();
+    let doc = club_kdl::Document::parse(kdl).unwrap();
     let node = doc.nodes().first().unwrap();
     let svc: ServiceWithEnv = ServiceWithEnv::from_kdl_node(node).unwrap();
 
@@ -297,7 +297,7 @@ struct Channel {
 fn test_enum_scalar_deserialize() {
     let kdl = r#"channel "events" from="server" lifetime="persistent""#;
 
-    let doc: KdlDocument = kdl.parse().unwrap();
+    let doc = club_kdl::Document::parse(kdl).unwrap();
     let node = doc.nodes().first().unwrap();
     let ch: Channel = Channel::from_kdl_node(node).unwrap();
 
@@ -314,7 +314,7 @@ fn test_enum_scalar_all_variants() {
         ("either", Direction::Either),
     ] {
         let kdl = format!(r#"channel "test" from="{}""#, input);
-        let doc: KdlDocument = kdl.parse().unwrap();
+        let doc = club_kdl::Document::parse(&kdl).unwrap();
         let node = doc.nodes().first().unwrap();
         let ch: Channel = Channel::from_kdl_node(node).unwrap();
         assert_eq!(ch.from, expected);
@@ -332,7 +332,6 @@ fn test_enum_scalar_serialize() {
     let node = ch.to_kdl_node().unwrap();
 
     // Check argument
-    use club_kdl::KdlNodeExt;
     assert_eq!(node.arg(0).and_then(|v| v.as_string()), Some("control"));
 
     // Check property: from should be "client"
@@ -360,7 +359,7 @@ fn test_enum_scalar_roundtrip() {
 fn test_enum_invalid_variant() {
     let kdl = r#"channel "test" from="unknown""#;
 
-    let doc: KdlDocument = kdl.parse().unwrap();
+    let doc = club_kdl::Document::parse(kdl).unwrap();
     let node = doc.nodes().first().unwrap();
     let result = Channel::from_kdl_node(node);
 
@@ -571,11 +570,11 @@ enum Status {
 fn test_enum_default_naming() {
     // Without #[kdl(rename)], variant names should be snake_cased
     use club_kdl::FromKdlValue;
-    let val = kdl::KdlValue::String("active".to_string());
+    let val = club_kdl::Value::String(::std::borrow::Cow::from("active".to_string()));
     let status: Status = Status::from_kdl_value(&val).unwrap();
     assert_eq!(status, Status::Active);
 
-    let val = kdl::KdlValue::String("pending_review".to_string());
+    let val = club_kdl::Value::String(::std::borrow::Cow::from("pending_review".to_string()));
     let status: Status = Status::from_kdl_value(&val).unwrap();
     assert_eq!(status, Status::PendingReview);
 }
@@ -609,7 +608,7 @@ fn test_unwrap_arg_present() {
         }
     "#;
 
-    let doc: KdlDocument = kdl.parse().unwrap();
+    let doc = club_kdl::Document::parse(kdl).unwrap();
     let node = doc.nodes().first().unwrap();
     let proto: ProtocolDef = ProtocolDef::from_kdl_node(node).unwrap();
 
@@ -623,7 +622,7 @@ fn test_unwrap_arg_present() {
 fn test_unwrap_arg_absent() {
     let kdl = r#"protocol "MinimalProto" version="0.1""#;
 
-    let doc: KdlDocument = kdl.parse().unwrap();
+    let doc = club_kdl::Document::parse(kdl).unwrap();
     let node = doc.nodes().first().unwrap();
     let proto: ProtocolDef = ProtocolDef::from_kdl_node(node).unwrap();
 
@@ -649,7 +648,7 @@ fn test_unwrap_args() {
         }
     "#;
 
-    let doc: KdlDocument = kdl.parse().unwrap();
+    let doc = club_kdl::Document::parse(kdl).unwrap();
     let node = doc.nodes().first().unwrap();
     let e: EnumDef = EnumDef::from_kdl_node(node).unwrap();
 
@@ -723,4 +722,99 @@ fn test_document_empty() {
     assert!(schema.protocol.is_none());
     assert!(schema.messages.is_empty());
     assert!(schema.enums.is_empty());
+}
+
+// `None` is written as `#null` for positional arguments (to keep later
+// arguments in place), so every `Option` field must read `#null` back as
+// `None` instead of failing to parse it as the inner type.
+#[derive(Debug, PartialEq, KdlDeserialize, KdlSerialize)]
+#[kdl(name = "opt")]
+struct OptionalEverywhere {
+    #[kdl(argument)]
+    first: Option<String>,
+    #[kdl(argument)]
+    second: Option<String>,
+    #[kdl(property)]
+    port: Option<u16>,
+    #[kdl(child, unwrap_arg)]
+    note: Option<String>,
+}
+
+#[test]
+fn option_fields_read_null_as_none() {
+    let v: OptionalEverywhere =
+        club_kdl::from_str("opt #null \"b\" port=#null { note #null; }").unwrap();
+    assert_eq!(
+        v,
+        OptionalEverywhere {
+            first: None,
+            second: Some("b".into()),
+            port: None,
+            note: None,
+        }
+    );
+}
+
+#[test]
+fn option_argument_none_round_trips() {
+    let v = OptionalEverywhere {
+        first: None,
+        second: Some("b".into()),
+        port: None,
+        note: None,
+    };
+    let text = club_kdl::to_string(&v).unwrap();
+    assert_eq!(text, "opt #null b\n");
+    assert_eq!(club_kdl::from_str::<OptionalEverywhere>(&text).unwrap(), v);
+}
+
+// Every integer / float type that can be written must also be readable, so a
+// struct using them round-trips.
+#[derive(Debug, PartialEq, KdlDeserialize, KdlSerialize)]
+#[kdl(name = "small")]
+struct SmallNumbers {
+    #[kdl(property)]
+    a: u8,
+    #[kdl(property)]
+    b: i8,
+    #[kdl(property)]
+    c: i16,
+    #[kdl(property)]
+    d: isize,
+    #[kdl(property)]
+    e: f32,
+}
+
+#[test]
+fn small_number_types_round_trip() {
+    let v = SmallNumbers {
+        a: 255,
+        b: -128,
+        c: -32768,
+        d: -7,
+        e: 1.5,
+    };
+    let text = club_kdl::to_string(&v).unwrap();
+    assert_eq!(text, "small a=255 b=-128 c=-32768 d=-7 e=1.5\n");
+    assert_eq!(club_kdl::from_str::<SmallNumbers>(&text).unwrap(), v);
+}
+
+#[test]
+fn small_number_types_reject_out_of_range() {
+    for bad in [
+        "small a=256 b=0 c=0 d=0 e=0.0",
+        "small a=-1 b=0 c=0 d=0 e=0.0",
+        "small a=0 b=128 c=0 d=0 e=0.0",
+        "small a=0 b=0 c=32768 d=0 e=0.0",
+        // finite f64 that overflows f32
+        "small a=0 b=0 c=0 d=0 e=1e300",
+    ] {
+        assert!(
+            club_kdl::from_str::<SmallNumbers>(bad).is_err(),
+            "should reject {bad:?}"
+        );
+    }
+    // Infinity and NaN are representable in f32 and pass through.
+    let v: SmallNumbers = club_kdl::from_str("small a=0 b=0 c=0 d=0 e=#inf").unwrap();
+    assert_eq!(v.e, f32::INFINITY);
 }
