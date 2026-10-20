@@ -70,7 +70,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           # 前の版の tag を git describe で探すため、tag を含む全履歴を取る。
           fetch-depth: 0
