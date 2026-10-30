@@ -113,6 +113,8 @@
 //! - `skip` - Skip this field during serialization/deserialization
 
 pub mod ast;
+#[cfg(feature = "compact")]
+pub mod compact;
 #[cfg(feature = "compose")]
 pub mod compose;
 pub mod de;

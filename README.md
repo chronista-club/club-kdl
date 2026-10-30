@@ -28,12 +28,13 @@ club-kdl = "0.14"
 | [`club-kdl-derive`](https://crates.io/crates/club-kdl-derive) | Proc-macro behind `#[derive(KdlDeserialize, KdlSerialize)]` | (Internal — pulled in by `club-kdl`; rarely depended on directly) |
 | **[`club-kdl-codegen`](https://crates.io/crates/club-kdl-codegen)** | KDL schema → Rust / TypeScript / Zod / SurrealQL code generator (CLI + library) | A single KDL schema should drive types in multiple languages |
 
-`club-kdl` has two optional features, both off by default, so the default build depends only on `club-kdl-derive` and `thiserror`:
+`club-kdl` has optional features, all off by default, so the default build depends only on `club-kdl-derive` and `thiserror`:
 
 | Feature | What it adds | Extra dependency |
 |---------|--------------|------------------|
 | `compose` | `club_kdl::compose` — multi-file KDL via the `(<)file` / `(<)glob` include directive ([below](#multi-file-kdl-with-the-compose-feature)) | `glob` |
 | `kdl-rs` | Interop with kdl-rs: `from_kdl_document` / `from_kdl_node` / `to_kdl_document`, `From` conversions, the `club_kdl::kdl` re-export ([below](#interop-with-kdl-rs)) | `kdl` |
+| `compact` (unreleased) | Rule-based automatic aliases for machine-oriented KDL files and messages; ordinary config output keeps original names ([guide](docs/guide/01-compact-names.md)) | `sha2` |
 
 Until 0.13, `compose` was the separate `club-kdl-compose` crate; `kdl_compose::compose` is now `club_kdl::compose::compose`.
 
