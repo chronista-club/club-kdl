@@ -1,14 +1,14 @@
 # 01. Rule-based automatic aliases
 
 The `compact` feature shortens node names and property keys for machine-oriented
-storage and messages. It uses standard KDL v2 strings and syntax. Keep ordinary
+storage and messages, and omits indentation. It uses standard KDL v2 strings and syntax. Keep ordinary
 `club_kdl::to_string/from_str` for readable configuration; they are unchanged.
 
-This feature is currently unreleased. To try this checkout:
+Available from v0.15.0:
 
 ```toml
 [dependencies]
-club-kdl = { path = "../club-kdl", features = ["compact"] }
+club-kdl = { version = "0.15", features = ["compact"] }
 ```
 
 ## Self-contained files
@@ -41,6 +41,25 @@ For arbitrary documents, use `compact::encode_document(doc)` and
 `compact::decode_document(&text)`. Decode returns an owned tree with original
 names, suitable for `doc.to_string()` to recover readable KDL. Like the normal
 tree APIs, comments/layout are not preserved.
+
+## Layout and compatibility
+
+Compact output keeps one node per line and omits leading indentation, including
+inside the embedded name table. Parent/child relationships still use `{ }`;
+spaces, tabs and newlines **inside string values** keep their meaning. Existing
+readers accept both indented and unindented forms with the same table ID and
+format version. No separate decompressor is needed.
+
+Ordinary `club_kdl::to_string`, `to_string_pretty`, and `Document::to_string` keep
+their four-space indentation. To inspect a compact file as readable KDL:
+
+```rust
+let readable = compact::decode_document(&stored)?.to_string();
+```
+
+This restores original names and normal formatting, not the exact comments or
+whitespace of the source. The largest byte savings from indentation removal are
+in deeply nested documents; small or flat documents benefit less.
 
 ## Reusing a table across messages
 

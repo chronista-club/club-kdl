@@ -1,0 +1,184 @@
+      ┌─────────┐  mr boxington
+     ╱ ═══════ ╱│
+    ╱─────────╱ │
+    │ •    (◉)│≡│
+    │  ◟▄▄▄◞  │ ╱
+    │   ◀◆▶   │╱
+    └─────────┘
+   Compiling proc-macro2 v1.0.106
+   Compiling quote v1.0.45
+   Compiling unicode-ident v1.0.24
+   Compiling libc v0.2.186
+   Compiling cfg-if v1.0.4
+   Compiling serde_core v1.0.228
+   Compiling version_check v0.9.5
+   Compiling autocfg v1.5.1
+   Compiling crossbeam-utils v0.8.21
+   Compiling serde v1.0.228
+   Compiling generic-array v0.14.7
+   Compiling zerocopy v0.8.52
+   Compiling typenum v1.20.1
+   Compiling num-traits v0.2.19
+   Compiling crossbeam-epoch v0.9.21
+   Compiling shlex v2.0.1
+   Compiling find-msvc-tools v0.1.9
+   Compiling zmij v1.0.21
+   Compiling cc v1.2.63
+   Compiling either v1.16.0
+   Compiling serde_json v1.0.150
+   Compiling rayon-core v1.13.0
+   Compiling alloca v0.4.0
+   Compiling crypto-common v0.1.7
+   Compiling block-buffer v0.10.4
+   Compiling crossbeam-deque v0.8.6
+   Compiling anstyle v1.0.14
+   Compiling itoa v1.0.18
+   Compiling memchr v2.8.1
+   Compiling ciborium-io v0.2.2
+   Compiling rustix v1.1.4
+   Compiling getrandom v0.4.2
+   Compiling thiserror v2.0.18
+   Compiling plotters-backend v0.3.7
+   Compiling regex-syntax v0.8.11
+   Compiling clap_lex v1.1.0
+   Compiling simdutf8 v0.1.5
+   Compiling unicode-width v0.1.14
+   Compiling syn v2.0.117
+   Compiling syn v3.0.9
+   Compiling miette v7.6.0
+   Compiling clap_builder v4.6.0
+   Compiling regex-automata v0.4.14
+   Compiling serde_derive v1.0.228
+   Compiling ptr_meta_derive v0.3.1
+   Compiling zerocopy-derive v0.8.52
+   Compiling bytecheck_derive v0.8.2
+   Compiling ptr_meta v0.3.1
+   Compiling thiserror-impl v2.0.18
+   Compiling rancor v0.1.1
+   Compiling munge_macro v0.4.7
+mbx[warning]: cc cache bypassed: compiler invocation names no output file
+   Compiling bytecheck v0.8.2
+   Compiling plotters-svg v0.3.7
+   Compiling digest v0.10.7
+   Compiling errno v0.3.14
+   Compiling cpufeatures v0.2.17
+   Compiling itertools v0.13.0
+   Compiling same-file v1.0.6
+   Compiling bitflags v2.13.0
+   Compiling cast v0.3.0
+   Compiling winnow v0.7.15
+   Compiling criterion-plot v0.8.2
+   Compiling walkdir v2.5.0
+   Compiling sha2 v0.10.9
+   Compiling plotters v0.3.7
+   Compiling rend v0.5.3
+   Compiling rayon v1.12.0
+   Compiling clap v4.6.1
+   Compiling regex v1.12.4
+   Compiling rkyv_derive v0.8.18
+   Compiling club-kdl-derive v0.15.0 (/private/var/folders/81/swrz5199151cp92864btxwt80000gn/T/club-kdl-codec-0_6r6rj0/derive)
+   Compiling page_size v0.6.0
+   Compiling munge v0.4.7
+   Compiling anes v0.1.6
+   Compiling fastrand v2.4.1
+   Compiling hashbrown v0.17.1
+   Compiling once_cell v1.21.4
+   Compiling oorandom v11.1.5
+   Compiling glob v0.3.3
+   Compiling tempfile v3.27.0
+   Compiling half v2.7.1
+   Compiling ciborium-ll v0.2.2
+   Compiling rkyv v0.8.18
+   Compiling tinytemplate v1.2.1
+   Compiling kdl v6.7.1
+   Compiling ciborium v0.2.2
+   Compiling criterion v0.8.2
+   Compiling club-kdl v0.15.0 (/private/var/folders/81/swrz5199151cp92864btxwt80000gn/T/club-kdl-codec-0_6r6rj0)
+warning: associated function `from_kdl` is never used
+   --> src/baseline_compact.rs:178:12
+    |
+ 96 | impl NameTable {
+    | -------------- associated function in this implementation
+...
+178 |     pub fn from_kdl(input: &str) -> Result<Self> {
+    |            ^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `decode_document` is never used
+   --> src/baseline_compact.rs:360:8
+    |
+360 | pub fn decode_document(input: &str) -> Result<Document<'static>> {
+    |        ^^^^^^^^^^^^^^^
+
+warning: `club-kdl` (lib test) generated 2 warnings
+    Finished `release` profile [optimized] target(s) in 7.86s
+     Running unittests src/lib.rs (/Users/makomac/repos/club-kdl/research/indent-pack/target/paired-codec-build/release/deps/club_kdl-65cb4d66ef191e2f)
+
+running 1 test
+Gnuplot not found, using plotters backend
+PAIRED_SIZE,shared,3432,3032,file,3494,3070
+Benchmarking paired_codec/batch100/serialize_shared/before
+Benchmarking paired_codec/batch100/serialize_shared/before: Warming up for 300.00 ms
+Benchmarking paired_codec/batch100/serialize_shared/before: Collecting 60 samples in estimated 2.0216 s (148k iterations)
+Benchmarking paired_codec/batch100/serialize_shared/before: Analyzing
+paired_codec/batch100/serialize_shared/before
+                        time:   [12.622 µs 12.983 µs 13.350 µs]
+Benchmarking paired_codec/batch100/serialize_shared/after
+Benchmarking paired_codec/batch100/serialize_shared/after: Warming up for 300.00 ms
+Benchmarking paired_codec/batch100/serialize_shared/after: Collecting 60 samples in estimated 2.0156 s (135k iterations)
+Benchmarking paired_codec/batch100/serialize_shared/after: Analyzing
+paired_codec/batch100/serialize_shared/after
+                        time:   [12.334 µs 12.532 µs 12.762 µs]
+Benchmarking paired_codec/batch100/deserialize_shared/before
+Benchmarking paired_codec/batch100/deserialize_shared/before: Warming up for 300.00 ms
+Benchmarking paired_codec/batch100/deserialize_shared/before: Collecting 60 samples in estimated 2.0122 s (97k iterations)
+Benchmarking paired_codec/batch100/deserialize_shared/before: Analyzing
+paired_codec/batch100/deserialize_shared/before
+                        time:   [19.072 µs 19.378 µs 19.675 µs]
+Benchmarking paired_codec/batch100/deserialize_shared/after
+Benchmarking paired_codec/batch100/deserialize_shared/after: Warming up for 300.00 ms
+mbx[progress]: 15s elapsed; 80 hits, 24 misses, 3 bypassed, 5 not looked up; ~313.3s compiler work saved
+Benchmarking paired_codec/batch100/deserialize_shared/after: Collecting 60 samples in estimated 2.0114 s (95k iterations)
+Benchmarking paired_codec/batch100/deserialize_shared/after: Analyzing
+paired_codec/batch100/deserialize_shared/after
+                        time:   [19.145 µs 19.406 µs 19.649 µs]
+Found 3 outliers among 60 measurements (5.00%)
+  1 (1.67%) low mild
+  2 (3.33%) high mild
+Benchmarking paired_codec/batch100/serialize_file/before
+Benchmarking paired_codec/batch100/serialize_file/before: Warming up for 300.00 ms
+Benchmarking paired_codec/batch100/serialize_file/before: Collecting 60 samples in estimated 2.0002 s (81k iterations)
+Benchmarking paired_codec/batch100/serialize_file/before: Analyzing
+paired_codec/batch100/serialize_file/before
+                        time:   [21.489 µs 21.883 µs 22.327 µs]
+Found 1 outliers among 60 measurements (1.67%)
+  1 (1.67%) high mild
+Benchmarking paired_codec/batch100/serialize_file/after
+Benchmarking paired_codec/batch100/serialize_file/after: Warming up for 300.00 ms
+Benchmarking paired_codec/batch100/serialize_file/after: Collecting 60 samples in estimated 2.0406 s (81k iterations)
+Benchmarking paired_codec/batch100/serialize_file/after: Analyzing
+paired_codec/batch100/serialize_file/after
+                        time:   [22.704 µs 23.153 µs 23.617 µs]
+Benchmarking paired_codec/batch100/deserialize_file/before
+Benchmarking paired_codec/batch100/deserialize_file/before: Warming up for 300.00 ms
+Benchmarking paired_codec/batch100/deserialize_file/before: Collecting 60 samples in estimated 2.0074 s (88k iterations)
+Benchmarking paired_codec/batch100/deserialize_file/before: Analyzing
+paired_codec/batch100/deserialize_file/before
+                        time:   [21.041 µs 21.249 µs 21.463 µs]
+Found 3 outliers among 60 measurements (5.00%)
+  2 (3.33%) high mild
+  1 (1.67%) high severe
+Benchmarking paired_codec/batch100/deserialize_file/after
+Benchmarking paired_codec/batch100/deserialize_file/after: Warming up for 300.00 ms
+Benchmarking paired_codec/batch100/deserialize_file/after: Collecting 60 samples in estimated 2.0204 s (93k iterations)
+Benchmarking paired_codec/batch100/deserialize_file/after: Analyzing
+paired_codec/batch100/deserialize_file/after
+                        time:   [20.760 µs 20.987 µs 21.194 µs]
+
+test codec_comparison::paired_benchmark ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 47 filtered out; finished in 18.21s
+
+mbx[cache]: 80 hits, 24 misses, 5 not looked up, 3 bypassed; 0 B downloaded, 0 B uploaded, 6.7 MiB stored locally
+mbx[savings]: lent the same 584.5 GiB to every checkout at once. none of them has checked.

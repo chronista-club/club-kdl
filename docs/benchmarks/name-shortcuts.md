@@ -2,7 +2,8 @@
 
 This is the initial, pre-implementation experiment. The subsequent
 [runtime codec measurements](name-shortcuts-runtime.md) include the implemented
-dictionary handling and framing; they show byte savings with increased CPU time.
+dictionary handling and framing; they show byte savings with increased processing
+time. The later [indentation measurements](indent-pack.md) cover the v0.15.0 output.
 The implementation implications at the end record the design discussion at
 the time of this initial experiment; see [design 01](../design/01-name-shortcuts.md)
 for the implemented protocol.

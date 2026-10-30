@@ -2,7 +2,8 @@
 
 対象は main `3f10721716c806948276c4029e331170478cef74`（PR #43）。
 ユーザーの着想 `mem_1CgYEeWUHuLPHVaFWe6z71` を受けたローカル実験。
-ライブラリ本体の実装・公開APIは変更していない。
+以下はspike時点の記録で、その時点ではライブラリ本体を変更していない。
+本実装とAPI全体の測定は [production report](../../docs/benchmarks/indent-pack.md) を参照。
 
 ## 結果と判断
 
@@ -41,7 +42,7 @@ no_indentを一貫して上回らなかった。改行1文字をセミコロン1
 - `no_indent`: インデントを出力せず、改行は維持する。
 - `single_line`: インデントと開き波括弧の周囲の空白を出力せず、ノード終端をセミコロンにする。末尾にもセミコロンを残すため、最短表現の探索ではない。
 
-`generate.py` が本体のwriterと文字判定処理から実験用コピーを作る。
+`generate.py` が上記baseline commitのwriterと文字判定処理から実験用コピーを作る。
 値の書き方・引用・escapeは共通で、構造上の空白出力だけを変更する。
 全行のtrimや文字列置換でKDL本文を加工しない。
 
@@ -101,4 +102,6 @@ python3 research/indent-pack/summarize.py
 
 生成したKDLサンプルは `artifacts/` に置く（git管理外）。
 Cargo.lockは実験の依存バージョンを固定するため保存する。
-本体writerが変わった場合は新しい実験として扱い、対象commitと結果を更新する。
+元の状態を完全に再現する場合は `b5d1aef` のcheckoutで実行する。
+生成元writerはbaseline commitに固定しているが、依存するclub-kdl本体はcheckoutに従う。
+異なるcheckoutで再測定した場合は新しい結果として扱う。

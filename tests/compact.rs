@@ -287,3 +287,76 @@ fn three_character_aliases_skip_keywords_that_would_need_quotes() {
         "zzzz"
     );
 }
+
+// Task: mem_1CgYGA5N9F8xynDW6t9N2A. Structure is carried by braces, not indentation.
+fn assert_unindented(text: &str) {
+    assert!(
+        text.lines().all(|line| !line.starts_with([' ', '\t'])),
+        "compact output must omit structural indentation: {text:?}"
+    );
+}
+
+#[test]
+fn compact_tables_messages_and_files_omit_indentation() {
+    let value = fixture();
+    let readable = club_kdl::to_string(&value).unwrap();
+    assert!(readable.contains("\n    record_update "));
+    assert_eq!(club_kdl::to_string_pretty(&value).unwrap(), readable);
+    assert_eq!(value.to_kdl_doc().unwrap().to_string(), readable);
+
+    let table = NameTable::from_value(&value).unwrap();
+    assert_unindented(&table.to_kdl());
+    let shared = table.encode(&value).unwrap();
+    let file = compact::to_string(&value).unwrap();
+    for text in [&shared, &file] {
+        assert_unindented(text);
+        let _: club_kdl::kdl::KdlDocument = text.parse().unwrap();
+    }
+    assert_eq!(table.decode::<Message>(&shared).unwrap(), value);
+    assert_eq!(compact::from_str::<Message>(&file).unwrap(), value);
+}
+
+#[test]
+fn compact_layout_preserves_nested_values_and_accepts_pretty_input() {
+    let source = r##"
+        ("型")root_name duplicate_key=1 duplicate_key=(kind)2 {
+            item_name "  keep \t spaces  " "\\\"{};" raw=#"  raw {; }  "# {
+                leaf_name text="""
+                    first
+                      indented content
+                    last
+                    """
+            }
+            item_name #nan #inf #-inf #null #true #false
+        }
+        "日本語" ""
+    "##;
+    let doc = Document::parse(source).unwrap();
+    let table = NameTable::from_document(&doc);
+    let pretty_table = Document::parse(&table.to_kdl()).unwrap().to_string();
+    let imported = NameTable::from_kdl(&pretty_table).unwrap();
+    assert_eq!(imported.id(), table.id());
+    assert_eq!(imported.to_kdl(), table.to_kdl());
+    let shared = table.encode_document(doc.clone()).unwrap();
+    let file = compact::encode_document(doc.clone()).unwrap();
+    for text in [&shared, &file] {
+        assert_unindented(text);
+        let external: club_kdl::kdl::KdlDocument = text.parse().unwrap();
+        assert_eq!(
+            Document::from(&external).to_string(),
+            Document::parse(text).unwrap().to_string()
+        );
+    }
+    for text in [&shared, &Document::parse(&shared).unwrap().to_string()] {
+        assert_eq!(
+            imported.decode_document(text).unwrap().to_string(),
+            doc.to_string()
+        );
+    }
+    for text in [&file, &Document::parse(&file).unwrap().to_string()] {
+        assert_eq!(
+            compact::decode_document(text).unwrap().to_string(),
+            doc.to_string()
+        );
+    }
+}
