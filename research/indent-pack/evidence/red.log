@@ -1,0 +1,114 @@
+      ┌─────────┐  mr boxington
+     ╱ ═══════ ╱│
+    ╱─────────╱ │
+    │ •    (◉)│≡│
+    │  ◟▄▄▄◞  │ ╱
+    │   ◀◆▶   │╱
+    └─────────┘
+    Updating crates.io index
+     Locking 89 packages to latest Rust 1.95 compatible versions
+      Adding generic-array v0.14.7 (available: v0.14.9)
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling unicode-ident v1.0.27
+   Compiling serde_core v1.0.229
+   Compiling cfg-if v1.0.5
+   Compiling version_check v0.9.5
+   Compiling libc v0.2.191
+   Compiling serde v1.0.229
+   Compiling autocfg v1.5.1
+   Compiling crossbeam-utils v0.8.23
+   Compiling crossbeam-epoch v0.9.21
+   Compiling generic-array v0.14.7
+   Compiling num-traits v0.2.19
+   Compiling typenum v1.20.1
+   Compiling zerocopy v0.8.63
+   Compiling shlex v2.0.1
+   Compiling find-msvc-tools v0.1.15
+   Compiling crossbeam-deque v0.8.8
+   Compiling zmij v1.0.23
+   Compiling cc v1.10.0
+   Compiling either v1.19.0
+   Compiling rayon-core v1.13.0
+   Compiling serde_json v1.0.154
+   Compiling syn v3.0.9
+   Compiling syn v2.0.119
+   Compiling serde_derive v1.0.229
+   Compiling crypto-common v0.1.7
+   Compiling block-buffer v0.10.4
+   Compiling unicode-width v0.1.14
+   Compiling plotters-backend v0.3.7
+   Compiling memchr v2.8.3
+   Compiling clap_lex v1.1.1
+   Compiling regex-syntax v0.8.11
+   Compiling thiserror v2.0.21
+   Compiling ciborium-io v0.2.2
+   Compiling itoa v1.0.18
+   Compiling anstyle v1.0.14
+   Compiling cpufeatures v0.2.17
+   Compiling regex-automata v0.4.18
+   Compiling plotters-svg v0.3.7
+   Compiling clap_builder v4.6.7
+   Compiling miette v7.6.0
+   Compiling digest v0.10.7
+   Compiling thiserror-impl v2.0.21
+   Compiling itertools v0.13.0
+   Compiling winnow v0.7.15
+   Compiling cast v0.3.0
+   Compiling same-file v1.0.6
+   Compiling walkdir v2.5.0
+   Compiling sha2 v0.10.9
+   Compiling plotters v0.3.7
+   Compiling alloca v0.4.0
+   Compiling page_size v0.6.0
+   Compiling club-kdl-derive v0.14.1 (/Users/makomac/repos/club-kdl/derive)
+   Compiling anes v0.1.6
+   Compiling oorandom v11.1.5
+   Compiling criterion-plot v0.8.2
+mbx[warning]: cc cache bypassed: compiler invocation names no output file
+   Compiling rayon v1.12.0
+   Compiling regex v1.13.1
+   Compiling zerocopy-derive v0.8.63
+   Compiling clap v4.6.7
+   Compiling tinytemplate v1.2.1
+   Compiling kdl v6.7.1
+   Compiling club-kdl v0.14.1 (/Users/makomac/repos/club-kdl)
+   Compiling half v2.7.1
+   Compiling ciborium-ll v0.2.2
+   Compiling ciborium v0.2.2
+   Compiling criterion v0.8.2
+   Compiling indent-pack-research v0.0.0 (/Users/makomac/repos/club-kdl/research/indent-pack)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.22s
+     Running tests/layout.rs (research/indent-pack/target/debug/deps/layout-a24645cd81360121)
+
+running 6 tests
+
+thread 'no_indent_omits_only_layout_spaces' (23416570) panicked at tests/layout.rs:7:5:
+assertion `left == right` failed
+  left: "parent {\n    child \"  keep  \"\n}\n"
+ right: "parent {\nchild \"  keep  \"\n}\n"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'single_line_preserves_node_boundaries' (23416571) panicked at tests/layout.rs:13:5:
+assertion `left == right` failed
+  left: "parent {\n    child 1\n    child 2\n}\nnext 3\n"
+ right: "parent{child 1;child 2;};next 3;"
+test compact_envelopes_remain_compatible ... ok
+test no_indent_omits_only_layout_spaces ... FAILED
+test single_line_preserves_node_boundaries ... FAILED
+test naive_line_trimming_is_not_a_valid_pack_algorithm ... ok
+test whitespace_values_types_and_duplicates_survive ... ok
+CORPUS valid=233 independent_parser=233
+test valid_spec_corpus_round_trips ... ok
+
+failures:
+
+failures:
+    no_indent_omits_only_layout_spaces
+    single_line_preserves_node_boundaries
+
+test result: FAILED. 4 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s
+
+error: test failed, to rerun pass `--test layout`
+mbx[cache]: 41 hits, 14 misses, 39 not looked up, 2 bypassed; 0 B downloaded, 0 B uploaded, 178.7 MiB stored locally
+mbx[savings]: 8d 15h of compiling skipped across 2905 builds. rustc suspects nothing.
