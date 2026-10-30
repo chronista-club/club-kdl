@@ -7,6 +7,15 @@
 
 ## [Unreleased]
 
+## [0.15.1] - 2026-10-30
+
+### ドキュメント
+
+- 公開 rustdoc の feature 一覧に `compact`・追加依存 `sha2`・インデント省略の説明を追加。
+  `compose` の導入例、開発向け feature 一覧、CHANGELOG の比較リンクを同期した。
+- compact ガイドの参照先を現行 API のベンチマークへ更新し、配布対象外の実験資料への
+  リンクをタグ固定の GitHub URL に変更した。API と実行時の振る舞いに変更はない。
+
 ## [0.15.0] - 2026-10-30
 
 ### 追加
@@ -475,7 +484,8 @@ chronista-club ecosystem の crates.io 公開 crate は **`club-` prefix** で�
 - `usize` 型対応
 - 網羅テスト整備
 
-[Unreleased]: https://github.com/chronista-club/club-kdl/compare/v0.15.0...HEAD
+[Unreleased]: https://github.com/chronista-club/club-kdl/compare/v0.15.1...HEAD
+[0.15.1]: https://github.com/chronista-club/club-kdl/compare/v0.15.0...v0.15.1
 [0.15.0]: https://github.com/chronista-club/club-kdl/compare/v0.14.1...v0.15.0
 [0.14.1]: https://github.com/chronista-club/club-kdl/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/chronista-club/club-kdl/compare/v0.13.0...v0.14.0
