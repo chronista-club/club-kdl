@@ -7,6 +7,7 @@ club-kdl の使い方を深掘りするガイド集。 トップの `README.md` 
 
 | ガイド | 内容 |
 |--------|------|
+| [ルールベースの自動エイリアス](./01-compact-names.md) (英語) | 通信・機械向け保存用の短縮モード、対応表の再利用、人向け設定との使い分け |
 | [カスタム型ガイド](./custom-types.ja.md) | `FromKdlValue` / `ToKdlValue` を実装して独自型 (chrono 型・newtype・外部 crate の型) を KDL 値にマッピングする |
 | [KDL 設計ベストプラクティス](./best-practices.ja.md) | argument / property / children の使い分け、 idiomatic な KDL スキーマ設計とアンチパターン |
 | [トラブルシュート](./troubleshooting.ja.md) | よくあるエラー (ライフタイム・子ノード解決・型不一致など) の原因と対処 |

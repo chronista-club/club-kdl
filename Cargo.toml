@@ -47,6 +47,8 @@ club-kdl-derive = { path = "./derive", version = "=0.14.1" }
 kdl = { workspace = true, optional = true }
 # `compose` feature: `(<)glob` include directives.
 glob = { version = "0.3", optional = true }
+# Stable identities for reusable compact name tables.
+sha2 = { version = "0.10.9", optional = true }
 
 [features]
 default = []
@@ -56,10 +58,12 @@ kdl-rs = ["dep:kdl"]
 # Multi-file composition: `club_kdl::compose` resolves `(<)file` /
 # `(<)glob` include directives.
 compose = ["dep:glob"]
+# Rule-based name aliases in ordinary KDL v2 messages and files.
+compact = ["dep:sha2"]
 
 [dev-dependencies]
 # Tests, examples and benches always see every feature.
-club-kdl = { path = ".", features = ["kdl-rs", "compose"] }
+club-kdl = { path = ".", features = ["kdl-rs", "compose", "compact"] }
 # Scratch directories for the compose doc-tests.
 tempfile = "3"
 criterion = "0.8"
@@ -69,5 +73,9 @@ rkyv = "0.8"
 
 [[bench]]
 name = "kdl_vs_json"
+harness = false
+
+[[bench]]
+name = "name_shortcuts"
 harness = false
 
