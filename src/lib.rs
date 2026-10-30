@@ -37,10 +37,13 @@
 //!
 //! ## Cargo features
 //!
-//! Both are off by default.
+//! All are off by default.
 //!
 //! - `compose` - `club_kdl::compose` module: multi-file KDL via
 //!   `(<)file` / `(<)glob` include directives (adds the `glob` dependency)
+//! - `compact` - `club_kdl::compact` module: rule-based automatic name aliases
+//!   and indentation-free output for machine-oriented files and messages;
+//!   ordinary output stays readable (adds the `sha2` dependency)
 //! - `kdl-rs` - interop with [kdl-rs](https://docs.rs/kdl): `from_kdl_document`,
 //!   `from_kdl_node`, `to_kdl_document`, `From` conversions between the two
 //!   trees, and the `club_kdl::kdl` re-export (adds the `kdl` dependency)

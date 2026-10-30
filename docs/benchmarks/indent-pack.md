@@ -71,7 +71,7 @@ This shallow workload does **not** show a consistent end-to-end speedup. Shared
 encode improves slightly, self-contained encode is slower, and reads are close.
 The result supports releasing a size optimization, not advertising a universal
 speed improvement. Deep-tree parser gains from the
-[earlier exploration](../../research/indent-pack/README.md) remain separate
+[earlier exploration](https://github.com/chronista-club/club-kdl/blob/v0.15.0/research/indent-pack/README.md) remain separate
 microbenchmarks and must not be applied to this typed API table.
 
 Both comparisons use fixed ordering and a single run. CPU time, p99, RSS,

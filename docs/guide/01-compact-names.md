@@ -115,6 +115,6 @@ annotations and nested entries. Imported aliases can be quoted strings such as
 `"0"`; the automatic allocator uses letters to avoid quote overhead.
 
 See [design 01](../design/01-name-shortcuts.md) for the protocol and
-[the benchmark report](../benchmarks/name-shortcuts.md) for sizes and costs.
+[the v0.15.0 production benchmark report](../benchmarks/indent-pack.md) for sizes and costs.
 Runtime tree construction and lookup can cost more CPU than the normal direct
 writer, even when the resulting payload is smaller.

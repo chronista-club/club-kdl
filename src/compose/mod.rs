@@ -15,7 +15,7 @@
 //! a string, deserialize), and users who want multi-file composition opt in:
 //!
 //! ```toml
-//! club-kdl = { version = "0.14", features = ["compose"] }
+//! club-kdl = { version = "0.15", features = ["compose"] }
 //! ```
 //!
 //! Until 0.13 this lived in the separate `club-kdl-compose` crate
