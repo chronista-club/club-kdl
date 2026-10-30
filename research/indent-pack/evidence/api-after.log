@@ -1,0 +1,279 @@
+   Compiling club-kdl v0.14.1 (/Users/makomac/repos/club-kdl)
+    Finished `bench` profile [optimized] target(s) in 1.91s
+     Running benches/name_shortcuts.rs (target/release/deps/name_shortcuts-aa0dbe0b416995bf)
+Gnuplot not found, using plotters backend
+SIZE,case,format,body_bytes,dictionary_bytes,body_plus_dictionary,amortize_messages
+SIZE,small,normal,227,0,227,0
+SIZE,small,short1,82,270,352,2
+SIZE,small,short2,92,280,372,3
+SIZE,small,numeric,102,270,372,3
+SIZE,batch100,normal,16178,0,16178,0
+SIZE,batch100,short1,5935,270,6205,1
+SIZE,batch100,short2,6638,280,6918,1
+SIZE,batch100,numeric,7341,270,7611,1
+SIZE,payload4k,normal,4315,0,4315,0
+SIZE,payload4k,short1,4170,270,4440,2
+SIZE,payload4k,short2,4180,280,4460,3
+SIZE,payload4k,numeric,4190,270,4460,3
+RUNTIME_SIZE,case,normal_bytes,shared_message_bytes,file_bytes,table_bytes
+RUNTIME_SIZE,small,227,159,279,201
+Benchmarking name_shortcuts_runtime/small/serialize/normal
+Benchmarking name_shortcuts_runtime/small/serialize/normal: Warming up for 200.00 ms
+Benchmarking name_shortcuts_runtime/small/serialize/normal: Collecting 40 samples in estimated 1.0001 s (4.6M iterations)
+Benchmarking name_shortcuts_runtime/small/serialize/normal: Analyzing
+name_shortcuts_runtime/small/serialize/normal
+                        time:   [219.82 ns 225.24 ns 230.45 ns]
+                        thrpt:  [4.3393 Melem/s 4.4397 Melem/s 4.5491 Melem/s]
+                 change:
+                        time:   [+12.286% +14.312% +16.469%] (p = 0.00 < 0.05)
+                        thrpt:  [−14.140% −12.520% −10.942%]
+                        Performance has regressed.
+Benchmarking name_shortcuts_runtime/small/serialize/shared
+Benchmarking name_shortcuts_runtime/small/serialize/shared: Warming up for 200.00 ms
+Benchmarking name_shortcuts_runtime/small/serialize/shared: Collecting 40 samples in estimated 1.0002 s (1.5M iterations)
+Benchmarking name_shortcuts_runtime/small/serialize/shared: Analyzing
+name_shortcuts_runtime/small/serialize/shared
+                        time:   [625.97 ns 643.78 ns 664.80 ns]
+                        thrpt:  [1.5042 Melem/s 1.5533 Melem/s 1.5975 Melem/s]
+                 change:
+                        time:   [+13.207% +15.872% +18.461%] (p = 0.00 < 0.05)
+                        thrpt:  [−15.584% −13.698% −11.666%]
+                        Performance has regressed.
+Benchmarking name_shortcuts_runtime/small/serialize/file
+Benchmarking name_shortcuts_runtime/small/serialize/file: Warming up for 200.00 ms
+Benchmarking name_shortcuts_runtime/small/serialize/file: Collecting 40 samples in estimated 1.0023 s (249k iterations)
+Benchmarking name_shortcuts_runtime/small/serialize/file: Analyzing
+name_shortcuts_runtime/small/serialize/file
+                        time:   [3.9440 µs 4.0469 µs 4.1343 µs]
+                        thrpt:  [241.88 Kelem/s 247.11 Kelem/s 253.55 Kelem/s]
+                 change:
+                        time:   [+7.1258% +9.0693% +11.250%] (p = 0.00 < 0.05)
+                        thrpt:  [−10.112% −8.3152% −6.6518%]
+                        Performance has regressed.
+Benchmarking name_shortcuts_runtime/small/deserialize/normal
+Benchmarking name_shortcuts_runtime/small/deserialize/normal: Warming up for 200.00 ms
+Benchmarking name_shortcuts_runtime/small/deserialize/normal: Collecting 40 samples in estimated 1.0001 s (1.8M iterations)
+Benchmarking name_shortcuts_runtime/small/deserialize/normal: Analyzing
+name_shortcuts_runtime/small/deserialize/normal
+                        time:   [517.65 ns 522.03 ns 526.96 ns]
+                        thrpt:  [1.8977 Melem/s 1.9156 Melem/s 1.9318 Melem/s]
+                 change:
+                        time:   [−0.3981% +0.5400% +1.4798%] (p = 0.27 > 0.05)
+                        thrpt:  [−1.4582% −0.5371% +0.3997%]
+                        No change in performance detected.
+Benchmarking name_shortcuts_runtime/small/deserialize/shared
+Benchmarking name_shortcuts_runtime/small/deserialize/shared: Warming up for 200.00 ms
+Benchmarking name_shortcuts_runtime/small/deserialize/shared: Collecting 40 samples in estimated 1.0001 s (1.4M iterations)
+Benchmarking name_shortcuts_runtime/small/deserialize/shared: Analyzing
+name_shortcuts_runtime/small/deserialize/shared
+                        time:   [725.94 ns 731.86 ns 737.93 ns]
+                        thrpt:  [1.3551 Melem/s 1.3664 Melem/s 1.3775 Melem/s]
+                 change:
+                        time:   [+6.4941% +7.7292% +8.8948%] (p = 0.00 < 0.05)
+                        thrpt:  [−8.1683% −7.1746% −6.0981%]
+                        Performance has regressed.
+Found 3 outliers among 40 measurements (7.50%)
+  3 (7.50%) high mild
+Benchmarking name_shortcuts_runtime/small/deserialize/file
+Benchmarking name_shortcuts_runtime/small/deserialize/file: Warming up for 200.00 ms
+Benchmarking name_shortcuts_runtime/small/deserialize/file: Collecting 40 samples in estimated 1.0008 s (266k iterations)
+Benchmarking name_shortcuts_runtime/small/deserialize/file: Analyzing
+name_shortcuts_runtime/small/deserialize/file
+                        time:   [3.5399 µs 3.5783 µs 3.6214 µs]
+                        thrpt:  [276.13 Kelem/s 279.46 Kelem/s 282.50 Kelem/s]
+                 change:
+                        time:   [+4.7983% +6.1023% +7.5829%] (p = 0.00 < 0.05)
+                        thrpt:  [−7.0484% −5.7513% −4.5786%]
+                        Performance has regressed.
+Found 1 outliers among 40 measurements (2.50%)
+  1 (2.50%) high mild
+Benchmarking name_shortcuts_runtime/small/build_table
+Benchmarking name_shortcuts_runtime/small/build_table: Warming up for 200.00 ms
+Benchmarking name_shortcuts_runtime/small/build_table: Collecting 40 samples in estimated 1.0008 s (320k iterations)
+Benchmarking name_shortcuts_runtime/small/build_table: Analyzing
+name_shortcuts_runtime/small/build_table
+                        time:   [3.0028 µs 3.0565 µs 3.1076 µs]
+                        thrpt:  [321.79 Kelem/s 327.18 Kelem/s 333.02 Kelem/s]
+                 change:
+                        time:   [+14.275% +16.336% +18.557%] (p = 0.00 < 0.05)
+                        thrpt:  [−15.652% −14.042% −12.492%]
+                        Performance has regressed.
+
+RUNTIME_SIZE,batch100,16178,5616,5736,201
+Benchmarking name_shortcuts_runtime/batch100/serialize/normal
+Benchmarking name_shortcuts_runtime/batch100/serialize/normal: Warming up for 200.00 ms
+Benchmarking name_shortcuts_runtime/batch100/serialize/normal: Collecting 40 samples in estimated 1.0130 s (54k iterations)
+Benchmarking name_shortcuts_runtime/batch100/serialize/normal: Analyzing
+name_shortcuts_runtime/batch100/serialize/normal
+                        time:   [17.528 µs 17.835 µs 18.191 µs]
+                        thrpt:  [54.973 Kelem/s 56.069 Kelem/s 57.052 Kelem/s]
+                 change:
+                        time:   [+11.603% +14.025% +16.432%] (p = 0.00 < 0.05)
+                        thrpt:  [−14.113% −12.300% −10.396%]
+                        Performance has regressed.
+Found 1 outliers among 40 measurements (2.50%)
+  1 (2.50%) low mild
+Benchmarking name_shortcuts_runtime/batch100/serialize/shared
+Benchmarking name_shortcuts_runtime/batch100/serialize/shared: Warming up for 200.00 ms
+Benchmarking name_shortcuts_runtime/batch100/serialize/shared: Collecting 40 samples in estimated 1.0201 s (36k iterations)
+Benchmarking name_shortcuts_runtime/batch100/serialize/shared: Analyzing
+name_shortcuts_runtime/batch100/serialize/shared
+                        time:   [29.753 µs 30.516 µs 31.269 µs]
+                        thrpt:  [31.980 Kelem/s 32.769 Kelem/s 33.610 Kelem/s]
+                 change:
+                        time:   [+16.295% +18.904% +21.721%] (p = 0.00 < 0.05)
+                        thrpt:  [−17.845% −15.899% −14.011%]
+                        Performance has regressed.
+Found 1 outliers among 40 measurements (2.50%)
+  1 (2.50%) high mild
+Benchmarking name_shortcuts_runtime/batch100/serialize/file
+Benchmarking name_shortcuts_runtime/batch100/serialize/file: Warming up for 200.00 ms
+Benchmarking name_shortcuts_runtime/batch100/serialize/file: Collecting 40 samples in estimated 1.0090 s (18k iterations)
+Benchmarking name_shortcuts_runtime/batch100/serialize/file: Analyzing
+name_shortcuts_runtime/batch100/serialize/file
+                        time:   [47.885 µs 49.225 µs 50.423 µs]
+                        thrpt:  [19.832 Kelem/s 20.315 Kelem/s 20.883 Kelem/s]
+                 change:
+                        time:   [+19.526% +22.967% +26.665%] (p = 0.00 < 0.05)
+                        thrpt:  [−21.052% −18.678% −16.336%]
+                        Performance has regressed.
+Benchmarking name_shortcuts_runtime/batch100/deserialize/normal
+Benchmarking name_shortcuts_runtime/batch100/deserialize/normal: Warming up for 200.00 ms
+Benchmarking name_shortcuts_runtime/batch100/deserialize/normal: Collecting 40 samples in estimated 1.0215 s (30k iterations)
+Benchmarking name_shortcuts_runtime/batch100/deserialize/normal: Analyzing
+name_shortcuts_runtime/batch100/deserialize/normal
+                        time:   [32.541 µs 32.777 µs 32.995 µs]
+                        thrpt:  [30.307 Kelem/s 30.509 Kelem/s 30.731 Kelem/s]
+                 change:
+                        time:   [−2.7199% −1.9929% −1.2788%] (p = 0.00 < 0.05)
+                        thrpt:  [+1.2953% +2.0334% +2.7960%]
+                        Performance has improved.
+Found 2 outliers among 40 measurements (5.00%)
+  1 (2.50%) low mild
+  1 (2.50%) high mild
+Benchmarking name_shortcuts_runtime/batch100/deserialize/shared
+Benchmarking name_shortcuts_runtime/batch100/deserialize/shared: Warming up for 200.00 ms
+Benchmarking name_shortcuts_runtime/batch100/deserialize/shared: Collecting 40 samples in estimated 1.0152 s (25k iterations)
+Benchmarking name_shortcuts_runtime/batch100/deserialize/shared: Analyzing
+name_shortcuts_runtime/batch100/deserialize/shared
+                        time:   [39.606 µs 40.480 µs 41.304 µs]
+                        thrpt:  [24.211 Kelem/s 24.704 Kelem/s 25.249 Kelem/s]
+                 change:
+                        time:   [+7.4650% +9.3365% +11.171%] (p = 0.00 < 0.05)
+                        thrpt:  [−10.048% −8.5392% −6.9465%]
+                        Performance has regressed.
+Benchmarking name_shortcuts_runtime/batch100/deserialize/file
+Benchmarking name_shortcuts_runtime/batch100/deserialize/file: Warming up for 200.00 ms
+Benchmarking name_shortcuts_runtime/batch100/deserialize/file: Collecting 40 samples in estimated 1.0277 s (23k iterations)
+Benchmarking name_shortcuts_runtime/batch100/deserialize/file: Analyzing
+name_shortcuts_runtime/batch100/deserialize/file
+                        time:   [41.896 µs 42.447 µs 42.984 µs]
+                        thrpt:  [23.265 Kelem/s 23.559 Kelem/s 23.868 Kelem/s]
+                 change:
+                        time:   [+8.5067% +10.376% +12.216%] (p = 0.00 < 0.05)
+                        thrpt:  [−10.886% −9.4008% −7.8398%]
+                        Performance has regressed.
+Benchmarking name_shortcuts_runtime/batch100/build_table
+Benchmarking name_shortcuts_runtime/batch100/build_table: Warming up for 200.00 ms
+Benchmarking name_shortcuts_runtime/batch100/build_table: Collecting 40 samples in estimated 1.0123 s (36k iterations)
+Benchmarking name_shortcuts_runtime/batch100/build_table: Analyzing
+name_shortcuts_runtime/batch100/build_table
+                        time:   [25.891 µs 26.539 µs 27.221 µs]
+                        thrpt:  [36.737 Kelem/s 37.681 Kelem/s 38.624 Kelem/s]
+                 change:
+                        time:   [+17.678% +20.885% +25.242%] (p = 0.00 < 0.05)
+                        thrpt:  [−20.155% −17.277% −15.023%]
+                        Performance has regressed.
+
+RUNTIME_SIZE,payload4k,4315,4247,4367,201
+Benchmarking name_shortcuts_runtime/payload4k/serialize/normal
+Benchmarking name_shortcuts_runtime/payload4k/serialize/normal: Warming up for 200.00 ms
+Benchmarking name_shortcuts_runtime/payload4k/serialize/normal: Collecting 40 samples in estimated 1.0004 s (730k iterations)
+Benchmarking name_shortcuts_runtime/payload4k/serialize/normal: Analyzing
+name_shortcuts_runtime/payload4k/serialize/normal
+                        time:   [1.3573 µs 1.3617 µs 1.3669 µs]
+                        thrpt:  [731.59 Kelem/s 734.39 Kelem/s 736.78 Kelem/s]
+                 change:
+                        time:   [+2.5409% +2.9417% +3.3173%] (p = 0.00 < 0.05)
+                        thrpt:  [−3.2107% −2.8576% −2.4779%]
+                        Performance has regressed.
+Benchmarking name_shortcuts_runtime/payload4k/serialize/shared
+Benchmarking name_shortcuts_runtime/payload4k/serialize/shared: Warming up for 200.00 ms
+Benchmarking name_shortcuts_runtime/payload4k/serialize/shared: Collecting 40 samples in estimated 1.0009 s (561k iterations)
+Benchmarking name_shortcuts_runtime/payload4k/serialize/shared: Analyzing
+name_shortcuts_runtime/payload4k/serialize/shared
+                        time:   [1.7408 µs 1.7688 µs 1.8108 µs]
+                        thrpt:  [552.23 Kelem/s 565.36 Kelem/s 574.45 Kelem/s]
+                 change:
+                        time:   [+2.9688% +4.0887% +5.4865%] (p = 0.00 < 0.05)
+                        thrpt:  [−5.2011% −3.9281% −2.8832%]
+                        Performance has regressed.
+Found 1 outliers among 40 measurements (2.50%)
+  1 (2.50%) high severe
+Benchmarking name_shortcuts_runtime/payload4k/serialize/file
+Benchmarking name_shortcuts_runtime/payload4k/serialize/file: Warming up for 200.00 ms
+Benchmarking name_shortcuts_runtime/payload4k/serialize/file: Collecting 40 samples in estimated 1.0021 s (189k iterations)
+Benchmarking name_shortcuts_runtime/payload4k/serialize/file: Analyzing
+name_shortcuts_runtime/payload4k/serialize/file
+                        time:   [5.2122 µs 5.2806 µs 5.3450 µs]
+                        thrpt:  [187.09 Kelem/s 189.37 Kelem/s 191.86 Kelem/s]
+                 change:
+                        time:   [+9.6120% +10.787% +11.951%] (p = 0.00 < 0.05)
+                        thrpt:  [−10.675% −9.7369% −8.7691%]
+                        Performance has regressed.
+Benchmarking name_shortcuts_runtime/payload4k/deserialize/normal
+Benchmarking name_shortcuts_runtime/payload4k/deserialize/normal: Warming up for 200.00 ms
+Benchmarking name_shortcuts_runtime/payload4k/deserialize/normal: Collecting 40 samples in estimated 1.0007 s (610k iterations)
+Benchmarking name_shortcuts_runtime/payload4k/deserialize/normal: Analyzing
+name_shortcuts_runtime/payload4k/deserialize/normal
+                        time:   [1.6380 µs 1.6463 µs 1.6540 µs]
+                        thrpt:  [604.60 Kelem/s 607.44 Kelem/s 610.50 Kelem/s]
+                 change:
+                        time:   [−20.504% −18.138% −16.020%] (p = 0.00 < 0.05)
+                        thrpt:  [+19.076% +22.157% +25.792%]
+                        Performance has improved.
+Found 3 outliers among 40 measurements (7.50%)
+  2 (5.00%) low mild
+  1 (2.50%) high mild
+Benchmarking name_shortcuts_runtime/payload4k/deserialize/shared
+Benchmarking name_shortcuts_runtime/payload4k/deserialize/shared: Warming up for 200.00 ms
+Benchmarking name_shortcuts_runtime/payload4k/deserialize/shared: Collecting 40 samples in estimated 1.0012 s (546k iterations)
+Benchmarking name_shortcuts_runtime/payload4k/deserialize/shared: Analyzing
+name_shortcuts_runtime/payload4k/deserialize/shared
+                        time:   [1.8332 µs 1.8407 µs 1.8476 µs]
+                        thrpt:  [541.25 Kelem/s 543.28 Kelem/s 545.50 Kelem/s]
+                 change:
+                        time:   [−29.341% −28.097% −26.761%] (p = 0.00 < 0.05)
+                        thrpt:  [+36.538% +39.076% +41.524%]
+                        Performance has improved.
+Found 1 outliers among 40 measurements (2.50%)
+  1 (2.50%) high mild
+Benchmarking name_shortcuts_runtime/payload4k/deserialize/file
+Benchmarking name_shortcuts_runtime/payload4k/deserialize/file: Warming up for 200.00 ms
+Benchmarking name_shortcuts_runtime/payload4k/deserialize/file: Collecting 40 samples in estimated 1.0033 s (203k iterations)
+Benchmarking name_shortcuts_runtime/payload4k/deserialize/file: Analyzing
+name_shortcuts_runtime/payload4k/deserialize/file
+                        time:   [4.9931 µs 5.0798 µs 5.1604 µs]
+                        thrpt:  [193.78 Kelem/s 196.86 Kelem/s 200.28 Kelem/s]
+                 change:
+                        time:   [−6.6622% −5.7093% −4.7613%] (p = 0.00 < 0.05)
+                        thrpt:  [+4.9994% +6.0550% +7.1377%]
+                        Performance has improved.
+Found 1 outliers among 40 measurements (2.50%)
+  1 (2.50%) low mild
+Benchmarking name_shortcuts_runtime/payload4k/build_table
+Benchmarking name_shortcuts_runtime/payload4k/build_table: Warming up for 200.00 ms
+Benchmarking name_shortcuts_runtime/payload4k/build_table: Collecting 40 samples in estimated 1.0006 s (326k iterations)
+Benchmarking name_shortcuts_runtime/payload4k/build_table: Analyzing
+name_shortcuts_runtime/payload4k/build_table
+                        time:   [2.9320 µs 2.9762 µs 3.0206 µs]
+                        thrpt:  [331.06 Kelem/s 335.99 Kelem/s 341.06 Kelem/s]
+                 change:
+                        time:   [+14.529% +17.221% +20.055%] (p = 0.00 < 0.05)
+                        thrpt:  [−16.705% −14.691% −12.686%]
+                        Performance has regressed.
+Found 3 outliers among 40 measurements (7.50%)
+  3 (7.50%) high mild
+
+mbx[cache]: 0 hits, 1 misses, 1 bypassed; 0 B downloaded, 0 B uploaded, 0 B stored locally
+mbx[savings]: 8d 15h of compiling skipped across 2917 builds. rustc suspects nothing.

@@ -1,0 +1,264 @@
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling unicode-ident v1.0.27
+   Compiling serde_core v1.0.229
+   Compiling version_check v0.9.5
+   Compiling cfg-if v1.0.5
+   Compiling autocfg v1.5.1
+   Compiling serde v1.0.229
+   Compiling libc v0.2.191
+   Compiling crossbeam-utils v0.8.23
+   Compiling generic-array v0.14.7
+   Compiling typenum v1.20.1
+   Compiling zerocopy v0.8.63
+   Compiling num-traits v0.2.19
+   Compiling crossbeam-epoch v0.9.21
+   Compiling zmij v1.0.23
+   Compiling find-msvc-tools v0.1.15
+   Compiling crossbeam-deque v0.8.8
+   Compiling shlex v2.0.1
+   Compiling serde_json v1.0.154
+   Compiling cc v1.10.0
+   Compiling rayon-core v1.13.0
+   Compiling either v1.19.0
+   Compiling crypto-common v0.1.7
+   Compiling block-buffer v0.10.4
+   Compiling memchr v2.8.3
+   Compiling syn v3.0.9
+   Compiling syn v2.0.119
+   Compiling alloca v0.4.0
+   Compiling itoa v1.0.18
+   Compiling unicode-width v0.1.14
+   Compiling clap_lex v1.1.1
+   Compiling anstyle v1.0.14
+   Compiling thiserror v2.0.21
+   Compiling regex-syntax v0.8.11
+   Compiling plotters-backend v0.3.7
+   Compiling ciborium-io v0.2.2
+   Compiling miette v7.6.0
+   Compiling serde_derive v1.0.229
+   Compiling zerocopy-derive v0.8.63
+   Compiling clap_builder v4.6.7
+   Compiling regex-automata v0.4.18
+   Compiling plotters-svg v0.3.7
+   Compiling thiserror-impl v2.0.21
+   Compiling digest v0.10.7
+   Compiling itertools v0.13.0
+   Compiling cpufeatures v0.2.17
+   Compiling same-file v1.0.6
+   Compiling cast v0.3.0
+   Compiling winnow v0.7.15
+   Compiling clap v4.6.7
+   Compiling regex v1.13.1
+   Compiling sha2 v0.10.9
+   Compiling walkdir v2.5.0
+   Compiling plotters v0.3.7
+   Compiling tinytemplate v1.2.1
+   Compiling criterion-plot v0.8.2
+   Compiling rayon v1.12.0
+   Compiling club-kdl-derive v0.14.1 (/Users/makomac/repos/club-kdl/derive)
+   Compiling kdl v6.7.1
+   Compiling half v2.7.1
+   Compiling page_size v0.6.0
+   Compiling anes v0.1.6
+   Compiling oorandom v11.1.5
+   Compiling ciborium-ll v0.2.2
+   Compiling ciborium v0.2.2
+   Compiling criterion v0.8.2
+   Compiling club-kdl v0.14.1 (/Users/makomac/repos/club-kdl)
+   Compiling indent-pack-research v0.0.0 (/Users/makomac/repos/club-kdl/research/indent-pack)
+    Finished `bench` profile [optimized] target(s) in 5.89s
+     Running benches/layout.rs (research/indent-pack/target/release/deps/layout-6eee6b6cf14bd67d)
+Gnuplot not found, using plotters backend
+Testing depth0_width100/original/write_fresh/pretty
+Success
+Testing depth0_width100/original/write_reuse/pretty
+Success
+Testing depth0_width100/original/parse/pretty
+Success
+Testing depth0_width100/original/write_fresh/no_indent
+Success
+Testing depth0_width100/original/write_reuse/no_indent
+Success
+Testing depth0_width100/original/parse/no_indent
+Success
+Testing depth0_width100/original/write_fresh/single_line
+Success
+Testing depth0_width100/original/write_reuse/single_line
+Success
+Testing depth0_width100/original/parse/single_line
+Success
+
+Testing depth0_width100/aliases/write_fresh/pretty
+Success
+Testing depth0_width100/aliases/write_reuse/pretty
+Success
+Testing depth0_width100/aliases/parse/pretty
+Success
+Testing depth0_width100/aliases/write_fresh/no_indent
+Success
+Testing depth0_width100/aliases/write_reuse/no_indent
+Success
+Testing depth0_width100/aliases/parse/no_indent
+Success
+Testing depth0_width100/aliases/write_fresh/single_line
+Success
+Testing depth0_width100/aliases/write_reuse/single_line
+Success
+Testing depth0_width100/aliases/parse/single_line
+Success
+
+Testing depth1_width100/original/write_fresh/pretty
+Success
+Testing depth1_width100/original/write_reuse/pretty
+Success
+Testing depth1_width100/original/parse/pretty
+Success
+Testing depth1_width100/original/write_fresh/no_indent
+Success
+Testing depth1_width100/original/write_reuse/no_indent
+Success
+Testing depth1_width100/original/parse/no_indent
+Success
+Testing depth1_width100/original/write_fresh/single_line
+Success
+Testing depth1_width100/original/write_reuse/single_line
+Success
+Testing depth1_width100/original/parse/single_line
+Success
+
+Testing depth1_width100/aliases/write_fresh/pretty
+Success
+Testing depth1_width100/aliases/write_reuse/pretty
+Success
+Testing depth1_width100/aliases/parse/pretty
+Success
+Testing depth1_width100/aliases/write_fresh/no_indent
+Success
+Testing depth1_width100/aliases/write_reuse/no_indent
+Success
+Testing depth1_width100/aliases/parse/no_indent
+Success
+Testing depth1_width100/aliases/write_fresh/single_line
+Success
+Testing depth1_width100/aliases/write_reuse/single_line
+Success
+Testing depth1_width100/aliases/parse/single_line
+Success
+
+Testing depth8_width100/original/write_fresh/pretty
+Success
+Testing depth8_width100/original/write_reuse/pretty
+Success
+Testing depth8_width100/original/parse/pretty
+Success
+Testing depth8_width100/original/write_fresh/no_indent
+Success
+Testing depth8_width100/original/write_reuse/no_indent
+Success
+Testing depth8_width100/original/parse/no_indent
+Success
+Testing depth8_width100/original/write_fresh/single_line
+Success
+Testing depth8_width100/original/write_reuse/single_line
+Success
+Testing depth8_width100/original/parse/single_line
+Success
+
+Testing depth8_width100/aliases/write_fresh/pretty
+Success
+Testing depth8_width100/aliases/write_reuse/pretty
+Success
+Testing depth8_width100/aliases/parse/pretty
+Success
+Testing depth8_width100/aliases/write_fresh/no_indent
+Success
+Testing depth8_width100/aliases/write_reuse/no_indent
+Success
+Testing depth8_width100/aliases/parse/no_indent
+Success
+Testing depth8_width100/aliases/write_fresh/single_line
+Success
+Testing depth8_width100/aliases/write_reuse/single_line
+Success
+Testing depth8_width100/aliases/parse/single_line
+Success
+
+Testing depth32_width100/original/write_fresh/pretty
+Success
+Testing depth32_width100/original/write_reuse/pretty
+Success
+Testing depth32_width100/original/parse/pretty
+Success
+Testing depth32_width100/original/write_fresh/no_indent
+Success
+Testing depth32_width100/original/write_reuse/no_indent
+Success
+Testing depth32_width100/original/parse/no_indent
+Success
+Testing depth32_width100/original/write_fresh/single_line
+Success
+Testing depth32_width100/original/write_reuse/single_line
+Success
+Testing depth32_width100/original/parse/single_line
+Success
+
+Testing depth32_width100/aliases/write_fresh/pretty
+Success
+Testing depth32_width100/aliases/write_reuse/pretty
+Success
+Testing depth32_width100/aliases/parse/pretty
+Success
+Testing depth32_width100/aliases/write_fresh/no_indent
+Success
+Testing depth32_width100/aliases/write_reuse/no_indent
+Success
+Testing depth32_width100/aliases/parse/no_indent
+Success
+Testing depth32_width100/aliases/write_fresh/single_line
+Success
+Testing depth32_width100/aliases/write_reuse/single_line
+Success
+Testing depth32_width100/aliases/parse/single_line
+Success
+
+Testing depth128_width1/original/write_fresh/pretty
+Success
+Testing depth128_width1/original/write_reuse/pretty
+Success
+Testing depth128_width1/original/parse/pretty
+Success
+Testing depth128_width1/original/write_fresh/no_indent
+Success
+Testing depth128_width1/original/write_reuse/no_indent
+Success
+Testing depth128_width1/original/parse/no_indent
+Success
+Testing depth128_width1/original/write_fresh/single_line
+Success
+Testing depth128_width1/original/write_reuse/single_line
+Success
+Testing depth128_width1/original/parse/single_line
+Success
+
+Testing depth128_width1/aliases/write_fresh/pretty
+Success
+Testing depth128_width1/aliases/write_reuse/pretty
+Success
+Testing depth128_width1/aliases/parse/pretty
+Success
+Testing depth128_width1/aliases/write_fresh/no_indent
+Success
+Testing depth128_width1/aliases/write_reuse/no_indent
+Success
+Testing depth128_width1/aliases/parse/no_indent
+Success
+Testing depth128_width1/aliases/write_fresh/single_line
+Success
+Testing depth128_width1/aliases/write_reuse/single_line
+Success
+Testing depth128_width1/aliases/parse/single_line
+Success
+
+mbx[cache]: 97 hits, 0 misses, 3 not looked up, 2 bypassed; 0 B downloaded, 0 B uploaded, 4.2 MiB stored locally
+mbx[savings]: rustc believes it compiled everything. it is down 8d 15h across 2907 builds. let it believe.

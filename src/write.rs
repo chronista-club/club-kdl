@@ -17,8 +17,26 @@ pub(crate) fn write_document(out: &mut String, doc: &Document<'_>) {
 }
 
 pub(crate) fn write_node(out: &mut String, node: &Node<'_>, depth: usize) {
-    for _ in 0..depth {
-        out.push_str(INDENT);
+    write_node_with_indent::<true>(out, node, depth);
+}
+
+#[cfg(feature = "compact")]
+pub(crate) fn write_document_unindented(out: &mut String, doc: &Document<'_>) {
+    for node in doc.nodes() {
+        write_node_unindented(out, node);
+    }
+}
+
+#[cfg(feature = "compact")]
+pub(crate) fn write_node_unindented(out: &mut String, node: &Node<'_>) {
+    write_node_with_indent::<false>(out, node, 0);
+}
+
+fn write_node_with_indent<const INDENTED: bool>(out: &mut String, node: &Node<'_>, depth: usize) {
+    if INDENTED {
+        for _ in 0..depth {
+            out.push_str(INDENT);
+        }
     }
     if let Some(ty) = node.ty() {
         write_type(out, ty);
@@ -31,10 +49,12 @@ pub(crate) fn write_node(out: &mut String, node: &Node<'_>, depth: usize) {
     if !node.children().is_empty() {
         out.push_str(" {\n");
         for child in node.children() {
-            write_node(out, child, depth + 1);
+            write_node_with_indent::<INDENTED>(out, child, depth + 1);
         }
-        for _ in 0..depth {
-            out.push_str(INDENT);
+        if INDENTED {
+            for _ in 0..depth {
+                out.push_str(INDENT);
+            }
         }
         out.push('}');
     }

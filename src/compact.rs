@@ -3,6 +3,8 @@
 //! Enable the `compact` feature. Normal [`crate::to_string`] and
 //! [`crate::from_str`] continue to use original names. These APIs are for
 //! machine-oriented storage and messaging, not human-edited configuration.
+//! Compact output omits structural indentation while keeping one node per line.
+//! Braces preserve parent/child relationships; whitespace inside values is kept.
 //!
 //! ```
 //! use club_kdl::{KdlDeserialize, KdlSerialize, compact};
@@ -158,7 +160,7 @@ impl NameTable {
     pub fn id(&self) -> &str {
         &self.id
     }
-    /// Export the table as KDL.
+    /// Export the table as KDL without indentation.
     pub fn to_kdl(&self) -> String {
         let mut node = version_node(TABLE_NODE);
         for (original, alias) in &self.encode {
@@ -168,7 +170,9 @@ impl NameTable {
                 .push(Entry::arg(Value::String(Cow::Borrowed(original))));
             node.children.push(entry);
         }
-        node.to_string()
+        let mut out = String::new();
+        crate::write::write_node_unindented(&mut out, &node);
+        out
     }
     /// Import a table from KDL.
     /// The input must contain exactly one table, with unique original and wire
@@ -199,7 +203,7 @@ impl NameTable {
             .entries
             .push(Entry::arg(Value::String(Cow::Borrowed(&self.id))));
         let mut out = header.to_string();
-        doc.write_to(&mut out);
+        crate::write::write_document_unindented(&mut out, &doc);
         Ok(out)
     }
     /// Decode a document, borrowing names from this table and values from input.
@@ -351,7 +355,7 @@ pub fn encode_document(doc: Document<'_>) -> Result<String> {
     let table = NameTable::from_document(&doc);
     let doc = table.remap(doc, false)?;
     let mut out = table.to_kdl();
-    doc.write_to(&mut out);
+    crate::write::write_document_unindented(&mut out, &doc);
     Ok(out)
 }
 

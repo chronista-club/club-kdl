@@ -1,0 +1,36 @@
+      ┌─────────┐  mr boxington
+     ╱ ═══════ ╱│
+    ╱─────────╱ │
+    │ •    (◉)│≡│
+    │  ◟▄▄▄◞  │ ╱
+    │   ◀◆▶   │╱
+    └─────────┘
+   Compiling indent-pack-research v0.0.0 (/Users/makomac/repos/club-kdl/research/indent-pack)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.46s
+     Running unittests src/lib.rs (research/indent-pack/target/debug/deps/indent_pack_research-673a971da0000aed)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/layout.rs (research/indent-pack/target/debug/deps/layout-a24645cd81360121)
+
+running 6 tests
+test single_line_preserves_node_boundaries ... ok
+test no_indent_omits_only_layout_spaces ... ok
+test compact_envelopes_remain_compatible ... ok
+test naive_line_trimming_is_not_a_valid_pack_algorithm ... ok
+test whitespace_values_types_and_duplicates_survive ... ok
+CORPUS valid=233 independent_parser=233
+test valid_spec_corpus_round_trips ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s
+
+   Doc-tests indent_pack_research
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+mbx[cache]: 0 hits, 1 misses, 1 bypassed; 0 B downloaded, 0 B uploaded, 0 B stored locally
+mbx[savings]: reflinked 584.4 GiB into place. copying is for people with disk to spare.

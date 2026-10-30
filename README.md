@@ -13,9 +13,9 @@ A **family of crates** for working with [KDL](https://kdl.dev) in Rust — deriv
 
 ```toml
 [dependencies]
-club-kdl = "0.14"
+club-kdl = "0.15"
 # optional features, both off by default:
-# club-kdl = { version = "0.14", features = ["compose", "kdl-rs"] }
+# club-kdl = { version = "0.15", features = ["compose", "kdl-rs"] }
 ```
 
 ## The crate family
@@ -34,7 +34,7 @@ club-kdl = "0.14"
 |---------|--------------|------------------|
 | `compose` | `club_kdl::compose` — multi-file KDL via the `(<)file` / `(<)glob` include directive ([below](#multi-file-kdl-with-the-compose-feature)) | `glob` |
 | `kdl-rs` | Interop with kdl-rs: `from_kdl_document` / `from_kdl_node` / `to_kdl_document`, `From` conversions, the `club_kdl::kdl` re-export ([below](#interop-with-kdl-rs)) | `kdl` |
-| `compact` (unreleased) | Rule-based automatic aliases for machine-oriented KDL files and messages; ordinary config output keeps original names ([guide](docs/guide/01-compact-names.md)) | `sha2` |
+| `compact` | Rule-based automatic aliases and indentation-free output for machine-oriented KDL files and messages; ordinary config stays readable ([guide](docs/guide/01-compact-names.md)) | `sha2` |
 
 Until 0.13, `compose` was the separate `club-kdl-compose` crate; `kdl_compose::compose` is now `club_kdl::compose::compose`.
 
@@ -195,7 +195,7 @@ See [`club-kdl-codegen` on docs.rs](https://docs.rs/club-kdl-codegen) for the fu
 When a schema or config gets large, split it across files and include with `(<)file` (or `(<)glob` for batch import). Enable the feature first:
 
 ```toml
-club-kdl = { version = "0.14", features = ["compose"] }
+club-kdl = { version = "0.15", features = ["compose"] }
 ```
 
 ```kdl
@@ -562,7 +562,7 @@ To append records to a file one node at a time (NDKDL — "newline-delimited KDL
 Requires the `kdl-rs` feature:
 
 ```toml
-club-kdl = { version = "0.14", features = ["kdl-rs"] }
+club-kdl = { version = "0.15", features = ["kdl-rs"] }
 ```
 
 ```rust

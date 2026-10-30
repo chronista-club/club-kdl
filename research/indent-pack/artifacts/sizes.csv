@@ -1,0 +1,11 @@
+case,wire,pretty_bytes,no_indent_bytes,single_line_bytes
+depth0_width100,original,16590,16590,16590
+depth0_width100,aliases,6471,6471,6471
+depth1_width100,original,17006,16606,16604
+depth1_width100,aliases,6877,6477,6475
+depth8_width100,original,20142,16718,16702
+depth8_width100,aliases,9943,6519,6503
+depth32_width100,original,33870,17102,17038
+depth32_width100,aliases,23431,6663,6599
+depth128_width1,original,67749,2213,1957
+depth128_width1,aliases,66448,912,656

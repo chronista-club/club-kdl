@@ -1,0 +1,768 @@
+   Compiling indent-pack-research v0.0.0 (/Users/makomac/repos/club-kdl/research/indent-pack)
+    Finished `bench` profile [optimized] target(s) in 1.02s
+     Running benches/layout.rs (research/indent-pack/target/release/deps/layout-6eee6b6cf14bd67d)
+Gnuplot not found, using plotters backend
+Benchmarking depth0_width100/original/write_fresh/pretty
+Benchmarking depth0_width100/original/write_fresh/pretty: Warming up for 200.00 ms
+Benchmarking depth0_width100/original/write_fresh/pretty: Collecting 40 samples in estimated 1.0030 s (57k iterations)
+Benchmarking depth0_width100/original/write_fresh/pretty: Analyzing
+depth0_width100/original/write_fresh/pretty
+                        time:   [16.416 µs 16.584 µs 16.751 µs]
+Found 4 outliers among 40 measurements (10.00%)
+  4 (10.00%) high mild
+Benchmarking depth0_width100/original/write_reuse/pretty
+Benchmarking depth0_width100/original/write_reuse/pretty: Warming up for 200.00 ms
+Benchmarking depth0_width100/original/write_reuse/pretty: Collecting 40 samples in estimated 1.0079 s (64k iterations)
+Benchmarking depth0_width100/original/write_reuse/pretty: Analyzing
+depth0_width100/original/write_reuse/pretty
+                        time:   [15.568 µs 15.621 µs 15.681 µs]
+Found 5 outliers among 40 measurements (12.50%)
+  4 (10.00%) low mild
+  1 (2.50%) high mild
+Benchmarking depth0_width100/original/parse/pretty
+Benchmarking depth0_width100/original/parse/pretty: Warming up for 200.00 ms
+Benchmarking depth0_width100/original/parse/pretty: Collecting 40 samples in estimated 1.0222 s (32k iterations)
+Benchmarking depth0_width100/original/parse/pretty: Analyzing
+depth0_width100/original/parse/pretty
+                        time:   [31.842 µs 31.920 µs 32.018 µs]
+Found 4 outliers among 40 measurements (10.00%)
+  1 (2.50%) low mild
+  1 (2.50%) high mild
+  2 (5.00%) high severe
+Benchmarking depth0_width100/original/write_fresh/no_indent
+Benchmarking depth0_width100/original/write_fresh/no_indent: Warming up for 200.00 ms
+Benchmarking depth0_width100/original/write_fresh/no_indent: Collecting 40 samples in estimated 1.0022 s (59k iterations)
+Benchmarking depth0_width100/original/write_fresh/no_indent: Analyzing
+depth0_width100/original/write_fresh/no_indent
+                        time:   [16.753 µs 16.872 µs 16.983 µs]
+Found 2 outliers among 40 measurements (5.00%)
+  2 (5.00%) low mild
+Benchmarking depth0_width100/original/write_reuse/no_indent
+Benchmarking depth0_width100/original/write_reuse/no_indent: Warming up for 200.00 ms
+Benchmarking depth0_width100/original/write_reuse/no_indent: Collecting 40 samples in estimated 1.0023 s (62k iterations)
+Benchmarking depth0_width100/original/write_reuse/no_indent: Analyzing
+depth0_width100/original/write_reuse/no_indent
+                        time:   [15.951 µs 16.168 µs 16.395 µs]
+Found 1 outliers among 40 measurements (2.50%)
+  1 (2.50%) high mild
+Benchmarking depth0_width100/original/parse/no_indent
+Benchmarking depth0_width100/original/parse/no_indent: Warming up for 200.00 ms
+Benchmarking depth0_width100/original/parse/no_indent: Collecting 40 samples in estimated 1.0248 s (32k iterations)
+Benchmarking depth0_width100/original/parse/no_indent: Analyzing
+depth0_width100/original/parse/no_indent
+                        time:   [31.837 µs 31.926 µs 32.027 µs]
+Found 3 outliers among 40 measurements (7.50%)
+  2 (5.00%) high mild
+  1 (2.50%) high severe
+Benchmarking depth0_width100/original/write_fresh/single_line
+Benchmarking depth0_width100/original/write_fresh/single_line: Warming up for 200.00 ms
+Benchmarking depth0_width100/original/write_fresh/single_line: Collecting 40 samples in estimated 1.0029 s (57k iterations)
+Benchmarking depth0_width100/original/write_fresh/single_line: Analyzing
+depth0_width100/original/write_fresh/single_line
+                        time:   [17.284 µs 17.329 µs 17.379 µs]
+Found 5 outliers among 40 measurements (12.50%)
+  1 (2.50%) low mild
+  4 (10.00%) high mild
+Benchmarking depth0_width100/original/write_reuse/single_line
+Benchmarking depth0_width100/original/write_reuse/single_line: Warming up for 200.00 ms
+Benchmarking depth0_width100/original/write_reuse/single_line: Collecting 40 samples in estimated 1.0016 s (60k iterations)
+Benchmarking depth0_width100/original/write_reuse/single_line: Analyzing
+depth0_width100/original/write_reuse/single_line
+                        time:   [16.106 µs 16.199 µs 16.282 µs]
+Found 1 outliers among 40 measurements (2.50%)
+  1 (2.50%) high mild
+Benchmarking depth0_width100/original/parse/single_line
+Benchmarking depth0_width100/original/parse/single_line: Warming up for 200.00 ms
+Benchmarking depth0_width100/original/parse/single_line: Collecting 40 samples in estimated 1.0172 s (31k iterations)
+Benchmarking depth0_width100/original/parse/single_line: Analyzing
+depth0_width100/original/parse/single_line
+                        time:   [31.613 µs 31.968 µs 32.385 µs]
+Found 1 outliers among 40 measurements (2.50%)
+  1 (2.50%) high severe
+
+Benchmarking depth0_width100/aliases/write_fresh/pretty
+Benchmarking depth0_width100/aliases/write_fresh/pretty: Warming up for 200.00 ms
+Benchmarking depth0_width100/aliases/write_fresh/pretty: Collecting 40 samples in estimated 1.0098 s (81k iterations)
+Benchmarking depth0_width100/aliases/write_fresh/pretty: Analyzing
+depth0_width100/aliases/write_fresh/pretty
+                        time:   [12.121 µs 12.246 µs 12.360 µs]
+Benchmarking depth0_width100/aliases/write_reuse/pretty
+Benchmarking depth0_width100/aliases/write_reuse/pretty: Warming up for 200.00 ms
+Benchmarking depth0_width100/aliases/write_reuse/pretty: Collecting 40 samples in estimated 1.0069 s (84k iterations)
+Benchmarking depth0_width100/aliases/write_reuse/pretty: Analyzing
+depth0_width100/aliases/write_reuse/pretty
+                        time:   [11.670 µs 11.775 µs 11.872 µs]
+Benchmarking depth0_width100/aliases/parse/pretty
+Benchmarking depth0_width100/aliases/parse/pretty: Warming up for 200.00 ms
+Benchmarking depth0_width100/aliases/parse/pretty: Collecting 40 samples in estimated 1.0067 s (37k iterations)
+Benchmarking depth0_width100/aliases/parse/pretty: Analyzing
+depth0_width100/aliases/parse/pretty
+                        time:   [27.322 µs 27.471 µs 27.643 µs]
+Found 2 outliers among 40 measurements (5.00%)
+  2 (5.00%) high mild
+Benchmarking depth0_width100/aliases/write_fresh/no_indent
+Benchmarking depth0_width100/aliases/write_fresh/no_indent: Warming up for 200.00 ms
+Benchmarking depth0_width100/aliases/write_fresh/no_indent: Collecting 40 samples in estimated 1.0038 s (80k iterations)
+Benchmarking depth0_width100/aliases/write_fresh/no_indent: Analyzing
+depth0_width100/aliases/write_fresh/no_indent
+                        time:   [12.094 µs 12.165 µs 12.256 µs]
+Benchmarking depth0_width100/aliases/write_reuse/no_indent
+Benchmarking depth0_width100/aliases/write_reuse/no_indent: Warming up for 200.00 ms
+Benchmarking depth0_width100/aliases/write_reuse/no_indent: Collecting 40 samples in estimated 1.0080 s (81k iterations)
+Benchmarking depth0_width100/aliases/write_reuse/no_indent: Analyzing
+depth0_width100/aliases/write_reuse/no_indent
+                        time:   [12.155 µs 12.221 µs 12.299 µs]
+Found 1 outliers among 40 measurements (2.50%)
+  1 (2.50%) high severe
+Benchmarking depth0_width100/aliases/parse/no_indent
+Benchmarking depth0_width100/aliases/parse/no_indent: Warming up for 200.00 ms
+Benchmarking depth0_width100/aliases/parse/no_indent: Collecting 40 samples in estimated 1.0112 s (37k iterations)
+Benchmarking depth0_width100/aliases/parse/no_indent: Analyzing
+depth0_width100/aliases/parse/no_indent
+                        time:   [27.425 µs 28.326 µs 29.696 µs]
+Found 6 outliers among 40 measurements (15.00%)
+  1 (2.50%) low mild
+  2 (5.00%) high mild
+  3 (7.50%) high severe
+Benchmarking depth0_width100/aliases/write_fresh/single_line
+Benchmarking depth0_width100/aliases/write_fresh/single_line: Warming up for 200.00 ms
+Benchmarking depth0_width100/aliases/write_fresh/single_line: Collecting 40 samples in estimated 1.0074 s (75k iterations)
+Benchmarking depth0_width100/aliases/write_fresh/single_line: Analyzing
+depth0_width100/aliases/write_fresh/single_line
+                        time:   [12.941 µs 13.015 µs 13.088 µs]
+Found 2 outliers among 40 measurements (5.00%)
+  2 (5.00%) high mild
+Benchmarking depth0_width100/aliases/write_reuse/single_line
+Benchmarking depth0_width100/aliases/write_reuse/single_line: Warming up for 200.00 ms
+Benchmarking depth0_width100/aliases/write_reuse/single_line: Collecting 40 samples in estimated 1.0017 s (81k iterations)
+Benchmarking depth0_width100/aliases/write_reuse/single_line: Analyzing
+depth0_width100/aliases/write_reuse/single_line
+                        time:   [12.884 µs 13.186 µs 13.478 µs]
+Found 3 outliers among 40 measurements (7.50%)
+  3 (7.50%) high mild
+Benchmarking depth0_width100/aliases/parse/single_line
+Benchmarking depth0_width100/aliases/parse/single_line: Warming up for 200.00 ms
+Benchmarking depth0_width100/aliases/parse/single_line: Collecting 40 samples in estimated 1.0091 s (33k iterations)
+Benchmarking depth0_width100/aliases/parse/single_line: Analyzing
+depth0_width100/aliases/parse/single_line
+                        time:   [27.589 µs 27.967 µs 28.329 µs]
+Found 3 outliers among 40 measurements (7.50%)
+  3 (7.50%) high mild
+
+Benchmarking depth1_width100/original/write_fresh/pretty
+Benchmarking depth1_width100/original/write_fresh/pretty: Warming up for 200.00 ms
+Benchmarking depth1_width100/original/write_fresh/pretty: Collecting 40 samples in estimated 1.0101 s (60k iterations)
+Benchmarking depth1_width100/original/write_fresh/pretty: Analyzing
+depth1_width100/original/write_fresh/pretty
+                        time:   [16.573 µs 16.937 µs 17.477 µs]
+Found 5 outliers among 40 measurements (12.50%)
+  2 (5.00%) high mild
+  3 (7.50%) high severe
+Benchmarking depth1_width100/original/write_reuse/pretty
+Benchmarking depth1_width100/original/write_reuse/pretty: Warming up for 200.00 ms
+Benchmarking depth1_width100/original/write_reuse/pretty: Collecting 40 samples in estimated 1.0086 s (65k iterations)
+Benchmarking depth1_width100/original/write_reuse/pretty: Analyzing
+depth1_width100/original/write_reuse/pretty
+                        time:   [15.789 µs 15.934 µs 16.085 µs]
+Found 2 outliers among 40 measurements (5.00%)
+  1 (2.50%) high mild
+  1 (2.50%) high severe
+Benchmarking depth1_width100/original/parse/pretty
+Benchmarking depth1_width100/original/parse/pretty: Warming up for 200.00 ms
+Benchmarking depth1_width100/original/parse/pretty: Collecting 40 samples in estimated 1.0236 s (32k iterations)
+Benchmarking depth1_width100/original/parse/pretty: Analyzing
+depth1_width100/original/parse/pretty
+                        time:   [31.866 µs 32.023 µs 32.265 µs]
+Found 2 outliers among 40 measurements (5.00%)
+  1 (2.50%) high mild
+  1 (2.50%) high severe
+Benchmarking depth1_width100/original/write_fresh/no_indent
+Benchmarking depth1_width100/original/write_fresh/no_indent: Warming up for 200.00 ms
+Benchmarking depth1_width100/original/write_fresh/no_indent: Collecting 40 samples in estimated 1.0058 s (60k iterations)
+Benchmarking depth1_width100/original/write_fresh/no_indent: Analyzing
+depth1_width100/original/write_fresh/no_indent
+                        time:   [16.484 µs 16.593 µs 16.726 µs]
+Found 3 outliers among 40 measurements (7.50%)
+  2 (5.00%) high mild
+  1 (2.50%) high severe
+Benchmarking depth1_width100/original/write_reuse/no_indent
+Benchmarking depth1_width100/original/write_reuse/no_indent: Warming up for 200.00 ms
+Benchmarking depth1_width100/original/write_reuse/no_indent: Collecting 40 samples in estimated 1.0023 s (62k iterations)
+Benchmarking depth1_width100/original/write_reuse/no_indent: Analyzing
+depth1_width100/original/write_reuse/no_indent
+                        time:   [15.979 µs 16.109 µs 16.241 µs]
+Found 1 outliers among 40 measurements (2.50%)
+  1 (2.50%) high mild
+Benchmarking depth1_width100/original/parse/no_indent
+Benchmarking depth1_width100/original/parse/no_indent: Warming up for 200.00 ms
+Benchmarking depth1_width100/original/parse/no_indent: Collecting 40 samples in estimated 1.0231 s (32k iterations)
+Benchmarking depth1_width100/original/parse/no_indent: Analyzing
+depth1_width100/original/parse/no_indent
+                        time:   [31.874 µs 32.032 µs 32.260 µs]
+Found 2 outliers among 40 measurements (5.00%)
+  1 (2.50%) low mild
+  1 (2.50%) high severe
+Benchmarking depth1_width100/original/write_fresh/single_line
+Benchmarking depth1_width100/original/write_fresh/single_line: Warming up for 200.00 ms
+Benchmarking depth1_width100/original/write_fresh/single_line: Collecting 40 samples in estimated 1.0077 s (59k iterations)
+Benchmarking depth1_width100/original/write_fresh/single_line: Analyzing
+depth1_width100/original/write_fresh/single_line
+                        time:   [16.942 µs 17.001 µs 17.081 µs]
+Found 1 outliers among 40 measurements (2.50%)
+  1 (2.50%) high severe
+Benchmarking depth1_width100/original/write_reuse/single_line
+Benchmarking depth1_width100/original/write_reuse/single_line: Warming up for 200.00 ms
+Benchmarking depth1_width100/original/write_reuse/single_line: Collecting 40 samples in estimated 1.0085 s (61k iterations)
+Benchmarking depth1_width100/original/write_reuse/single_line: Analyzing
+depth1_width100/original/write_reuse/single_line
+                        time:   [16.539 µs 17.169 µs 17.899 µs]
+Found 5 outliers among 40 measurements (12.50%)
+  3 (7.50%) high mild
+  2 (5.00%) high severe
+Benchmarking depth1_width100/original/parse/single_line
+Benchmarking depth1_width100/original/parse/single_line: Warming up for 200.00 ms
+Benchmarking depth1_width100/original/parse/single_line: Collecting 40 samples in estimated 1.0035 s (30k iterations)
+Benchmarking depth1_width100/original/parse/single_line: Analyzing
+depth1_width100/original/parse/single_line
+                        time:   [31.861 µs 32.002 µs 32.176 µs]
+Found 5 outliers among 40 measurements (12.50%)
+  1 (2.50%) low mild
+  4 (10.00%) high mild
+
+Benchmarking depth1_width100/aliases/write_fresh/pretty
+Benchmarking depth1_width100/aliases/write_fresh/pretty: Warming up for 200.00 ms
+Benchmarking depth1_width100/aliases/write_fresh/pretty: Collecting 40 samples in estimated 1.0076 s (80k iterations)
+Benchmarking depth1_width100/aliases/write_fresh/pretty: Analyzing
+depth1_width100/aliases/write_fresh/pretty
+                        time:   [12.778 µs 12.977 µs 13.170 µs]
+Found 4 outliers among 40 measurements (10.00%)
+  2 (5.00%) low mild
+  1 (2.50%) high mild
+  1 (2.50%) high severe
+Benchmarking depth1_width100/aliases/write_reuse/pretty
+Benchmarking depth1_width100/aliases/write_reuse/pretty: Warming up for 200.00 ms
+Benchmarking depth1_width100/aliases/write_reuse/pretty: Collecting 40 samples in estimated 1.0026 s (81k iterations)
+Benchmarking depth1_width100/aliases/write_reuse/pretty: Analyzing
+depth1_width100/aliases/write_reuse/pretty
+                        time:   [12.202 µs 12.411 µs 12.732 µs]
+Found 7 outliers among 40 measurements (17.50%)
+  2 (5.00%) high mild
+  5 (12.50%) high severe
+Benchmarking depth1_width100/aliases/parse/pretty
+Benchmarking depth1_width100/aliases/parse/pretty: Warming up for 200.00 ms
+Benchmarking depth1_width100/aliases/parse/pretty: Collecting 40 samples in estimated 1.0128 s (37k iterations)
+Benchmarking depth1_width100/aliases/parse/pretty: Analyzing
+depth1_width100/aliases/parse/pretty
+                        time:   [27.563 µs 28.304 µs 29.547 µs]
+Found 7 outliers among 40 measurements (17.50%)
+  2 (5.00%) high mild
+  5 (12.50%) high severe
+Benchmarking depth1_width100/aliases/write_fresh/no_indent
+Benchmarking depth1_width100/aliases/write_fresh/no_indent: Warming up for 200.00 ms
+Benchmarking depth1_width100/aliases/write_fresh/no_indent: Collecting 40 samples in estimated 1.0010 s (79k iterations)
+Benchmarking depth1_width100/aliases/write_fresh/no_indent: Analyzing
+depth1_width100/aliases/write_fresh/no_indent
+                        time:   [12.424 µs 12.505 µs 12.586 µs]
+Benchmarking depth1_width100/aliases/write_reuse/no_indent
+Benchmarking depth1_width100/aliases/write_reuse/no_indent: Warming up for 200.00 ms
+Benchmarking depth1_width100/aliases/write_reuse/no_indent: Collecting 40 samples in estimated 1.0054 s (75k iterations)
+Benchmarking depth1_width100/aliases/write_reuse/no_indent: Analyzing
+depth1_width100/aliases/write_reuse/no_indent
+                        time:   [12.367 µs 12.444 µs 12.515 µs]
+Found 6 outliers among 40 measurements (15.00%)
+  5 (12.50%) high mild
+  1 (2.50%) high severe
+Benchmarking depth1_width100/aliases/parse/no_indent
+Benchmarking depth1_width100/aliases/parse/no_indent: Warming up for 200.00 ms
+Benchmarking depth1_width100/aliases/parse/no_indent: Collecting 40 samples in estimated 1.0067 s (37k iterations)
+Benchmarking depth1_width100/aliases/parse/no_indent: Analyzing
+depth1_width100/aliases/parse/no_indent
+                        time:   [27.237 µs 27.454 µs 27.775 µs]
+Found 1 outliers among 40 measurements (2.50%)
+  1 (2.50%) high mild
+Benchmarking depth1_width100/aliases/write_fresh/single_line
+Benchmarking depth1_width100/aliases/write_fresh/single_line: Warming up for 200.00 ms
+Benchmarking depth1_width100/aliases/write_fresh/single_line: Collecting 40 samples in estimated 1.0106 s (77k iterations)
+Benchmarking depth1_width100/aliases/write_fresh/single_line: Analyzing
+depth1_width100/aliases/write_fresh/single_line
+                        time:   [12.930 µs 13.018 µs 13.129 µs]
+Found 1 outliers among 40 measurements (2.50%)
+  1 (2.50%) high severe
+Benchmarking depth1_width100/aliases/write_reuse/single_line
+Benchmarking depth1_width100/aliases/write_reuse/single_line: Warming up for 200.00 ms
+Benchmarking depth1_width100/aliases/write_reuse/single_line: Collecting 40 samples in estimated 1.0064 s (79k iterations)
+Benchmarking depth1_width100/aliases/write_reuse/single_line: Analyzing
+depth1_width100/aliases/write_reuse/single_line
+                        time:   [12.175 µs 12.261 µs 12.343 µs]
+Found 1 outliers among 40 measurements (2.50%)
+  1 (2.50%) high mild
+Benchmarking depth1_width100/aliases/parse/single_line
+Benchmarking depth1_width100/aliases/parse/single_line: Warming up for 200.00 ms
+Benchmarking depth1_width100/aliases/parse/single_line: Collecting 40 samples in estimated 1.0012 s (37k iterations)
+Benchmarking depth1_width100/aliases/parse/single_line: Analyzing
+depth1_width100/aliases/parse/single_line
+                        time:   [27.127 µs 27.313 µs 27.513 µs]
+Found 3 outliers among 40 measurements (7.50%)
+  3 (7.50%) high mild
+
+Benchmarking depth8_width100/original/write_fresh/pretty
+Benchmarking depth8_width100/original/write_fresh/pretty: Warming up for 200.00 ms
+Benchmarking depth8_width100/original/write_fresh/pretty: Collecting 40 samples in estimated 1.0071 s (59k iterations)
+Benchmarking depth8_width100/original/write_fresh/pretty: Analyzing
+depth8_width100/original/write_fresh/pretty
+                        time:   [16.776 µs 16.860 µs 16.954 µs]
+Found 3 outliers among 40 measurements (7.50%)
+  3 (7.50%) high mild
+Benchmarking depth8_width100/original/write_reuse/pretty
+Benchmarking depth8_width100/original/write_reuse/pretty: Warming up for 200.00 ms
+Benchmarking depth8_width100/original/write_reuse/pretty: Collecting 40 samples in estimated 1.0064 s (63k iterations)
+Benchmarking depth8_width100/original/write_reuse/pretty: Analyzing
+depth8_width100/original/write_reuse/pretty
+                        time:   [16.043 µs 16.204 µs 16.381 µs]
+Found 2 outliers among 40 measurements (5.00%)
+  2 (5.00%) high mild
+Benchmarking depth8_width100/original/parse/pretty
+Benchmarking depth8_width100/original/parse/pretty: Warming up for 200.00 ms
+Benchmarking depth8_width100/original/parse/pretty: Collecting 40 samples in estimated 1.0127 s (27k iterations)
+Benchmarking depth8_width100/original/parse/pretty: Analyzing
+depth8_width100/original/parse/pretty
+                        time:   [37.128 µs 37.219 µs 37.345 µs]
+Found 4 outliers among 40 measurements (10.00%)
+  4 (10.00%) high mild
+Benchmarking depth8_width100/original/write_fresh/no_indent
+Benchmarking depth8_width100/original/write_fresh/no_indent: Warming up for 200.00 ms
+Benchmarking depth8_width100/original/write_fresh/no_indent: Collecting 40 samples in estimated 1.0054 s (60k iterations)
+Benchmarking depth8_width100/original/write_fresh/no_indent: Analyzing
+depth8_width100/original/write_fresh/no_indent
+                        time:   [17.217 µs 18.241 µs 19.727 µs]
+Found 6 outliers among 40 measurements (15.00%)
+  1 (2.50%) high mild
+  5 (12.50%) high severe
+Benchmarking depth8_width100/original/write_reuse/no_indent
+Benchmarking depth8_width100/original/write_reuse/no_indent: Warming up for 200.00 ms
+Benchmarking depth8_width100/original/write_reuse/no_indent: Collecting 40 samples in estimated 1.0070 s (62k iterations)
+Benchmarking depth8_width100/original/write_reuse/no_indent: Analyzing
+depth8_width100/original/write_reuse/no_indent
+                        time:   [16.580 µs 17.598 µs 19.450 µs]
+Found 4 outliers among 40 measurements (10.00%)
+  1 (2.50%) high mild
+  3 (7.50%) high severe
+Benchmarking depth8_width100/original/parse/no_indent
+Benchmarking depth8_width100/original/parse/no_indent: Warming up for 200.00 ms
+Benchmarking depth8_width100/original/parse/no_indent: Collecting 40 samples in estimated 1.0022 s (31k iterations)
+Benchmarking depth8_width100/original/parse/no_indent: Analyzing
+depth8_width100/original/parse/no_indent
+                        time:   [32.916 µs 34.399 µs 36.806 µs]
+Found 4 outliers among 40 measurements (10.00%)
+  4 (10.00%) high severe
+Benchmarking depth8_width100/original/write_fresh/single_line
+Benchmarking depth8_width100/original/write_fresh/single_line: Warming up for 200.00 ms
+Benchmarking depth8_width100/original/write_fresh/single_line: Collecting 40 samples in estimated 1.0038 s (58k iterations)
+Benchmarking depth8_width100/original/write_fresh/single_line: Analyzing
+depth8_width100/original/write_fresh/single_line
+                        time:   [17.264 µs 18.287 µs 19.716 µs]
+Found 5 outliers among 40 measurements (12.50%)
+  1 (2.50%) low mild
+  1 (2.50%) high mild
+  3 (7.50%) high severe
+Benchmarking depth8_width100/original/write_reuse/single_line
+Benchmarking depth8_width100/original/write_reuse/single_line: Warming up for 200.00 ms
+Benchmarking depth8_width100/original/write_reuse/single_line: Collecting 40 samples in estimated 1.0123 s (61k iterations)
+Benchmarking depth8_width100/original/write_reuse/single_line: Analyzing
+depth8_width100/original/write_reuse/single_line
+                        time:   [16.694 µs 17.172 µs 18.058 µs]
+Found 3 outliers among 40 measurements (7.50%)
+  2 (5.00%) high mild
+  1 (2.50%) high severe
+Benchmarking depth8_width100/original/parse/single_line
+Benchmarking depth8_width100/original/parse/single_line: Warming up for 200.00 ms
+Benchmarking depth8_width100/original/parse/single_line: Collecting 40 samples in estimated 1.0075 s (31k iterations)
+Benchmarking depth8_width100/original/parse/single_line: Analyzing
+depth8_width100/original/parse/single_line
+                        time:   [32.112 µs 32.218 µs 32.379 µs]
+Found 5 outliers among 40 measurements (12.50%)
+  3 (7.50%) low mild
+  1 (2.50%) high mild
+  1 (2.50%) high severe
+
+Benchmarking depth8_width100/aliases/write_fresh/pretty
+Benchmarking depth8_width100/aliases/write_fresh/pretty: Warming up for 200.00 ms
+Benchmarking depth8_width100/aliases/write_fresh/pretty: Collecting 40 samples in estimated 1.0068 s (80k iterations)
+Benchmarking depth8_width100/aliases/write_fresh/pretty: Analyzing
+depth8_width100/aliases/write_fresh/pretty
+                        time:   [12.936 µs 13.484 µs 14.332 µs]
+Found 4 outliers among 40 measurements (10.00%)
+  1 (2.50%) high mild
+  3 (7.50%) high severe
+Benchmarking depth8_width100/aliases/write_reuse/pretty
+Benchmarking depth8_width100/aliases/write_reuse/pretty: Warming up for 200.00 ms
+Benchmarking depth8_width100/aliases/write_reuse/pretty: Collecting 40 samples in estimated 1.0051 s (81k iterations)
+Benchmarking depth8_width100/aliases/write_reuse/pretty: Analyzing
+depth8_width100/aliases/write_reuse/pretty
+                        time:   [12.179 µs 12.277 µs 12.378 µs]
+Benchmarking depth8_width100/aliases/parse/pretty
+Benchmarking depth8_width100/aliases/parse/pretty: Warming up for 200.00 ms
+Benchmarking depth8_width100/aliases/parse/pretty: Collecting 40 samples in estimated 1.0210 s (31k iterations)
+Benchmarking depth8_width100/aliases/parse/pretty: Analyzing
+depth8_width100/aliases/parse/pretty
+                        time:   [32.502 µs 32.650 µs 32.898 µs]
+Found 3 outliers among 40 measurements (7.50%)
+  3 (7.50%) high severe
+Benchmarking depth8_width100/aliases/write_fresh/no_indent
+Benchmarking depth8_width100/aliases/write_fresh/no_indent: Warming up for 200.00 ms
+Benchmarking depth8_width100/aliases/write_fresh/no_indent: Collecting 40 samples in estimated 1.0024 s (77k iterations)
+Benchmarking depth8_width100/aliases/write_fresh/no_indent: Analyzing
+depth8_width100/aliases/write_fresh/no_indent
+                        time:   [12.253 µs 12.391 µs 12.522 µs]
+Benchmarking depth8_width100/aliases/write_reuse/no_indent
+Benchmarking depth8_width100/aliases/write_reuse/no_indent: Warming up for 200.00 ms
+Benchmarking depth8_width100/aliases/write_reuse/no_indent: Collecting 40 samples in estimated 1.0097 s (82k iterations)
+Benchmarking depth8_width100/aliases/write_reuse/no_indent: Analyzing
+depth8_width100/aliases/write_reuse/no_indent
+                        time:   [12.473 µs 12.937 µs 13.578 µs]
+Found 4 outliers among 40 measurements (10.00%)
+  1 (2.50%) low mild
+  3 (7.50%) high severe
+Benchmarking depth8_width100/aliases/parse/no_indent
+Benchmarking depth8_width100/aliases/parse/no_indent: Warming up for 200.00 ms
+Benchmarking depth8_width100/aliases/parse/no_indent: Collecting 40 samples in estimated 1.0083 s (36k iterations)
+Benchmarking depth8_width100/aliases/parse/no_indent: Analyzing
+depth8_width100/aliases/parse/no_indent
+                        time:   [27.906 µs 28.102 µs 28.342 µs]
+Found 5 outliers among 40 measurements (12.50%)
+  4 (10.00%) high mild
+  1 (2.50%) high severe
+Benchmarking depth8_width100/aliases/write_fresh/single_line
+Benchmarking depth8_width100/aliases/write_fresh/single_line: Warming up for 200.00 ms
+Benchmarking depth8_width100/aliases/write_fresh/single_line: Collecting 40 samples in estimated 1.0087 s (75k iterations)
+Benchmarking depth8_width100/aliases/write_fresh/single_line: Analyzing
+depth8_width100/aliases/write_fresh/single_line
+                        time:   [13.003 µs 13.085 µs 13.171 µs]
+Found 2 outliers among 40 measurements (5.00%)
+  2 (5.00%) high mild
+Benchmarking depth8_width100/aliases/write_reuse/single_line
+Benchmarking depth8_width100/aliases/write_reuse/single_line: Warming up for 200.00 ms
+Benchmarking depth8_width100/aliases/write_reuse/single_line: Collecting 40 samples in estimated 1.0060 s (79k iterations)
+Benchmarking depth8_width100/aliases/write_reuse/single_line: Analyzing
+depth8_width100/aliases/write_reuse/single_line
+                        time:   [12.292 µs 12.444 µs 12.633 µs]
+Found 1 outliers among 40 measurements (2.50%)
+  1 (2.50%) high mild
+Benchmarking depth8_width100/aliases/parse/single_line
+Benchmarking depth8_width100/aliases/parse/single_line: Warming up for 200.00 ms
+Benchmarking depth8_width100/aliases/parse/single_line: Collecting 40 samples in estimated 1.0202 s (36k iterations)
+Benchmarking depth8_width100/aliases/parse/single_line: Analyzing
+depth8_width100/aliases/parse/single_line
+                        time:   [28.786 µs 29.903 µs 31.540 µs]
+Found 1 outliers among 40 measurements (2.50%)
+  1 (2.50%) high severe
+
+Benchmarking depth32_width100/original/write_fresh/pretty
+Benchmarking depth32_width100/original/write_fresh/pretty: Warming up for 200.00 ms
+Benchmarking depth32_width100/original/write_fresh/pretty: Collecting 40 samples in estimated 1.0074 s (52k iterations)
+Benchmarking depth32_width100/original/write_fresh/pretty: Analyzing
+depth32_width100/original/write_fresh/pretty
+                        time:   [18.545 µs 18.634 µs 18.727 µs]
+Benchmarking depth32_width100/original/write_reuse/pretty
+Benchmarking depth32_width100/original/write_reuse/pretty: Warming up for 200.00 ms
+Benchmarking depth32_width100/original/write_reuse/pretty: Collecting 40 samples in estimated 1.0014 s (56k iterations)
+Benchmarking depth32_width100/original/write_reuse/pretty: Analyzing
+depth32_width100/original/write_reuse/pretty
+                        time:   [17.469 µs 17.888 µs 18.317 µs]
+Found 2 outliers among 40 measurements (5.00%)
+  1 (2.50%) high mild
+  1 (2.50%) high severe
+Benchmarking depth32_width100/original/parse/pretty
+Benchmarking depth32_width100/original/parse/pretty: Warming up for 200.00 ms
+Benchmarking depth32_width100/original/parse/pretty: Collecting 40 samples in estimated 1.0309 s (16k iterations)
+Benchmarking depth32_width100/original/parse/pretty: Analyzing
+depth32_width100/original/parse/pretty
+                        time:   [62.362 µs 62.579 µs 62.828 µs]
+Found 8 outliers among 40 measurements (20.00%)
+  3 (7.50%) low mild
+  4 (10.00%) high mild
+  1 (2.50%) high severe
+Benchmarking depth32_width100/original/write_fresh/no_indent
+Benchmarking depth32_width100/original/write_fresh/no_indent: Warming up for 200.00 ms
+Benchmarking depth32_width100/original/write_fresh/no_indent: Collecting 40 samples in estimated 1.0087 s (59k iterations)
+Benchmarking depth32_width100/original/write_fresh/no_indent: Analyzing
+depth32_width100/original/write_fresh/no_indent
+                        time:   [17.610 µs 18.054 µs 18.648 µs]
+Found 4 outliers among 40 measurements (10.00%)
+  1 (2.50%) high mild
+  3 (7.50%) high severe
+Benchmarking depth32_width100/original/write_reuse/no_indent
+Benchmarking depth32_width100/original/write_reuse/no_indent: Warming up for 200.00 ms
+Benchmarking depth32_width100/original/write_reuse/no_indent: Collecting 40 samples in estimated 1.0075 s (58k iterations)
+Benchmarking depth32_width100/original/write_reuse/no_indent: Analyzing
+depth32_width100/original/write_reuse/no_indent
+                        time:   [16.867 µs 17.013 µs 17.159 µs]
+Found 2 outliers among 40 measurements (5.00%)
+  1 (2.50%) low mild
+  1 (2.50%) high mild
+Benchmarking depth32_width100/original/parse/no_indent
+Benchmarking depth32_width100/original/parse/no_indent: Warming up for 200.00 ms
+Benchmarking depth32_width100/original/parse/no_indent: Collecting 40 samples in estimated 1.0035 s (29k iterations)
+Benchmarking depth32_width100/original/parse/no_indent: Analyzing
+depth32_width100/original/parse/no_indent
+                        time:   [36.318 µs 39.362 µs 43.029 µs]
+Found 4 outliers among 40 measurements (10.00%)
+  2 (5.00%) high mild
+  2 (5.00%) high severe
+Benchmarking depth32_width100/original/write_fresh/single_line
+Benchmarking depth32_width100/original/write_fresh/single_line: Warming up for 200.00 ms
+Benchmarking depth32_width100/original/write_fresh/single_line: Collecting 40 samples in estimated 1.0143 s (57k iterations)
+Benchmarking depth32_width100/original/write_fresh/single_line: Analyzing
+depth32_width100/original/write_fresh/single_line
+                        time:   [17.485 µs 17.553 µs 17.645 µs]
+Found 1 outliers among 40 measurements (2.50%)
+  1 (2.50%) high mild
+Benchmarking depth32_width100/original/write_reuse/single_line
+Benchmarking depth32_width100/original/write_reuse/single_line: Warming up for 200.00 ms
+Benchmarking depth32_width100/original/write_reuse/single_line: Collecting 40 samples in estimated 1.0035 s (55k iterations)
+Benchmarking depth32_width100/original/write_reuse/single_line: Analyzing
+depth32_width100/original/write_reuse/single_line
+                        time:   [16.827 µs 17.047 µs 17.388 µs]
+Found 6 outliers among 40 measurements (15.00%)
+  3 (7.50%) high mild
+  3 (7.50%) high severe
+Benchmarking depth32_width100/original/parse/single_line
+Benchmarking depth32_width100/original/parse/single_line: Warming up for 200.00 ms
+Benchmarking depth32_width100/original/parse/single_line: Collecting 40 samples in estimated 1.0020 s (30k iterations)
+Benchmarking depth32_width100/original/parse/single_line: Analyzing
+depth32_width100/original/parse/single_line
+                        time:   [33.567 µs 33.740 µs 33.907 µs]
+Found 4 outliers among 40 measurements (10.00%)
+  1 (2.50%) low severe
+  1 (2.50%) low mild
+  2 (5.00%) high mild
+
+Benchmarking depth32_width100/aliases/write_fresh/pretty
+Benchmarking depth32_width100/aliases/write_fresh/pretty: Warming up for 200.00 ms
+Benchmarking depth32_width100/aliases/write_fresh/pretty: Collecting 40 samples in estimated 1.0019 s (68k iterations)
+Benchmarking depth32_width100/aliases/write_fresh/pretty: Analyzing
+depth32_width100/aliases/write_fresh/pretty
+                        time:   [14.179 µs 14.312 µs 14.494 µs]
+Benchmarking depth32_width100/aliases/write_reuse/pretty
+Benchmarking depth32_width100/aliases/write_reuse/pretty: Warming up for 200.00 ms
+Benchmarking depth32_width100/aliases/write_reuse/pretty: Collecting 40 samples in estimated 1.0086 s (75k iterations)
+Benchmarking depth32_width100/aliases/write_reuse/pretty: Analyzing
+depth32_width100/aliases/write_reuse/pretty
+                        time:   [13.325 µs 13.422 µs 13.529 µs]
+Found 4 outliers among 40 measurements (10.00%)
+  2 (5.00%) high mild
+  2 (5.00%) high severe
+Benchmarking depth32_width100/aliases/parse/pretty
+Benchmarking depth32_width100/aliases/parse/pretty: Warming up for 200.00 ms
+Benchmarking depth32_width100/aliases/parse/pretty: Collecting 40 samples in estimated 1.0450 s (18k iterations)
+Benchmarking depth32_width100/aliases/parse/pretty: Analyzing
+depth32_width100/aliases/parse/pretty
+                        time:   [58.318 µs 58.846 µs 59.450 µs]
+Found 5 outliers among 40 measurements (12.50%)
+  3 (7.50%) high mild
+  2 (5.00%) high severe
+Benchmarking depth32_width100/aliases/write_fresh/no_indent
+Benchmarking depth32_width100/aliases/write_fresh/no_indent: Warming up for 200.00 ms
+Benchmarking depth32_width100/aliases/write_fresh/no_indent: Collecting 40 samples in estimated 1.0025 s (75k iterations)
+Benchmarking depth32_width100/aliases/write_fresh/no_indent: Analyzing
+depth32_width100/aliases/write_fresh/no_indent
+                        time:   [12.775 µs 12.899 µs 13.035 µs]
+Benchmarking depth32_width100/aliases/write_reuse/no_indent
+Benchmarking depth32_width100/aliases/write_reuse/no_indent: Warming up for 200.00 ms
+Benchmarking depth32_width100/aliases/write_reuse/no_indent: Collecting 40 samples in estimated 1.0097 s (81k iterations)
+Benchmarking depth32_width100/aliases/write_reuse/no_indent: Analyzing
+depth32_width100/aliases/write_reuse/no_indent
+                        time:   [12.219 µs 12.320 µs 12.456 µs]
+Found 1 outliers among 40 measurements (2.50%)
+  1 (2.50%) high severe
+Benchmarking depth32_width100/aliases/parse/no_indent
+Benchmarking depth32_width100/aliases/parse/no_indent: Warming up for 200.00 ms
+Benchmarking depth32_width100/aliases/parse/no_indent: Collecting 40 samples in estimated 1.0167 s (35k iterations)
+Benchmarking depth32_width100/aliases/parse/no_indent: Analyzing
+depth32_width100/aliases/parse/no_indent
+                        time:   [28.821 µs 28.885 µs 28.965 µs]
+Found 2 outliers among 40 measurements (5.00%)
+  1 (2.50%) high mild
+  1 (2.50%) high severe
+Benchmarking depth32_width100/aliases/write_fresh/single_line
+Benchmarking depth32_width100/aliases/write_fresh/single_line: Warming up for 200.00 ms
+Benchmarking depth32_width100/aliases/write_fresh/single_line: Collecting 40 samples in estimated 1.0104 s (76k iterations)
+Benchmarking depth32_width100/aliases/write_fresh/single_line: Analyzing
+depth32_width100/aliases/write_fresh/single_line
+                        time:   [13.211 µs 13.361 µs 13.529 µs]
+Found 2 outliers among 40 measurements (5.00%)
+  1 (2.50%) high mild
+  1 (2.50%) high severe
+Benchmarking depth32_width100/aliases/write_reuse/single_line
+Benchmarking depth32_width100/aliases/write_reuse/single_line: Warming up for 200.00 ms
+Benchmarking depth32_width100/aliases/write_reuse/single_line: Collecting 40 samples in estimated 1.0070 s (79k iterations)
+Benchmarking depth32_width100/aliases/write_reuse/single_line: Analyzing
+depth32_width100/aliases/write_reuse/single_line
+                        time:   [12.882 µs 12.952 µs 13.016 µs]
+Benchmarking depth32_width100/aliases/parse/single_line
+Benchmarking depth32_width100/aliases/parse/single_line: Warming up for 200.00 ms
+Benchmarking depth32_width100/aliases/parse/single_line: Collecting 40 samples in estimated 1.0214 s (35k iterations)
+Benchmarking depth32_width100/aliases/parse/single_line: Analyzing
+depth32_width100/aliases/parse/single_line
+                        time:   [28.835 µs 28.962 µs 29.114 µs]
+Found 3 outliers among 40 measurements (7.50%)
+  1 (2.50%) low mild
+  2 (5.00%) high severe
+
+Benchmarking depth128_width1/original/write_fresh/pretty
+Benchmarking depth128_width1/original/write_fresh/pretty: Warming up for 200.00 ms
+Benchmarking depth128_width1/original/write_fresh/pretty: Collecting 40 samples in estimated 1.0046 s (85k iterations)
+Benchmarking depth128_width1/original/write_fresh/pretty: Analyzing
+depth128_width1/original/write_fresh/pretty
+                        time:   [11.481 µs 11.579 µs 11.690 µs]
+Benchmarking depth128_width1/original/write_reuse/pretty
+Benchmarking depth128_width1/original/write_reuse/pretty: Warming up for 200.00 ms
+Benchmarking depth128_width1/original/write_reuse/pretty: Collecting 40 samples in estimated 1.0039 s (112k iterations)
+Benchmarking depth128_width1/original/write_reuse/pretty: Analyzing
+depth128_width1/original/write_reuse/pretty
+                        time:   [8.8921 µs 8.9710 µs 9.0693 µs]
+Found 1 outliers among 40 measurements (2.50%)
+  1 (2.50%) high mild
+Benchmarking depth128_width1/original/parse/pretty
+Benchmarking depth128_width1/original/parse/pretty: Warming up for 200.00 ms
+Benchmarking depth128_width1/original/parse/pretty: Collecting 40 samples in estimated 1.0776 s (9020 iterations)
+Benchmarking depth128_width1/original/parse/pretty: Analyzing
+depth128_width1/original/parse/pretty
+                        time:   [117.68 µs 118.16 µs 118.77 µs]
+Found 5 outliers among 40 measurements (12.50%)
+  1 (2.50%) low mild
+  2 (5.00%) high mild
+  2 (5.00%) high severe
+Benchmarking depth128_width1/original/write_fresh/no_indent
+Benchmarking depth128_width1/original/write_fresh/no_indent: Warming up for 200.00 ms
+Benchmarking depth128_width1/original/write_fresh/no_indent: Collecting 40 samples in estimated 1.0016 s (518k iterations)
+Benchmarking depth128_width1/original/write_fresh/no_indent: Analyzing
+depth128_width1/original/write_fresh/no_indent
+                        time:   [1.9248 µs 1.9324 µs 1.9425 µs]
+Found 2 outliers among 40 measurements (5.00%)
+  1 (2.50%) high mild
+  1 (2.50%) high severe
+Benchmarking depth128_width1/original/write_reuse/no_indent
+Benchmarking depth128_width1/original/write_reuse/no_indent: Warming up for 200.00 ms
+Benchmarking depth128_width1/original/write_reuse/no_indent: Collecting 40 samples in estimated 1.0004 s (613k iterations)
+Benchmarking depth128_width1/original/write_reuse/no_indent: Analyzing
+depth128_width1/original/write_reuse/no_indent
+                        time:   [1.6265 µs 1.6309 µs 1.6358 µs]
+Found 1 outliers among 40 measurements (2.50%)
+  1 (2.50%) high mild
+Benchmarking depth128_width1/original/parse/no_indent
+Benchmarking depth128_width1/original/parse/no_indent: Warming up for 200.00 ms
+Benchmarking depth128_width1/original/parse/no_indent: Collecting 40 samples in estimated 1.0056 s (125k iterations)
+Benchmarking depth128_width1/original/parse/no_indent: Analyzing
+depth128_width1/original/parse/no_indent
+                        time:   [8.0569 µs 8.1399 µs 8.2216 µs]
+Found 5 outliers among 40 measurements (12.50%)
+  1 (2.50%) high mild
+  4 (10.00%) high severe
+Benchmarking depth128_width1/original/write_fresh/single_line
+Benchmarking depth128_width1/original/write_fresh/single_line: Warming up for 200.00 ms
+Benchmarking depth128_width1/original/write_fresh/single_line: Collecting 40 samples in estimated 1.0011 s (491k iterations)
+Benchmarking depth128_width1/original/write_fresh/single_line: Analyzing
+depth128_width1/original/write_fresh/single_line
+                        time:   [2.0208 µs 2.0265 µs 2.0320 µs]
+Found 3 outliers among 40 measurements (7.50%)
+  1 (2.50%) low mild
+  1 (2.50%) high mild
+  1 (2.50%) high severe
+Benchmarking depth128_width1/original/write_reuse/single_line
+Benchmarking depth128_width1/original/write_reuse/single_line: Warming up for 200.00 ms
+Benchmarking depth128_width1/original/write_reuse/single_line: Collecting 40 samples in estimated 1.0014 s (583k iterations)
+Benchmarking depth128_width1/original/write_reuse/single_line: Analyzing
+depth128_width1/original/write_reuse/single_line
+                        time:   [1.7256 µs 1.7372 µs 1.7509 µs]
+Found 2 outliers among 40 measurements (5.00%)
+  2 (5.00%) high mild
+Benchmarking depth128_width1/original/parse/single_line
+Benchmarking depth128_width1/original/parse/single_line: Warming up for 200.00 ms
+Benchmarking depth128_width1/original/parse/single_line: Collecting 40 samples in estimated 1.0038 s (129k iterations)
+Benchmarking depth128_width1/original/parse/single_line: Analyzing
+depth128_width1/original/parse/single_line
+                        time:   [7.7922 µs 7.8123 µs 7.8356 µs]
+Found 5 outliers among 40 measurements (12.50%)
+  1 (2.50%) low mild
+  4 (10.00%) high mild
+
+Benchmarking depth128_width1/aliases/write_fresh/pretty
+Benchmarking depth128_width1/aliases/write_fresh/pretty: Warming up for 200.00 ms
+Benchmarking depth128_width1/aliases/write_fresh/pretty: Collecting 40 samples in estimated 1.0026 s (89k iterations)
+Benchmarking depth128_width1/aliases/write_fresh/pretty: Analyzing
+depth128_width1/aliases/write_fresh/pretty
+                        time:   [11.213 µs 11.329 µs 11.455 µs]
+Found 5 outliers among 40 measurements (12.50%)
+  2 (5.00%) low mild
+  1 (2.50%) high mild
+  2 (5.00%) high severe
+Benchmarking depth128_width1/aliases/write_reuse/pretty
+Benchmarking depth128_width1/aliases/write_reuse/pretty: Warming up for 200.00 ms
+Benchmarking depth128_width1/aliases/write_reuse/pretty: Collecting 40 samples in estimated 1.0033 s (119k iterations)
+Benchmarking depth128_width1/aliases/write_reuse/pretty: Analyzing
+depth128_width1/aliases/write_reuse/pretty
+                        time:   [8.5902 µs 8.6420 µs 8.6889 µs]
+Found 1 outliers among 40 measurements (2.50%)
+  1 (2.50%) high mild
+Benchmarking depth128_width1/aliases/parse/pretty
+Benchmarking depth128_width1/aliases/parse/pretty: Warming up for 200.00 ms
+Benchmarking depth128_width1/aliases/parse/pretty: Collecting 40 samples in estimated 1.0619 s (9020 iterations)
+Benchmarking depth128_width1/aliases/parse/pretty: Analyzing
+depth128_width1/aliases/parse/pretty
+                        time:   [116.62 µs 116.74 µs 116.88 µs]
+Found 5 outliers among 40 measurements (12.50%)
+  3 (7.50%) low mild
+  1 (2.50%) high mild
+  1 (2.50%) high severe
+Benchmarking depth128_width1/aliases/write_fresh/no_indent
+Benchmarking depth128_width1/aliases/write_fresh/no_indent: Warming up for 200.00 ms
+Benchmarking depth128_width1/aliases/write_fresh/no_indent: Collecting 40 samples in estimated 1.0006 s (715k iterations)
+Benchmarking depth128_width1/aliases/write_fresh/no_indent: Analyzing
+depth128_width1/aliases/write_fresh/no_indent
+                        time:   [1.3644 µs 1.3664 µs 1.3687 µs]
+Found 3 outliers among 40 measurements (7.50%)
+  3 (7.50%) high mild
+Benchmarking depth128_width1/aliases/write_reuse/no_indent
+Benchmarking depth128_width1/aliases/write_reuse/no_indent: Warming up for 200.00 ms
+Benchmarking depth128_width1/aliases/write_reuse/no_indent: Collecting 40 samples in estimated 1.0008 s (850k iterations)
+Benchmarking depth128_width1/aliases/write_reuse/no_indent: Analyzing
+depth128_width1/aliases/write_reuse/no_indent
+                        time:   [1.1777 µs 1.1872 µs 1.1976 µs]
+Found 3 outliers among 40 measurements (7.50%)
+  1 (2.50%) high mild
+  2 (5.00%) high severe
+Benchmarking depth128_width1/aliases/parse/no_indent
+Benchmarking depth128_width1/aliases/parse/no_indent: Warming up for 200.00 ms
+Benchmarking depth128_width1/aliases/parse/no_indent: Collecting 40 samples in estimated 1.0027 s (132k iterations)
+Benchmarking depth128_width1/aliases/parse/no_indent: Analyzing
+depth128_width1/aliases/parse/no_indent
+                        time:   [7.5992 µs 7.6264 µs 7.6571 µs]
+Benchmarking depth128_width1/aliases/write_fresh/single_line
+Benchmarking depth128_width1/aliases/write_fresh/single_line: Warming up for 200.00 ms
+Benchmarking depth128_width1/aliases/write_fresh/single_line: Collecting 40 samples in estimated 1.0001 s (667k iterations)
+Benchmarking depth128_width1/aliases/write_fresh/single_line: Analyzing
+depth128_width1/aliases/write_fresh/single_line
+                        time:   [1.4904 µs 1.4940 µs 1.4981 µs]
+Found 2 outliers among 40 measurements (5.00%)
+  1 (2.50%) high mild
+  1 (2.50%) high severe
+Benchmarking depth128_width1/aliases/write_reuse/single_line
+Benchmarking depth128_width1/aliases/write_reuse/single_line: Warming up for 200.00 ms
+Benchmarking depth128_width1/aliases/write_reuse/single_line: Collecting 40 samples in estimated 1.0003 s (775k iterations)
+Benchmarking depth128_width1/aliases/write_reuse/single_line: Analyzing
+depth128_width1/aliases/write_reuse/single_line
+                        time:   [1.2671 µs 1.2740 µs 1.2803 µs]
+Found 1 outliers among 40 measurements (2.50%)
+  1 (2.50%) low mild
+Benchmarking depth128_width1/aliases/parse/single_line
+Benchmarking depth128_width1/aliases/parse/single_line: Warming up for 200.00 ms
+Benchmarking depth128_width1/aliases/parse/single_line: Collecting 40 samples in estimated 1.0015 s (139k iterations)
+Benchmarking depth128_width1/aliases/parse/single_line: Analyzing
+depth128_width1/aliases/parse/single_line
+                        time:   [7.2820 µs 7.3358 µs 7.4004 µs]
+Found 2 outliers among 40 measurements (5.00%)
+  2 (5.00%) high severe
+
+mbx[cache]: 0 hits, 1 misses, 1 bypassed; 0 B downloaded, 0 B uploaded, 0 B stored locally
+mbx[savings]: your deleted worktrees left 800.8 GiB logical behind. left. past tense.

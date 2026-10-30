@@ -1,0 +1,56 @@
+      ┌─────────┐  mr boxington
+     ╱ ═══════ ╱│
+    ╱─────────╱ │
+    │ •    (◉)│≡│
+    │  ◟▄▄▄◞  │ ╱
+    │   ◀◆▶   │╱
+    └─────────┘
+   Compiling club-kdl v0.14.1 (/Users/makomac/repos/club-kdl)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.43s
+     Running tests/compact.rs (target/debug/deps/compact-0f063aefa2b5c02b)
+
+running 14 tests
+test invalid_tables_are_rejected_without_silent_overwrites ... ok
+test malformed_message_headers_and_plain_input_are_rejected ... ok
+test imported_tables_canonicalize_order_and_support_quoted_names ... ok
+test empty_and_document_level_values_round_trip ... ok
+test table_id_has_a_versioned_format_independent_of_kdl_writer_layout ... ok
+test unknown_originals_aliases_and_mismatched_tables_are_rejected ... ok
+test compact_layout_preserves_nested_values_and_accepts_pretty_input ... FAILED
+test compact_tables_messages_and_files_omit_indentation ... FAILED
+test names_are_deterministic_and_extend_past_one_character_without_collisions ... ok
+test unindented_compact_round_trips_valid_spec_documents ... FAILED
+test document_round_trip_preserves_types_values_duplicates_and_protocol_like_names ... ok
+test self_contained_file_is_smaller_and_restores_the_original_object ... ok
+test shared_table_can_be_exchanged_and_reused_for_objects ... ok
+test three_character_aliases_skip_keywords_that_would_need_quotes ... ok
+
+failures:
+
+---- compact_layout_preserves_nested_values_and_accepts_pretty_input stdout ----
+
+thread 'compact_layout_preserves_nested_values_and_accepts_pretty_input' (23531563) panicked at tests/compact.rs:293:5:
+compact output must omit structural indentation: "kdl-message 1 d23bb3f86fa9f5e9fc99541879201a5e4f3959d2bf35f5c8e76055adb26012bd\n(型)e a=1 a=(kind)2 {\n    b \"  keep \\t spaces  \" \"\\\\\\\"{};\" d=\"  raw {; }  \" {\n        c f=\"first\\n  indented content\\nlast\"\n    }\n    b #nan #inf #-inf #null #true #false\n}\ng \"\"\n"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- compact_tables_messages_and_files_omit_indentation stdout ----
+
+thread 'compact_tables_messages_and_files_omit_indentation' (23531564) panicked at tests/compact.rs:293:5:
+compact output must omit structural indentation: "kdl-names 1 {\n    a object_identifier\n    b object_message\n    c position_horizontal\n    d record_update\n    e sequence_number\n    f visible\n}\n"
+
+---- unindented_compact_round_trips_valid_spec_documents stdout ----
+
+thread 'unindented_compact_round_trips_valid_spec_documents' (23531575) panicked at tests/compact.rs:293:5:
+compact output must omit structural indentation: "kdl-names 1 {\n    a node\n}\na\n"
+
+
+failures:
+    compact_layout_preserves_nested_values_and_accepts_pretty_input
+    compact_tables_messages_and_files_omit_indentation
+    unindented_compact_round_trips_valid_spec_documents
+
+test result: FAILED. 11 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+
+error: test failed, to rerun pass `--test compact`
+mbx[cache]: 0 hits, 2 misses; 0 B downloaded, 0 B uploaded, 4.5 MiB stored locally
+mbx[savings]: 1.0 TiB logical tidied away. you may continue not thinking about it.

@@ -1,0 +1,37 @@
+      ┌─────────┐  mr boxington
+     ╱ ═══════ ╱│
+    ╱─────────╱ │
+    │ •    (◉)│≡│
+    │  ◟▄▄▄◞  │ ╱
+    │   ◀◆▶   │╱
+    └─────────┘
+   Compiling club-kdl v0.14.1 (/Users/makomac/repos/club-kdl)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.73s
+     Running tests/compact.rs (target/debug/deps/compact-0f063aefa2b5c02b)
+
+running 13 tests
+test invalid_tables_are_rejected_without_silent_overwrites ... ok
+test imported_tables_canonicalize_order_and_support_quoted_names ... ok
+test malformed_message_headers_and_plain_input_are_rejected ... ok
+test empty_and_document_level_values_round_trip ... ok
+test table_id_has_a_versioned_format_independent_of_kdl_writer_layout ... ok
+test names_are_deterministic_and_extend_past_one_character_without_collisions ... ok
+test document_round_trip_preserves_types_values_duplicates_and_protocol_like_names ... ok
+test unknown_originals_aliases_and_mismatched_tables_are_rejected ... ok
+test compact_layout_preserves_nested_values_and_accepts_pretty_input ... ok
+test self_contained_file_is_smaller_and_restores_the_original_object ... ok
+test compact_tables_messages_and_files_omit_indentation ... ok
+test shared_table_can_be_exchanged_and_reused_for_objects ... ok
+test three_character_aliases_skip_keywords_that_would_need_quotes ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running tests/compact_spec.rs (target/debug/deps/compact_spec-f008f6f5f227d068)
+
+running 1 test
+test unindented_compact_round_trips_valid_spec_documents ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s
+
+mbx[cache]: 0 hits, 1 misses, 1 not looked up; 0 B downloaded, 0 B uploaded, 3.9 MiB stored locally
+mbx[savings]: 8d 15h of compiling skipped across 2916 builds. rustc suspects nothing.

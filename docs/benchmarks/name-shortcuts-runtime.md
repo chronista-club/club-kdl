@@ -1,6 +1,10 @@
 # Rule-based automatic aliases: runtime measurements
 
-The implemented codec reduces bytes but **does not improve CPU time** in these
+This records the initial indented codec at `adcef50` (merged as `3f10721`), before
+the v0.15.0 indentation change. See [indentation measurements](indent-pack.md)
+for the later output sizes and production API comparison.
+
+The implemented codec reduces bytes but **does not improve encode/decode time** in these
 cases. Its runtime tree construction and dictionary lookups cost more than the
 unchanged normal APIs. The [earlier fixed-name experiment](name-shortcuts.md)
 measures a different, compile-time mapping path; its speedup does not apply here.
@@ -14,7 +18,8 @@ test/build/benchmark job was launched concurrently by this session.
 The fixtures are the same as the earlier experiment: one record with an 8-byte
 value, 100 records with 8-byte values, and one record with a 4096-byte value of
 repeated `x`. Values are synthetic, not a production traffic sample. Times
-include output destruction and are per complete message, not per byte.
+include output destruction and are per complete message, not per byte. These are
+wall-clock measurements, not whole-process CPU-time measurements.
 
 - `normal`: ordinary `to_string/from_str`, readable original names.
 - `shared`: `NameTable::encode/decode`, table built outside timing, but includes

@@ -1,6 +1,6 @@
 # 01. Opt-in name shortcuts
 
-> **Status**: Draft
+> **Status**: Active (v0.15.0)
 > **Related**: `mem_1CgYBNbHDqGGdtK66QsMCL`, [design 01](../design/01-name-shortcuts.md)
 > **対象**: `src/compact.rs`, `tests/compact.rs`
 
@@ -17,6 +17,10 @@ independent parsers. This is a vocabulary convention above KDL, not new syntax.
   normal readers/writers and their output remain unchanged.
 - Only node names and property keys change. Values, type annotations, positional
   arguments, order, repeated properties and document roots retain their meaning.
+- Compact tables, messages and files omit structural indentation. Newlines and
+  braces retain node boundaries and hierarchy. Whitespace within string values
+  is preserved; ordinary writer output remains indented. Readers accept both
+  indented and unindented KDL without changing the format version or table ID.
 - Allocate deterministic ASCII letter aliases, shortest first, extending to two
   and more characters as needed. Reserve all original names against collisions.
   Only rename names whose serialized spelling occupies at least three bytes and
@@ -40,4 +44,11 @@ independent parsers. This is a vocabulary convention above KDL, not new syntax.
 
 Value/type-name compression, config migration, transport/session management,
 schema negotiation, encryption/authentication, compression codecs, file IO,
-automatic growth of live dictionaries, and a release to crates.io.
+automatic growth of live dictionaries, original formatting preservation, and
+single-line/minimal KDL output.
+
+## Status log
+
+- 2026-10-30: v0.15.0 includes deterministic aliases and indentation-free compact
+  output. Original idea: `mem_1CgYEeWUHuLPHVaFWe6z71`; implementation/release:
+  `mem_1CgYGA5N9F8xynDW6t9N2A`.

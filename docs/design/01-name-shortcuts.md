@@ -1,8 +1,8 @@
 # 01. Compact vocabulary codec
 
-> **Status**: Draft
+> **Status**: Active (v0.15.0)
 > **Related**: [spec 01](../spec/01-name-shortcuts.md), `mem_1CgYBNbHDqGGdtK66QsMCL`
-> **対象**: `src/compact.rs`, `tests/compact.rs`, `benches/name_shortcuts.rs`
+> **対象**: `src/compact.rs`, `src/write.rs`, `tests/compact.rs`, `tests/compact_spec.rs`, `benches/name_shortcuts.rs`
 
 The opt-in `compact` module sits above the existing KDL tree, parser and writer.
 It uses existing `KdlSerialize::to_kdl_doc` and `KdlDeserialize::from_kdl_doc`
@@ -23,13 +23,14 @@ spelling is at least three bytes and is longer than the alias. A generated alias
 never equals any original name. Identity mappings preserve short names. Imported
 tables must be bijective and must reject aliases that shadow another original.
 
-Canonical export uses the existing writer with entries sorted by original name:
+Canonical export uses the shared writer without indentation, with entries sorted
+by original name:
 
 ```kdl
 kdl-names 1 {
-    a object_identifier
-    b record_update
-    x x
+a object_identifier
+b record_update
+x x
 }
 ```
 
@@ -71,6 +72,22 @@ table goes out of scope. Errors are `CompactError`, wrapping ordinary KDL errors
 and distinguishing invalid tables/envelopes, versions, mismatches and unknown
 names. No partial result is returned. Convenience APIs allocate a fresh string.
 
+## Structural whitespace
+
+Compact output uses the existing AST writer with a compile-time indentation flag.
+The recursive node writer and value/identifier escaping are shared. Normal AST
+output and the derive-driven `NodeWriter` retain four spaces per nesting level.
+Compact-only entry points select no indentation for table nodes and payload
+documents. There is no additional public formatting API or dependency.
+
+Newlines, the space before `{`, and braces remain. This preserves ordinary KDL
+node termination and hierarchy without introducing a second wire format.
+Neither the reader nor version 1 nor the table hash changes. Previously indented
+compact documents remain valid input. Values are serialized with the same
+quoting/escaping as before; a line-based trim pass would corrupt multiline values.
+Calling `to_string()` on a decoded document restores the normal readable layout,
+not the original input's exact formatting or comments.
+
 ## Do not do
 
 - Do not shorten values or type annotations by string substitution.
@@ -81,6 +98,9 @@ names. No partial result is returned. Convenience APIs allocate a fresh string.
 - Do not count packet framing and table exchange as free in size comparisons.
 - Do not measure aliases by raw length when they need KDL quotes; skip keywords.
 - Do not hash writer layout: use the specified versioned, length-prefixed pairs.
+- Do not remove whitespace with a line-based trim or replacement over serialized
+  input; omit only indentation in the structural writer.
+- Do not present prebuilt-AST microbenchmarks as end-to-end codec speedups.
 
 ## Status log
 
@@ -90,3 +110,7 @@ names. No partial result is returned. Convenience APIs allocate a fresh string.
   storage, messaging, malformed dictionaries and collision cases. Keyword aliases
   and layout-dependent IDs were caught by failing tests and corrected. Runtime
   benchmark shows byte savings with CPU overhead; no speedup is claimed.
+- 2026-10-30: v0.15.0 adds indentation-free compact output after RED → GREEN for
+  table/message/file layout, nested value preservation, legacy indented input and
+  valid official corpus coverage. The parser and normal writer behavior remain
+  unchanged. See [production measurements](../benchmarks/indent-pack.md).

@@ -13,9 +13,9 @@ Rust で [KDL](https://kdl.dev) を扱う **クレートファミリー** — �
 
 ```toml
 [dependencies]
-club-kdl = "0.14"
+club-kdl = "0.15"
 # 任意の feature (どちらも既定は off):
-# club-kdl = { version = "0.14", features = ["compose", "kdl-rs"] }
+# club-kdl = { version = "0.15", features = ["compose", "kdl-rs"] }
 ```
 
 ## クレートファミリー
@@ -34,7 +34,7 @@ club-kdl = "0.14"
 |---------|---------------|-----------|
 | `compose` | `club_kdl::compose` — `(<)file` / `(<)glob` include directive による複数ファイル合成 ([下記](#複数ファイルの-kdl--compose-feature)) | `glob` |
 | `kdl-rs` | kdl-rs との相互運用: `from_kdl_document` / `from_kdl_node` / `to_kdl_document`、 `From` 変換、 `club_kdl::kdl` の再エクスポート ([下記](#kdl-rs-との相互運用)) | `kdl` |
-| `compact` (未リリース) | ルールベースの自動エイリアス。通信・機械向け保存を短縮し、人が読む設定は本名を維持 ([ガイド](docs/guide/01-compact-names.md)) | `sha2` |
+| `compact` | 自動エイリアスとインデント省略で通信・機械向け保存を短縮。人が読む設定は本名と整形を維持 ([ガイド](docs/guide/01-compact-names.md)) | `sha2` |
 
 0.13 までは `compose` は別 crate の `club-kdl-compose` だった。 `kdl_compose::compose` は `club_kdl::compose::compose` になった。
 
@@ -195,7 +195,7 @@ schema 文法は **data 方言**（`struct` / `enum`）に加えて、 関係デ
 schema や設定が大きくなったら、 `(<)file`（または batch import 用に `(<)glob`）で分割する。 まず feature を有効にする:
 
 ```toml
-club-kdl = { version = "0.14", features = ["compose"] }
+club-kdl = { version = "0.15", features = ["compose"] }
 ```
 
 ```kdl
@@ -564,7 +564,7 @@ for event in &events {
 `kdl-rs` feature が必要:
 
 ```toml
-club-kdl = { version = "0.14", features = ["kdl-rs"] }
+club-kdl = { version = "0.15", features = ["kdl-rs"] }
 ```
 
 ```rust

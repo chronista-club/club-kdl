@@ -1,0 +1,16 @@
+[package]
+name = "indent-pack-research"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.95"
+publish = false
+
+[workspace]
+
+[dependencies]
+club-kdl = { path = "../..", features = ["compact", "kdl-rs"] }
+criterion = "0.8.2"
+
+[[bench]]
+name = "layout"
+harness = false

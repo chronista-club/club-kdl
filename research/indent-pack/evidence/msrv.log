@@ -1,0 +1,12 @@
+      ┌─────────┐  mr boxington
+     ╱ ═══════ ╱│
+    ╱─────────╱ │
+    │ •    (◉)│≡│
+    │  ◟▄▄▄◞  │ ╱
+    │   ◀◆▶   │╱
+    └─────────┘
+    Checking indent-pack-research v0.0.0 (/Users/makomac/repos/club-kdl/research/indent-pack)
+mbx[warning]: result was not stored: rustc search path kind is not cacheable yet: native
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.47s
+mbx[cache]: 0 hits, 1 misses, 2 not looked up; 0 B downloaded, 0 B uploaded, 0 B stored locally
+mbx[savings]: 800.8 GiB logical of target/ belonged to checkouts that no longer exist. neither does it.
