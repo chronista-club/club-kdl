@@ -79,6 +79,11 @@
 //! - **No duplicate-name detection.** Two `struct "User"` nodes after
 //!   composition are not flagged here — consumers (e.g., codegen) catch
 //!   that, since "what counts as a duplicate" is schema-specific.
+//! - **Glob searches must complete.** An empty match is valid, but directory
+//!   traversal errors, failed metadata lookups for matched entries, dangling
+//!   symlinks and recursive directory cycles are errors. Matches are sorted;
+//!   directories are excluded. Symlinks are followed, so this is not a sandbox
+//!   or a consistent snapshot of a concurrently changing filesystem.
 //!
 //! ## Example
 //!
@@ -118,6 +123,7 @@ use std::borrow::Cow;
 use crate::{Document, Node, Value};
 
 pub mod error;
+mod glob_expand;
 pub use error::{ComposeError, Result};
 
 // =============================================================================
@@ -412,7 +418,7 @@ fn apply_directive(
 ) -> Result<Vec<Node<'static>>> {
     let paths: Vec<PathBuf> = match &directive.kind {
         DirectiveKind::File(rel) => vec![base_dir.join(rel)],
-        DirectiveKind::Glob(pattern) => expand_glob(base_dir, pattern, current_file)?,
+        DirectiveKind::Glob(pattern) => glob_expand::expand(base_dir, pattern, current_file)?,
     };
 
     let mut out = Vec::new();
@@ -426,24 +432,6 @@ fn apply_directive(
         );
     }
     Ok(out)
-}
-
-/// Expand a glob pattern relative to `base_dir`. Matches are sorted for
-/// determinism (filesystem iteration order is not portable). A pattern that
-/// matches nothing returns an empty vec — empty is not an error here.
-fn expand_glob(base_dir: &Path, pattern: &str, current_file: &Path) -> Result<Vec<PathBuf>> {
-    let full = base_dir.join(pattern);
-    let pat_str = full.to_string_lossy();
-    let paths = glob::glob(&pat_str).map_err(|source| ComposeError::Glob {
-        path: current_file.to_path_buf(),
-        source,
-    })?;
-    let mut matches: Vec<PathBuf> = paths
-        .filter_map(std::result::Result::ok)
-        .filter(|p| p.is_file())
-        .collect();
-    matches.sort();
-    Ok(matches)
 }
 
 /// Apply this directive's filter / rename / prefix to a single included

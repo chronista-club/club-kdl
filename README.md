@@ -226,6 +226,12 @@ The directive lives anywhere — top-level or inside any block — and resolves 
 
 This renames the first string argument of each top-level included node to `shared.Acct` / `shared.Memory`. The `club-kdl-codegen` CLI uses it internally, so `(<)` directives just work. From a library, call `club_kdl::compose::compose(path)` to get the composed `club_kdl::Document`, or `club_kdl::compose::from_path::<T>(path)` to compose and deserialize in one step.
 
+Glob matches are sorted and directories are excluded. No matches is valid;
+directory traversal failures, failed metadata lookups for matched entries,
+dangling symlinks and recursive directory cycles return an error instead of a
+partial successful document. Symlinks are followed; compose does not provide a
+filesystem sandbox or a consistent snapshot during concurrent changes.
+
 See [`club_kdl::compose` on docs.rs](https://docs.rs/club-kdl/latest/club_kdl/compose/) for directive syntax and limits.
 
 ---

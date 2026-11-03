@@ -5,10 +5,10 @@ use std::path::PathBuf;
 /// Anything that can go wrong while composing a multi-file KDL document.
 #[derive(Debug, thiserror::Error)]
 pub enum ComposeError {
-    /// Failed to read a source file from disk.
+    /// Failed to inspect or read a source file or search a directory.
     #[error("io error reading {path}: {source}")]
     Io {
-        /// The path the resolver was trying to read.
+        /// The file or directory the resolver was trying to access.
         path: PathBuf,
         /// The underlying [`std::io::Error`].
         #[source]
