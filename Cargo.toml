@@ -18,6 +18,7 @@ exclude = [
     "tests/spec_compliance.rs",
     "tests/robustness.rs",
     "tests/compact_spec.rs",
+    "tests/preserve_edits_spec.rs",
     "research",
 ]
 
@@ -66,10 +67,12 @@ kdl-rs = ["dep:kdl"]
 compose = ["dep:glob"]
 # Rule-based name aliases in ordinary KDL v2 messages and files.
 compact = ["dep:sha2"]
+# Change existing values without rewriting surrounding source text.
+edit = []
 
 [dev-dependencies]
 # Tests, examples and benches always see every feature.
-club-kdl = { path = ".", features = ["kdl-rs", "compose", "compact"] }
+club-kdl = { path = ".", features = ["kdl-rs", "compose", "compact", "edit"] }
 # Scratch directories for the compose doc-tests.
 tempfile = "3"
 criterion = "0.8"

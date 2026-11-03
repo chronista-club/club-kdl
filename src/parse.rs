@@ -6,6 +6,7 @@
 //! single-line raw strings) are borrowed from the source.
 
 use std::borrow::Cow;
+use std::ops::Range;
 
 use crate::ast::{Document, Entry, Node, Value};
 use crate::error::{Error, Result};
@@ -19,24 +20,38 @@ type PResult<T> = std::result::Result<T, Box<Error>>;
 const MAX_DEPTH: usize = 256;
 
 pub(crate) fn parse_document(src: &str) -> Result<Document<'_>> {
-    let mut p = Parser {
+    parse::<false>(src).map(|(doc, _)| doc)
+}
+
+/// Active entry value ranges, in the same depth-first order as the AST.
+#[cfg(feature = "edit")]
+pub(crate) fn parse_document_with_spans(src: &str) -> Result<(Document<'_>, Vec<Range<usize>>)> {
+    parse::<true>(src)
+}
+
+fn parse<const RECORD_SPANS: bool>(src: &str) -> Result<(Document<'_>, Vec<Range<usize>>)> {
+    let mut p = Parser::<RECORD_SPANS> {
         src,
         b: src.as_bytes(),
         pos: 0,
         depth: 0,
+        value_start: 0,
+        value_spans: Vec::new(),
     };
     if src.starts_with('\u{FEFF}') {
         p.pos = 3;
     }
     let nodes = p.nodes(false).map_err(|e| *e)?;
-    Ok(Document::from_nodes(nodes))
+    Ok((Document::from_nodes(nodes), p.value_spans))
 }
 
-struct Parser<'a> {
+struct Parser<'a, const RECORD_SPANS: bool> {
     src: &'a str,
     b: &'a [u8],
     pos: usize,
     depth: usize,
+    value_start: usize,
+    value_spans: Vec<Range<usize>>,
 }
 
 /// ASCII bytes that may appear in an identifier string.
@@ -97,7 +112,7 @@ pub(crate) fn is_ident_char(c: char) -> bool {
     }
 }
 
-impl<'a> Parser<'a> {
+impl<'a, const RECORD_SPANS: bool> Parser<'a, RECORD_SPANS> {
     // ------------------------------------------------------------------
     // Low-level helpers
     // ------------------------------------------------------------------
@@ -345,9 +360,13 @@ impl<'a> Parser<'a> {
                 _ => {}
             }
             if self.starts_with(b"/-") {
+                let checkpoint = self.value_spans.len();
                 self.pos += 2;
                 self.line_space()?;
                 self.node(in_children)?;
+                if RECORD_SPANS {
+                    self.value_spans.truncate(checkpoint);
+                }
             } else {
                 let node = self.node(in_children)?;
                 nodes.push(node);
@@ -396,7 +415,11 @@ impl<'a> Parser<'a> {
                     self.pos += 2;
                     self.line_space()?;
                     if self.peek() == Some(b'{') {
+                        let checkpoint = self.value_spans.len();
                         self.children_block()?;
+                        if RECORD_SPANS {
+                            self.value_spans.truncate(checkpoint);
+                        }
                         entries_closed = true;
                     } else {
                         if entries_closed {
@@ -416,6 +439,9 @@ impl<'a> Parser<'a> {
                         return self.err("expected whitespace before entry");
                     }
                     let e = self.entry()?;
+                    if RECORD_SPANS {
+                        self.value_spans.push(self.value_start..self.pos);
+                    }
                     node.entries.push(e);
                 }
             }
@@ -471,9 +497,11 @@ impl<'a> Parser<'a> {
 
     /// `prop | value`
     fn entry(&mut self) -> PResult<Entry<'a>> {
+        self.mark_value_start();
         if self.peek() == Some(b'(') {
             let ty = self.type_annotation()?;
             self.node_space()?;
+            self.mark_value_start();
             let value = self.value_body()?;
             return Ok(Entry {
                 name: None,
@@ -494,6 +522,7 @@ impl<'a> Parser<'a> {
                 } else {
                     None
                 };
+                self.mark_value_start();
                 let value = self.value_body()?;
                 return Ok(Entry {
                     name: Some(s),
@@ -514,6 +543,13 @@ impl<'a> Parser<'a> {
             ty: None,
             value,
         })
+    }
+
+    #[inline]
+    fn mark_value_start(&mut self) {
+        if RECORD_SPANS {
+            self.value_start = self.pos;
+        }
     }
 
     /// `string | number | keyword`

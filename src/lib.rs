@@ -31,9 +31,10 @@
 //! See the [`ast`] module for a fuller example and an overview of what the
 //! tree gives you.
 //!
-//! Comments and layout are not preserved. For format-preserving edits, hand
-//! data to [kdl-rs](https://docs.rs/kdl) with `to_kdl_document` /
-//! `from_kdl_document`.
+//! This semantic tree does not preserve comments or layout. The optional `edit`
+//! feature provides `edit::EditableDocument` for changing existing values while
+//! preserving the surrounding source text. Converting a semantic tree to kdl-rs
+//! does not restore comments that were already discarded.
 //!
 //! ## Cargo features
 //!
@@ -44,6 +45,8 @@
 //! - `compact` - `club_kdl::compact` module: rule-based automatic name aliases
 //!   and indentation-free output for machine-oriented files and messages;
 //!   ordinary output stays readable (adds the `sha2` dependency)
+//! - `edit` - `club_kdl::edit` module: change existing values while preserving
+//!   comments and surrounding text (no additional dependencies)
 //! - `kdl-rs` - interop with [kdl-rs](https://docs.rs/kdl): `from_kdl_document`,
 //!   `from_kdl_node`, `to_kdl_document`, `From` conversions between the two
 //!   trees, and the `club_kdl::kdl` re-export (adds the `kdl` dependency)
@@ -121,6 +124,8 @@ pub mod compact;
 #[cfg(feature = "compose")]
 pub mod compose;
 pub mod de;
+#[cfg(feature = "edit")]
+pub mod edit;
 pub mod error;
 mod parse;
 pub mod ser;
