@@ -15,18 +15,18 @@
 //! a string, deserialize), and users who want multi-file composition opt in:
 //!
 //! ```toml
-//! club-kdl = { version = "0.15", features = ["compose"] }
+//! club-kdl = { version = "0.16", features = ["compose"] }
 //! ```
 //!
 //! Until 0.13 this lived in the separate `club-kdl-compose` crate
 //! (`kdl_compose::compose` is now `club_kdl::compose::compose`).
 //!
-//! ## Short reference notation — `> "a"` (unreleased)
+//! ## Short reference notation — `> "a"` (since 0.16)
 //!
 //! Use an untyped `>` node to include a single file. A path without an extension
 //! gets `.kdl` appended: `> "a"` reads `a.kdl`, relative to the importing file.
 //! An explicit extension is preserved. There is no fallback to a file named `a`.
-//! This notation is available in the development version, not in 0.15.1.
+//! This notation is available from version 0.16.
 //!
 //! ```kdl
 //! > "types"
@@ -97,7 +97,7 @@
 //! - **Legacy paths stay literal.** `.kdl` completion applies only to `>`;
 //!   `(<)file "a"` still reads the extensionless file named `a`.
 //! - **Compose reserves untyped `>` nodes.** Existing uses of that name as data
-//!   change meaning in the development composer. Pure parsing is unchanged.
+//!   change meaning starting in 0.16. Pure parsing is unchanged.
 //! - **`as=` renames the first string argument of each top-level included
 //!   node only.** Cross-references inside an included file (`type="Foo"` in
 //!   a `field`) are not rewritten — `compose` is schema-agnostic. Authors

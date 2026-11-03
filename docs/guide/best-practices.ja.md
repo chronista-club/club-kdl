@@ -1,48 +1,46 @@
-# KDL 設計ベストプラクティス
+# KDL 設計のベストプラクティス
 
 **[English](./best-practices.md)** | 日本語
 
-KDL スキーマを idiomatic に設計するための指針とアンチパターン。
+読みやすく保守しやすい KDL スキーマを設計するための指針と、避けたい例を紹介する。
 
-## Overview
+## 概要
 
-KDL ノードは **argument** (位置引数)・**property** (`key=value`)・**children** (子ノード) の
-3 要素を持ちます。 同じデータを複数の形で表現できてしまうため、 一貫した判断基準が
-スキーマの読みやすさ・保守性を左右します。
+KDL ノードには、位置で指定する**引数**、`key=value` で書く**プロパティ**、入れ子の**子ノード**がある。同じデータでも複数の書き方ができるため、使い分けの基準を揃えるとスキーマを読みやすく保てる。
 
-## argument か property か
+## 引数とプロパティの使い分け
 
-| 要素 | 性質 | 向くもの |
-|------|------|---------|
-| argument | 位置で識別・順序が意味を持つ | その node の「主語」「識別子」。 1〜2 個まで |
-| property | 名前で識別・順序非依存 | 属性。 省略可能なもの・数が多いもの |
+| 要素 | 性質 | 向いている用途 |
+|---|---|---|
+| 引数 | 位置で識別し、順序に意味がある | ノードの主題や識別子。1〜2 個を目安にする |
+| プロパティ | 名前で識別し、順序に依存しない | 属性。特に省略可能なものや、数が多いもの |
 
-**指針**: 「この node は何についてか」 = argument、 「その属性は何か」 = property。
+「何を表すノードか」は引数、「どのような属性を持つか」はプロパティ、と考える。
 
 ```kdl
-// 良い: 名前 (主語) は argument、 属性は property
+// Good: the name (subject) is an argument, attributes are properties
 service "api" image="myapp" replicas=3
 ```
 
 ```kdl
-// アンチパターン: 全部 argument ―― 何番目が何か読み取れない
+// Anti-pattern: everything as arguments ―― you can't tell which position is what
 service "api" "myapp" 3
 ```
 
-argument が 3 個以上になったら、 多くは property にすべきサインです。
+引数が 3 個以上になったら、その多くをプロパティにできないか検討する。
 
 ## child / children / child_map の使い分け
 
-| 属性 | 多重度 | Rust 型 |
-|------|--------|---------|
-| `#[kdl(child)]` | 0..1 の単一の子 | `T` / `Option<T>` |
-| `#[kdl(children)]` | 同種の子の繰り返し | `Vec<T>` |
-| `#[kdl(child_map)]` | key-value の集合 | `HashMap<String, String>` |
+| 属性 | 個数や構造 | Rust の型 |
+|---|---|---|
+| `#[kdl(child)]` | 単一の子。`Option<T>` なら省略可能 | `T` / `Option<T>` |
+| `#[kdl(children)]` | 同じ種類の子の繰り返し | `Vec<T>` |
+| `#[kdl(child_map)]` | キーと値の組の集合 | `HashMap<String, String>` |
 
-## ラッパーノードを避ける
+## まとめるためだけのノードを作らない
 
 ```kdl
-// アンチパターン: `ports` ラッパーは KDL 的に冗長
+// Anti-pattern: the `ports` wrapper is redundant in KDL terms
 service "api" {
     ports {
         port host=8080
@@ -52,36 +50,34 @@ service "api" {
 ```
 
 ```kdl
-// 良い: 子ノードを直接並べる
+// Good: place child nodes directly
 service "api" {
     port host=8080
     port host=8443
 }
 ```
 
-club-kdl の `#[kdl(children)]` は子型の `#[kdl(name)]` で自動収集するため、
-グルーピング用のラッパーノードは不要です。
+club-kdl の `#[kdl(children)]` は、子の型の `#[kdl(name)]` に合うノードを自動で集める。そのため、グループ化するだけのラッパーノードは不要。
 
-## 単純値は property、 構造値は child
+## 単純な値はプロパティ、構造を持つ値は子ノードにする
 
 ```kdl
-// 良い: スカラー値は property に
+// Good: scalar values as properties
 service "api" image="myapp"
 ```
 
 ```kdl
-// 冗長: スカラー値をわざわざ子ノードにしている
+// Redundant: a scalar value needlessly made a child node
 service "api" {
     image "myapp"
 }
 ```
 
-子ノードにするのは「その値自体が構造を持つ」 とき (子に argument/property/children がある)
-に限ります。
+子ノードを使うのは、その値自身に引数・プロパティ・子ノードなどの構造がある場合を基本とする。
 
-## flatten で不要な階層を畳む
+## flatten で不要な入れ子を省く
 
-補助的な struct を別ノードに切り出さず、 親ノードに展開したいときは `#[kdl(flatten)]`:
+補助的な構造体を別のノードに分けず、親ノードの中に展開したいときは `#[kdl(flatten)]` を使う。
 
 ```rust
 #[derive(KdlDeserialize, KdlSerialize)]
@@ -90,7 +86,7 @@ struct Service {
     #[kdl(argument)]
     name: String,
     #[kdl(flatten)]
-    health: HealthCheck,   // interval / timeout が service に直接乗る
+    health: HealthCheck,   // interval / timeout sit directly on service
 }
 ```
 
@@ -98,11 +94,11 @@ struct Service {
 service "api" interval=30 timeout=5
 ```
 
-Rust の型分割 (関心の分離) と KDL の平坦さを両立できます。
+Rust 側では型を分けて責務を整理しつつ、KDL 側では平坦な表現にできる。
 
-## スカラー enum で状態・種別を型安全に
+## 状態や種類にはスカラー列挙型を使う
 
-「種別」 「方向」 「モード」 のような有限の選択肢は `String` ではなく scalar enum に:
+種類・方向・モードなど、選択肢が決まっている値には `String` よりもスカラー列挙型が向いている。
 
 ```rust
 #[derive(KdlDeserialize, KdlSerialize)]
@@ -114,22 +110,22 @@ enum Protocol {
 }
 ```
 
-タイプミスや未定義値がデシリアライズ時のエラーになり、 KDL 側も自己記述的になります。
+タイプミスや未定義の値をデシリアライズ時に検出でき、KDL に記した値の意味も分かりやすくなる。
 
-## まとめ ―― 判断フローチャート
+## 選び方のフローチャート
 
 ```mermaid
 flowchart TD
-    Q1{"その node の<br/>識別子・主語か?"}
-    Q1 -->|Yes| ARG[argument]
-    Q1 -->|No| Q2{"値自体が<br/>構造を持つか?"}
-    Q2 -->|No| PROP[property]
-    Q2 -->|Yes・単一| CHILD["child"]
-    Q2 -->|Yes・繰り返し| CHILDREN["children"]
-    Q2 -->|Yes・key-value 集合| CMAP["child_map"]
+    Q1{"ノードの識別子・主題か？"}
+    Q1 -->|はい| ARG[引数]
+    Q1 -->|いいえ| Q2{"値そのものに構造があるか？"}
+    Q2 -->|いいえ| PROP[プロパティ]
+    Q2 -->|単一の構造| CHILD["child"]
+    Q2 -->|同じ構造の繰り返し| CHILDREN["children"]
+    Q2 -->|キーと値の集合| CMAP["child_map"]
 ```
 
-## 関連
+## 関連項目
 
-- README の「属性リファレンス」 で各属性の構文を確認
-- [カスタム型ガイド](./custom-types.ja.md) ―― property/argument の値型を拡張する
+- 属性ごとの構文は README の「属性リファレンス」を参照
+- [カスタム型ガイド](./custom-types.ja.md): プロパティや引数で使える値の型を拡張する

@@ -1,5 +1,7 @@
 # Compact indentation: production API measurements
 
+English | **[日本語](./indent-pack.ja.md)**
+
 v0.15.0 omits indentation in compact tables, shared messages and self-contained
 files. The normal writer, parser, name table assignment, table ID and protocol
 version remain unchanged. This reduces bytes; it does not guarantee faster

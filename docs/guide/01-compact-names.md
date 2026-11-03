@@ -1,5 +1,7 @@
 # 01. Rule-based automatic aliases
 
+English | **[日本語](./01-compact-names.ja.md)**
+
 The `compact` feature shortens node names and property keys for machine-oriented
 storage and messages, and omits indentation. It uses standard KDL v2 strings and syntax. Keep ordinary
 `club_kdl::to_string/from_str` for readable configuration; they are unchanged.

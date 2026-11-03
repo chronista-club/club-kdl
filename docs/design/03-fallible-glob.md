@@ -1,6 +1,8 @@
 # 03. Fallible glob traversal
 
-> **Status**: Draft — implemented locally; release pending
+English | **[日本語](./03-fallible-glob.ja.md)**
+
+> **Status**: Active — v0.16.0 release content; publication tracked by the release workflow
 > **Related**: `mem_1CgfiKufKrUCVb7phQzr1c`, [spec 02](../spec/02-compose-short-references.md)
 > **対象**: `src/compose/glob_expand.rs`, `src/compose/mod.rs`, `src/compose/error.rs`, `tests/compose_glob.rs`, `tests/compose_glob_compat.rs`
 
@@ -92,3 +94,6 @@ by this correction.
 - 2026-11-03: Team-b implementation review found no remaining issues after
   preserving absent absolute-root behavior. Local checks include workspace
   tests and Rust 1.95 MSRV; Linux/Windows-specific execution is a CI gate.
+- 2026-11-04: Included in the v0.16.0 release content. Subsequent CI has passed
+  on Linux, macOS and Windows; registry publication remains a separate workflow
+  gate.

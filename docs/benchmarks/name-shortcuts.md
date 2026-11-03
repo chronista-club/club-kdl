@@ -1,5 +1,7 @@
 # KDL name shortcuts: fixed-schema experiment
 
+English | **[日本語](./name-shortcuts.ja.md)**
+
 This is the initial, pre-implementation experiment. The subsequent
 [runtime codec measurements](name-shortcuts-runtime.md) include the implemented
 dictionary handling and framing; they show byte savings with increased processing

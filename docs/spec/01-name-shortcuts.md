@@ -1,5 +1,7 @@
 # 01. Opt-in name shortcuts
 
+English | **[日本語](./01-name-shortcuts.ja.md)**
+
 > **Status**: Active (v0.15.0)
 > **Related**: `mem_1CgYBNbHDqGGdtK66QsMCL`, [design 01](../design/01-name-shortcuts.md)
 > **対象**: `src/compact.rs`, `tests/compact.rs`

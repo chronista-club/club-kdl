@@ -1,14 +1,14 @@
-# トラブルシュート
+# トラブルシューティング
 
 **[English](./troubleshooting.md)** | 日本語
 
-club-kdl でよく遭遇するエラーと、 その原因・対処。
+club-kdl でよく遭遇するエラーの原因と対処をまとめる。
 
 ## ライフタイム
 
 ### `implicit elided lifetime not allowed here` (E0726)
 
-借用フィールド (`&'a str`) を持つ struct を変数に束縛するとき:
+借用フィールド（`&'a str`）を持つ構造体を `async fn` の引数に使い、その型のライフタイム引数を省くと、次のエラーになる。
 
 ```rust
 #[derive(KdlDeserialize)]
@@ -18,23 +18,27 @@ struct Service<'a> {
     name: &'a str,
 }
 
-let s: Service = club_kdl::from_str(r#"service "api""#).unwrap();
-//     ^^^^^^^ error: ライフタイムパラメータが省略できない
+async fn handle(service: Service) {
+    //                  ^^^^^^^ E0726: specify the lifetime argument
+    println!("{}", service.name);
+}
 ```
 
-**原因**: edition 2024 では型のライフタイムを省略すると E0726。
+**原因**: この `async fn` の引数では、型のライフタイム引数を明示する必要がある。edition 2024 でライフタイムの省略が一律に禁止されたわけではない。ローカル変数の `let s: Service = ...` などでは、引き続き推論できる。
 
-**対処**: `Service<'_>` と匿名ライフタイムを明示する。
+**対処**: `Service<'_>` と書き、匿名ライフタイムを明示する。
 
 ```rust
-let s: Service<'_> = club_kdl::from_str(r#"service "api""#).unwrap();
+async fn handle(service: Service<'_>) {
+    println!("{}", service.name);
+}
 ```
 
-借用が不要なら、 フィールドを `String` にすればライフタイムごと消えます。
+借用が不要なら、フィールドを `String` にすることでライフタイム引数そのものをなくせる。[Rust の E0726 解説](https://doc.rust-lang.org/error_codes/E0726.html)も参照。
 
-## 子ノードのマッピング
+## 子ノードの対応付け
 
-### `#[kdl(children)]` で子が収集されない
+### `#[kdl(children)]` で子ノードが集まらない
 
 ```rust
 #[derive(KdlDeserialize)]
@@ -45,26 +49,24 @@ struct Config {
 }
 ```
 
-**原因**: `#[kdl(children)]` は子型の `#[kdl(name = "...")]` でノード名を解決します。
-子型に `#[kdl(name)]` が無いとフィールド名 (`stages`) にフォールバックし、
-実際の KDL ノード名 (`stage`) と一致しません。
+**原因**: `#[kdl(children)]` は、子の型に付けた `#[kdl(name = "...")]` からノード名を決める。子の型に `#[kdl(name)]` がないと、フィールド名の `stages` を使うため、実際のノード名 `stage` と一致しない。
 
-**対処**: 子型に `#[kdl(name)]` を付ける ―― または収集側で明示する:
+**対処**: 子の型に `#[kdl(name)]` を付けるか、収集する側で名前を明示する。
 
 ```rust
 #[kdl(children(name = "stage"))]
 stages: Vec<Stage>,
 ```
 
-### `#[kdl(child)]` に `Vec<T>` を指定してしまう
+### `#[kdl(child)]` に `Vec<T>` を指定している
 
-**原因**: `child` は単一の子 (0..1) 用。 繰り返しには使えません。
+**原因**: `child` は単一の子ノード用で、繰り返しには使えない。
 
-**対処**: 繰り返しは `#[kdl(children)]` + `Vec<T>`、 任意単一は `#[kdl(child)]` + `Option<T>`。
+**対処**: 繰り返しには `#[kdl(children)]` と `Vec<T>` を使う。省略可能な単一の子には、`#[kdl(child)]` と `Option<T>` を使う。
 
-## ドキュメント全体
+## 文書全体の読み込み
 
-### トップレベルに複数ノードがある KDL が読めない
+### トップレベルに複数のノードがある KDL を読めない
 
 ```kdl
 stage "build"
@@ -72,8 +74,7 @@ stage "deploy"
 service "api"
 ```
 
-**原因**: 既定では「単一ノード = 単一 struct」。 複数のトップレベルノードを
-1 つの struct にまとめるには `#[kdl(document)]` が必要です。
+**原因**: 既定では「1 ノードを 1 構造体に対応させる」動作になる。複数のトップレベルノードを一つの構造体にまとめるには、`#[kdl(document)]` が必要。
 
 **対処**:
 
@@ -88,43 +89,39 @@ struct Config {
 }
 ```
 
-## 値型
+## 値の型
 
 ### `type mismatch: expected ...`
 
-**原因**: KDL の値の種類 (string / integer / float / bool) と Rust のフィールド型が不一致。
-例えば `port="8080"` (文字列) を `u16` で受けようとした。
+**原因**: KDL の値の種類（文字列・整数・浮動小数点数・真偽値）が Rust のフィールド型と一致していない。たとえば `port="8080"` は文字列なので、`u16` では受け取れない。
 
-**対処**: KDL 側を `port=8080` (整数) にする、 または Rust 側の型を合わせる。
-カスタム変換が必要なら [カスタム型ガイド](./custom-types.ja.md) を参照。
+**対処**: KDL 側を `port=8080` として整数にするか、Rust 側の型を合わせる。独自の変換が必要なら、[カスタム型ガイド](./custom-types.ja.md)を参照。
 
-### property 名がフィールド名と違う
+### プロパティ名とフィールド名が違う
 
 ```kdl
 service "api" image-name="myapp"
 ```
 
-**原因**: KDL の property 名 (`image-name`) と Rust のフィールド名 (`image_name`) は
-ハイフン/アンダースコアの違いで一致しません。
+**原因**: KDL の `image-name` と Rust の `image_name` は、ハイフンとアンダースコアの違いによって一致しない。
 
-**対処**: `#[kdl(property(rename = "image-name"))]` で明示的に対応付ける。
+**対処**: `#[kdl(property(rename = "image-name"))]` で対応を明示する。
 
 ## カスタム型
 
 ### `only traits defined in the current crate can be implemented...`
 
-**原因**: 外部 crate の型に club-kdl の trait を直接実装した (orphan rule 違反)。
+**原因**: 外部クレートの型に club-kdl のトレイトを直接実装しようとして、Rust の orphan rule に違反している。
 
-**対処**: newtype でラップする。 詳細は [カスタム型ガイド](./custom-types.ja.md) を参照。
+**対処**: 自分のクレートで定義した newtype で包む。[カスタム型ガイド](./custom-types.ja.md)で具体例を説明している。
 
-## 切り分けのヒント
+## デバッグのヒント
 
-- **デシリアライズ結果がおかしい**: まず `club_kdl::from_str` の戻り値の `Err` を確認。
-  club-kdl のエラーは `Error::InContext` でどのノード/フィールドかの文脈を持つ
-- **シリアライズ結果が期待と違う**: `to_string_pretty` の出力を直接 print して KDL を目視確認
-- **derive の展開を見たい**: `cargo expand` で derive マクロの生成コードを確認できる
+- **デシリアライズ結果が想定と違う**: まず `club_kdl::from_str` が返した `Err` を確認する。`Error::InContext` に、エラーに関係するノードやフィールドの情報が入る。
+- **シリアライズ結果が想定と違う**: `to_string_pretty` の出力を表示し、KDL を直接確認する。
+- **derive が生成したコードを見たい**: `cargo expand` でマクロの展開結果を確認する。
 
-## 関連
+## 関連項目
 
 - [カスタム型ガイド](./custom-types.ja.md)
-- [KDL 設計ベストプラクティス](./best-practices.ja.md)
+- [KDL 設計のベストプラクティス](./best-practices.ja.md)

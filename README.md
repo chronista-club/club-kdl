@@ -13,9 +13,9 @@ A **family of crates** for working with [KDL](https://kdl.dev) in Rust — deriv
 
 ```toml
 [dependencies]
-club-kdl = "0.15"
+club-kdl = "0.16"
 # optional features, both off by default:
-# club-kdl = { version = "0.15", features = ["compose", "kdl-rs"] }
+# club-kdl = { version = "0.16", features = ["compose", "kdl-rs"] }
 ```
 
 ## The crate family
@@ -32,7 +32,7 @@ club-kdl = "0.15"
 
 | Feature | What it adds | Extra dependency |
 |---------|--------------|------------------|
-| `compose` | `club_kdl::compose` — multi-file KDL via the `(<)file` / `(<)glob` include directive ([below](#multi-file-kdl-with-the-compose-feature)) | `glob` |
+| `compose` | `club_kdl::compose` — multi-file KDL via `>` short references and `(<)file` / `(<)glob` imports ([below](#multi-file-kdl-with-the-compose-feature)) | `glob` |
 | `kdl-rs` | Interop with kdl-rs: `from_kdl_document` / `from_kdl_node` / `to_kdl_document`, `From` conversions, the `club_kdl::kdl` re-export ([below](#interop-with-kdl-rs)) | `kdl` |
 | `compact` | Rule-based automatic aliases and indentation-free output for machine-oriented KDL files and messages; ordinary config stays readable ([guide](docs/guide/01-compact-names.md)) | `sha2` |
 
@@ -195,7 +195,7 @@ See [`club-kdl-codegen` on docs.rs](https://docs.rs/club-kdl-codegen) for the fu
 When a schema or config gets large, split it across files and include with `(<)file` (or `(<)glob` for batch import). Enable the feature first:
 
 ```toml
-club-kdl = { version = "0.15", features = ["compose"] }
+club-kdl = { version = "0.16", features = ["compose"] }
 ```
 
 ```kdl
@@ -232,16 +232,15 @@ dangling symlinks and recursive directory cycles return an error instead of a
 partial successful document. Symlinks are followed; compose does not provide a
 filesystem sandbox or a consistent snapshot during concurrent changes.
 
-**Unreleased: short reference notation.** The development version also accepts
+**Short reference notation (since 0.16).** The composer also accepts
 `> "types"` to import `types.kdl`, or `> "./types.kdl"` for an explicit path.
 Paths resolve relative to the importing file; a missing extension becomes `.kdl`
 without an existence-based fallback. The same `only` / `except` / `rename` / `as`
 options apply. Legacy `(<)file` and `(<)glob` paths stay literal. Bare `"types"`
 remains data. This reserves untyped `>` nodes within compose; ordinary parsing
-still treats them as data. The published 0.15.1 version does not support this
-notation yet.
+still treats them as data.
 
-See [`club_kdl::compose` on docs.rs](https://docs.rs/club-kdl/latest/club_kdl/compose/) for released directive syntax and limits, and [spec 02](docs/spec/02-compose-short-references.md) for the short reference rules.
+See [`club_kdl::compose` on docs.rs](https://docs.rs/club-kdl/latest/club_kdl/compose/) for directive syntax and limits, and [spec 02](docs/spec/02-compose-short-references.md) for the short reference rules.
 
 ---
 
@@ -577,7 +576,7 @@ To append records to a file one node at a time (NDKDL — "newline-delimited KDL
 Requires the `kdl-rs` feature:
 
 ```toml
-club-kdl = { version = "0.15", features = ["kdl-rs"] }
+club-kdl = { version = "0.16", features = ["kdl-rs"] }
 ```
 
 ```rust
