@@ -2,7 +2,7 @@
 
 English | **[日本語](./03-preserve-value-edits.ja.md)**
 
-> **Status**: Draft
+> **Status**: Active
 > **Related**: design 04, `mem_1CggW2QewS8jT8ejr6jRC6`
 > **Target**: `src/edit.rs`, `tests/preserve_edits.rs`
 
@@ -43,3 +43,7 @@ CRLF, slashdash, duplicate names/properties, sequential edits, and failed edits.
 The KDL specification corpus checks unchanged text, targeted replacement, and
 semantic reparsing. Existing parser/writer tests and before/after benchmarks
 check the normal path.
+
+## Status log
+
+- 2026-11-04: Activated for v0.17.0 after PR #51 merged; existing-value editing is the supported scope.

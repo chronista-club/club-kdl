@@ -2,7 +2,7 @@
 
 English | **[日本語](./04-preserve-value-edits.ja.md)**
 
-> **Status**: Draft
+> **Status**: Active
 > **Related**: spec 03, `mem_1CggW2QewS8jT8ejr6jRC6`
 > **Target**: `src/edit.rs`, `src/parse.rs`
 
@@ -46,6 +46,8 @@ arguments only. Replacement tokens may be normalized; untouched tokens must not 
   also pass. The corpus checks 233 valid documents, 87 invalid documents, and
   198 addressable values. Workspace tests, Clippy, rustdoc, doctests, and MSRV
   1.95 checks pass.
+
+- 2026-11-04: Activated for v0.17.0 after PR #51 merged; existing-value editing is the supported scope.
 
 ## Normal-path performance check
 

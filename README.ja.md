@@ -13,9 +13,9 @@ Rust で [KDL](https://kdl.dev) を扱う **クレートファミリー** — �
 
 ```toml
 [dependencies]
-club-kdl = "0.16"
+club-kdl = "0.17"
 # 任意の feature (どちらも既定は off):
-# club-kdl = { version = "0.16", features = ["compose", "kdl-rs"] }
+# club-kdl = { version = "0.17", features = ["compose", "kdl-rs"] }
 ```
 
 ## クレートファミリー
@@ -35,7 +35,7 @@ club-kdl = "0.16"
 | `compose` | `club_kdl::compose` — `>` 短縮参照と `(<)file` / `(<)glob` 取込による複数ファイル合成 ([下記](#複数ファイルの-kdl--compose-feature)) | `glob` |
 | `kdl-rs` | kdl-rs との相互運用: `from_kdl_document` / `from_kdl_node` / `to_kdl_document`、 `From` 変換、 `club_kdl::kdl` の再エクスポート ([下記](#kdl-rs-との相互運用)) | `kdl` |
 | `compact` | 自動エイリアスとインデント省略で通信・機械向け保存を短縮。人が読む設定は本名と整形を維持 ([ガイド](docs/guide/01-compact-names.ja.md)) | `sha2` |
-| `edit`（未リリース） | コメントと周囲の原文を保持して、既存の値を更新する（[ガイド](docs/guide/02-preserve-value-edits.ja.md)） | なし |
+| `edit` | コメントと周囲の原文を保持して、既存の値を更新する（[ガイド](docs/guide/02-preserve-value-edits.ja.md)） | なし |
 
 0.13 までは `compose` は別 crate の `club-kdl-compose` だった。 `kdl_compose::compose` は `club_kdl::compose::compose` になった。
 
@@ -150,7 +150,7 @@ kdl-rs はファイルの編集のために、 ノードや値ごとに元のテ
 
 ### 手放したもの
 
-通常の意味ツリーと struct のシリアライザーは、**コメントとレイアウトを保持しない**。ファイルを struct に読んで書き戻すと、整形し直した KDL になる。既存の値を更新する用途には、未リリースの `edit` feature で `edit::EditableDocument` を使える。元のテキストを保持し、指定した値の部分だけを置き換える（[編集ガイド](docs/guide/02-preserve-value-edits.ja.md)）。kdl-rs でより広い範囲のツリー編集を行う場合は、原文を kdl-rs で読み、その文書を保持する。意味ツリーを経由した変換では、破棄されたコメントは復元されない。
+通常の意味ツリーと struct のシリアライザーは、**コメントとレイアウトを保持しない**。ファイルを struct に読んで書き戻すと、整形し直した KDL になる。既存の値を更新する用途には、`edit` feature（0.17 から） で `edit::EditableDocument` を使える。元のテキストを保持し、指定した値の部分だけを置き換える（[編集ガイド](docs/guide/02-preserve-value-edits.ja.md)）。kdl-rs でより広い範囲のツリー編集を行う場合は、原文を kdl-rs で読み、その文書を保持する。意味ツリーを経由した変換では、破棄されたコメントは復元されない。
 
 ### 正しさの担保
 
@@ -196,7 +196,7 @@ schema 文法は **data 方言**（`struct` / `enum`）に加えて、 関係デ
 schema や設定が大きくなったら、 `(<)file`（または batch import 用に `(<)glob`）で分割する。 まず feature を有効にする:
 
 ```toml
-club-kdl = { version = "0.16", features = ["compose"] }
+club-kdl = { version = "0.17", features = ["compose"] }
 ```
 
 ```kdl
@@ -573,7 +573,7 @@ for event in &events {
 `kdl-rs` feature が必要:
 
 ```toml
-club-kdl = { version = "0.16", features = ["kdl-rs"] }
+club-kdl = { version = "0.17", features = ["kdl-rs"] }
 ```
 
 ```rust

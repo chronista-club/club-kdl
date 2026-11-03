@@ -3,11 +3,11 @@
 English | **[日本語](./02-preserve-value-edits.ja.md)**
 
 The `edit` feature updates existing values without rewriting comments, whitespace,
-line endings, or other values. It is **unreleased** and is not included in 0.16.0.
-To use this checkout from a neighboring project:
+line endings, or other values. Available since **0.17.0**. Enable it in your
+dependencies:
 
 ```toml
-club-kdl = { path = "../club-kdl", features = ["edit"] }
+club-kdl = { version = "0.17", features = ["edit"] }
 ```
 
 ## Change a value
