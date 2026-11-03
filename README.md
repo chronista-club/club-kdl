@@ -232,7 +232,16 @@ dangling symlinks and recursive directory cycles return an error instead of a
 partial successful document. Symlinks are followed; compose does not provide a
 filesystem sandbox or a consistent snapshot during concurrent changes.
 
-See [`club_kdl::compose` on docs.rs](https://docs.rs/club-kdl/latest/club_kdl/compose/) for directive syntax and limits.
+**Unreleased: short reference notation.** The development version also accepts
+`> "types"` to import `types.kdl`, or `> "./types.kdl"` for an explicit path.
+Paths resolve relative to the importing file; a missing extension becomes `.kdl`
+without an existence-based fallback. The same `only` / `except` / `rename` / `as`
+options apply. Legacy `(<)file` and `(<)glob` paths stay literal. Bare `"types"`
+remains data. This reserves untyped `>` nodes within compose; ordinary parsing
+still treats them as data. The published 0.15.1 version does not support this
+notation yet.
+
+See [`club_kdl::compose` on docs.rs](https://docs.rs/club-kdl/latest/club_kdl/compose/) for released directive syntax and limits, and [spec 02](docs/spec/02-compose-short-references.md) for the short reference rules.
 
 ---
 

@@ -61,8 +61,8 @@ default = []
 # Interop with kdl-rs: `from_kdl_document` / `from_kdl_node` /
 # `to_kdl_document`, `From` conversions, `KdlNodeExt`, `club_kdl::kdl`.
 kdl-rs = ["dep:kdl"]
-# Multi-file composition: `club_kdl::compose` resolves `(<)file` /
-# `(<)glob` include directives.
+# Multi-file composition: `club_kdl::compose` resolves `>` short references
+# and `(<)file` / `(<)glob` include directives.
 compose = ["dep:glob"]
 # Rule-based name aliases in ordinary KDL v2 messages and files.
 compact = ["dep:sha2"]

@@ -40,7 +40,7 @@
 //! All are off by default.
 //!
 //! - `compose` - `club_kdl::compose` module: multi-file KDL via
-//!   `(<)file` / `(<)glob` include directives (adds the `glob` dependency)
+//!   `>` short references / `(<)file` / `(<)glob` imports (adds the `glob` dependency)
 //! - `compact` - `club_kdl::compact` module: rule-based automatic name aliases
 //!   and indentation-free output for machine-oriented files and messages;
 //!   ordinary output stays readable (adds the `sha2` dependency)

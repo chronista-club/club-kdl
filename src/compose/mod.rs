@@ -1,5 +1,5 @@
-//! Multi-file composition for KDL documents — resolves `(<)file` and
-//! `(<)glob` directives into a single composed [`Document`].
+//! Multi-file composition for KDL documents — resolves short references (`>`),
+//! `(<)file` and `(<)glob` directives into a single composed [`Document`].
 //!
 //! `club-kdl` itself is a **pure parser** — `from_str` takes a string, returns
 //! a value, no IO. This crate adds the **composer** layer on top: it reads
@@ -21,7 +21,30 @@
 //! Until 0.13 this lived in the separate `club-kdl-compose` crate
 //! (`kdl_compose::compose` is now `club_kdl::compose::compose`).
 //!
-//! ## Directive syntax — `(<)variant`
+//! ## Short reference notation — `> "a"` (unreleased)
+//!
+//! Use an untyped `>` node to include a single file. A path without an extension
+//! gets `.kdl` appended: `> "a"` reads `a.kdl`, relative to the importing file.
+//! An explicit extension is preserved. There is no fallback to a file named `a`.
+//! This notation is available in the development version, not in 0.15.1.
+//!
+//! ```kdl
+//! > "types"
+//! > "./common-requests.kdl" as="shared" {
+//!     only "User" "Memory"
+//! }
+//! ```
+//!
+//! The path must be exactly one unannotated string argument. Empty paths, NUL,
+//! trailing path separators and trailing dots (including `.` / `..`) are
+//! rejected. Dotfiles such as `.shared` become `.shared.kdl`. Path separators
+//! follow the host OS. All existing file import options are supported.
+//!
+//! Only the exact untyped node name `>` selects this convention. `a`, `"a"`,
+//! `path "a"` and `(custom)> "a"` remain data. Quoting `>` does not change its
+//! parsed name. Ordinary parsing and deserialization do not perform file I/O.
+//!
+//! ## File import notation — `(<)variant`
 //!
 //! KDL has no native include directive — the spec deliberately leaves
 //! composition to the host language. KDL **type annotations** (tags) are by
@@ -61,7 +84,7 @@
 //!
 //! ## What gets composed
 //!
-//! For each `(<)file/glob` directive node anywhere in the document —
+//! For each short reference or `(<)file/glob` directive anywhere in the document —
 //! top-level or nested inside any block — the directive node is replaced by
 //! the composed top-level nodes of the referenced file(s), spliced into the
 //! same position. Non-directive nodes are recursively walked: their children
@@ -71,6 +94,10 @@
 //!
 //! - **Paths are resolved relative to the importing file.** No search paths,
 //!   no CWD, no environment lookups. A schema's directory is the only base.
+//! - **Legacy paths stay literal.** `.kdl` completion applies only to `>`;
+//!   `(<)file "a"` still reads the extensionless file named `a`.
+//! - **Compose reserves untyped `>` nodes.** Existing uses of that name as data
+//!   change meaning in the development composer. Pure parsing is unchanged.
 //! - **`as=` renames the first string argument of each top-level included
 //!   node only.** Cross-references inside an included file (`type="Foo"` in
 //!   a `field`) are not rewritten — `compose` is schema-agnostic. Authors
@@ -101,10 +128,10 @@
 //! ).unwrap();
 //! std::fs::write(
 //!     dir.path().join("schema.kdl"),
-//!     "(<)file \"./types.kdl\"\nlocal \"trailing-node\"",
+//!     "> \"types\"\nlocal \"trailing-node\"",
 //! ).unwrap();
 //!
-//! // Resolve all (<) directives, returning a single composed Document.
+//! // Resolve references and imports, returning a single composed Document.
 //! let doc = club_kdl::compose::compose(dir.path().join("schema.kdl"))?;
 //! assert_eq!(doc.nodes().len(), 2);                          // struct + local
 //! assert_eq!(doc.nodes()[0].name(), "struct");
@@ -130,7 +157,7 @@ pub use error::{ComposeError, Result};
 // Public API
 // =============================================================================
 
-/// Compose a KDL document from `path`, resolving every `(<)` directive
+/// Compose a KDL document from `path`, resolving every `>` reference and `(<)` directive
 /// recursively. Returns the composed [`Document`] — equivalent to the file
 /// the user wrote, but with every include spliced in place.
 ///
@@ -138,7 +165,7 @@ pub use error::{ComposeError, Result};
 /// strings, so it outlives the source files' contents.
 ///
 /// `path` is canonicalized once at entry so cycle detection compares stable
-/// identifiers; child paths from `(<)file/glob` are resolved relative
+/// identifiers; child paths from references and imports are resolved relative
 /// to the parent file's directory.
 ///
 /// See the [crate docs](crate) for directive syntax and design limits.
@@ -204,7 +231,7 @@ fn resolve(canonical_path: &Path, stack: &mut Vec<PathBuf>) -> Result<Vec<Node<'
     Ok(nodes)
 }
 
-/// Walk `nodes`. For each one, if it is a `(<)` directive, splice in the
+/// Walk `nodes`. For each reference or import directive, splice in the
 /// resolved content; otherwise keep it (taking ownership of its strings) and
 /// recurse into its children so nested includes (inside a `channel` or
 /// `protocol` block) are resolved too.
@@ -231,10 +258,10 @@ fn process_nodes(
 }
 
 // =============================================================================
-// Directive — parsed (<) node
+// Directive — parsed reference or import node
 // =============================================================================
 
-/// A parsed `(<)` directive node, with all its options collected.
+/// A parsed reference or import, with all its options collected.
 #[derive(Debug)]
 struct Directive {
     kind: DirectiveKind,
@@ -244,7 +271,7 @@ struct Directive {
     rename: BTreeMap<String, String>,
 }
 
-/// The variant — `(<)file` or `(<)glob`.
+/// The expansion kind, shared by short references and legacy imports.
 #[derive(Debug)]
 enum DirectiveKind {
     /// A single path, relative to the importing file's directory.
@@ -253,39 +280,32 @@ enum DirectiveKind {
     Glob(String),
 }
 
-/// Return `Some(directive)` if `node` is tagged `(<)`, else `None`. Returns
-/// `Err` if the tag is `<` but the node is structurally invalid (unknown
-/// variant, missing path, unsupported property, etc.).
+/// Recognize an untyped `>` short reference or a `(<)` directive. Other
+/// nodes are data. Malformed directives return an error instead of data.
 fn parse_directive(node: &Node<'_>, current_file: &Path) -> Result<Option<Directive>> {
-    let Some(tag) = node.ty() else {
-        return Ok(None);
-    };
-    if tag != "<" {
-        return Ok(None);
-    }
-
-    let variant = node.name();
-    let kind = match variant {
-        "file" => {
+    let kind = match (node.ty(), node.name()) {
+        (None, ">") => DirectiveKind::File(short_reference_path(node, current_file)?),
+        (Some("<"), "file") => {
             let path = first_string_arg(node).ok_or_else(|| ComposeError::InvalidDirective {
                 path: current_file.to_path_buf(),
                 message: "(<)file requires a string path as its first argument".to_string(),
             })?;
             DirectiveKind::File(PathBuf::from(path))
         }
-        "glob" => {
+        (Some("<"), "glob") => {
             let pattern = first_string_arg(node).ok_or_else(|| ComposeError::InvalidDirective {
                 path: current_file.to_path_buf(),
                 message: "(<)glob requires a string pattern as its first argument".to_string(),
             })?;
             DirectiveKind::Glob(pattern.to_string())
         }
-        other => {
+        (Some("<"), other) => {
             return Err(ComposeError::InvalidDirective {
                 path: current_file.to_path_buf(),
                 message: format!("unknown (<) variant `{other}`; supported variants: file, glob"),
             });
         }
+        _ => return Ok(None),
     };
 
     // Scalar property: as=
@@ -326,6 +346,42 @@ fn parse_directive(node: &Node<'_>, current_file: &Path) -> Result<Option<Direct
         except,
         rename,
     }))
+}
+
+/// Validate the short reference's single path argument and complete `.kdl`
+/// without probing the filesystem. Legacy directives keep their literal paths.
+fn short_reference_path(node: &Node<'_>, current_file: &Path) -> Result<PathBuf> {
+    let invalid_argument = || ComposeError::InvalidDirective {
+        path: current_file.to_path_buf(),
+        message: "> requires exactly one unannotated string path argument".to_string(),
+    };
+    let mut args = node.entries().iter().filter(|entry| entry.name().is_none());
+    let arg = args.next().ok_or_else(invalid_argument)?;
+    if arg.ty().is_some() || args.next().is_some() {
+        return Err(invalid_argument());
+    }
+    let request = arg.value().as_string().ok_or_else(invalid_argument)?;
+    let mut path = PathBuf::from(request);
+    // Check the spelling before Path normalizes a trailing `/.`. Separators
+    // follow the host OS, just like resolution of existing file imports.
+    let last = request.rsplit(std::path::is_separator).next().unwrap_or("");
+    if request.contains('\0')
+        || last.is_empty()
+        || last.ends_with('.')
+        || path.file_name().is_none()
+    {
+        return Err(ComposeError::InvalidDirective {
+            path: current_file.to_path_buf(),
+            message: format!(
+                "invalid short reference path {request:?}: expected a non-empty file path \
+                 without NUL, a trailing separator, or a trailing dot"
+            ),
+        });
+    }
+    if path.extension().is_none() {
+        path.set_extension("kdl");
+    }
+    Ok(path)
 }
 
 /// Parse `only` / `except` / `rename` children of a directive node.
