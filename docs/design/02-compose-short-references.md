@@ -1,17 +1,20 @@
-# 02. Implementing short compose references
+# 02. Implementing short reference notation in compose
 
-> **Status**: Draft — implementation plan, not shipped behavior
+> **Status**: Draft — implemented on the working branch; release pending
 > **Related**: [spec 02](../spec/02-compose-short-references.md), `mem_1CgfhGM9mjkVTjoUNZfX1E` (decision), `mem_1Cgfgpd9ECRvRMSkf68so2` (prototype findings)
-> **対象**: `src/compose/mod.rs`, `src/compose/error.rs`, `tests/compose.rs`
+> **対象**: `src/compose/mod.rs`, `src/compose/error.rs`, `tests/compose.rs`, `tests/compose_short_references.rs`
 
 ## Approach
 
-Implement spec 02 in the composer above the existing parser. For `> "a"`, the
-AST already supplies node name `>` and string argument `a`. No lexer, parser,
-writer or KDL grammar extension is required. The composer must explicitly
+Implement spec 02's short reference notation (短縮参照記法) in the composer above
+the existing parser. Use the names in
+[spec 02's terminology](../spec/02-compose-short-references.md#terminology).
+For `> "a"`, the AST already supplies node name `>` and string argument `a`.
+No lexer, parser, writer or KDL grammar extension is required. The composer must explicitly
 recognize the new convention; accepting the syntax alone does not import a file.
 
-Normalize the shorthand into the same single-file expansion path as `(<)file`.
+Normalize the shorthand into the same single-file expansion path as the
+existing file import notation (ファイル取込記法), `(<)file`.
 Keep the shorthand's extension policy separate from legacy path behavior.
 
 ## Recognition and path handling
@@ -21,16 +24,23 @@ Keep the shorthand's extension policy separate from legacy path behavior.
 2. Validate the path and options, retaining the original spelling for errors.
 3. For the shorthand, append `.kdl` when the path has no extension; otherwise
    retain the supplied path. Complete only the final component, not dots in
-   parent directory names. Final edge-case validation is listed in spec 02.
+   parent directory names. Validate the original final component before `Path`
+   normalization: reject empty/NUL, trailing separators/dots and `.` / `..`.
+   Require a file name, then use `Path::extension` / `PathBuf::set_extension`;
+   this completes `.shared` to `.shared.kdl` using the host OS's path rules.
 4. Resolve the resulting request from the importing file's directory using the
    existing single-file path flow, or the caller's source when that API exists.
 5. Expand recursively, apply the shared filters, renames and namespace prefix
    to the included top-level nodes, then splice the transformed result at the
    directive position. Keep cycle detection based on resolved source identity.
 
-The internal directive representation should distinguish original request,
-effective request and origin notation as needed for diagnostics and extension
-policy. These are implementation concepts, not a committed public API.
+`parse_directive` dispatches on `(node.ty(), node.name())`: `(None, ">")`
+uses `short_reference_path`; the existing `(<)` variants keep their literal
+paths. The helper requires exactly one unannotated string positional argument
+and returns the effective path as `DirectiveKind::File`. Validation diagnostics
+retain the original spelling; I/O diagnostics report the effective path. The
+rest of option parsing and expansion is shared, without new public types or
+changes to `ComposeError`.
 
 Do not perform an existence check to choose between `a` and `a.kdl`. For
 `> "a"`, the effective request is always `a.kdl`. Do not cache away repeated
@@ -56,7 +66,7 @@ filesystem globs is covered by [design 03](03-fallible-glob.md).
 
 ## Acceptance work
 
-Before production changes, add failing behavior tests for:
+`tests/compose_short_references.rs` covers:
 
 - `> "a"` and `> "./a.kdl"` producing the same document as `(<)file "./a.kdl"`.
 - New shorthand options matching the legacy single-file options and order.
@@ -69,19 +79,23 @@ Before production changes, add failing behavior tests for:
 - `path`, `a`, `"a"` and empty nodes remaining data; only the exact untyped `>`
   name selects the new directive. Parser/writer round trips retain this meaning.
 - Missing/unreadable files, parse errors and mixed legacy/shorthand cycles.
-- The path and argument edge cases listed in spec 02 once their rules are set.
+- The path and argument edge cases listed in spec 02, using native separators.
+- `from_path<T>` deserializing the expanded nodes.
 
 Run the existing compose tests alongside these regressions. Use independent KDL
 parsing to verify the documented notation, and keep published API examples on
-implemented behavior until this feature ships.
+released behavior until this feature ships. Development examples are explicitly
+marked unreleased. The new suite was run before production changes: 16 tests
+failed on the unexpanded `>` node while the data-preservation test passed. After
+implementation, all 17 new tests and 25 existing integration tests passed locally.
 
 ## Prototype boundary
 
 The temporary experiment used the production `Document::parse` with its own
-small resolver. Its bare mode demonstrated why quote-only references fail to
-distinguish data. Its marker mode demonstrated `> "a"` expansion and preservation
-of empty data nodes. The six checks passed after five expansion/error checks
-first failed against the unchanged production composer.
+small resolver. Its bare mode demonstrated why implicit reference notation
+(暗黙参照記法) fails to distinguish data. Its marker mode demonstrated `> "a"`
+expansion and preservation of empty data nodes. The six checks passed after five
+expansion/error checks first failed against the unchanged production composer.
 
 The scratch project at `/tmp/club-kdl-shortest.GzNGmz` is disposable and may
 disappear. Its location is not a build dependency or a substitute for checked-in
@@ -97,6 +111,7 @@ changed by that experiment.
 - Do not change legacy extensionless paths while adding shorthand completion.
 - Do not reimplement filtering/renaming separately for the new notation.
 - Do not mark the specification Active based on the scratch prototype alone.
+- Do not normalize away a trailing `/.` before validating the request.
 
 ## Status log
 
@@ -105,3 +120,8 @@ changed by that experiment.
   remain pending.
 - 2026-11-03: Deep review corrected the transform-before-splice order; linked
   the follow-up correction for existing glob traversal errors.
+- 2026-11-04: Adopted spec 02's fixed notation names; no implementation or
+  behavior change.
+- 2026-11-04: Implemented the short-reference helper and shared directive
+  dispatch after RED. Implicit references remain outside the agreed scope.
+  Added real-file integration coverage and documented the validation rules.
