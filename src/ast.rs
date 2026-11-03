@@ -95,8 +95,10 @@
 //!   the tree after the text is gone.
 //! - **Only meaning is kept.** Whitespace, comments and the original spelling
 //!   of values are dropped, so the tree is for reading and generating KDL.
-//!   To edit a file in place and keep its comments, use kdl-rs (the `kdl-rs`
-//!   feature converts between the two trees).
+//!   To change existing values while keeping the source text, use
+//!   `edit::EditableDocument` with the `edit` feature. For broader tree edits,
+//!   parse the original text with kdl-rs. Converting this tree does not recover
+//!   discarded comments.
 
 use std::borrow::Cow;
 use std::fmt;
