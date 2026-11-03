@@ -8,7 +8,8 @@ Common errors encountered with club-kdl, and their causes and fixes.
 
 ### `implicit elided lifetime not allowed here` (E0726)
 
-When binding a struct that has borrowed fields (`&'a str`) to a variable:
+When a struct with borrowed fields (`&'a str`) is used as an `async fn` parameter
+without its lifetime argument:
 
 ```rust
 #[derive(KdlDeserialize)]
@@ -18,19 +19,26 @@ struct Service<'a> {
     name: &'a str,
 }
 
-let s: Service = club_kdl::from_str(r#"service "api""#).unwrap();
-//     ^^^^^^^ error: the lifetime parameter cannot be elided
+async fn handle(service: Service) {
+    //                  ^^^^^^^ E0726: specify the lifetime argument
+    println!("{}", service.name);
+}
 ```
 
-**Cause**: In edition 2024, eliding a type's lifetime triggers E0726.
+**Cause**: This `async fn` parameter requires the type's lifetime argument.
+This is not a general edition 2024 ban on lifetime elision: a local annotation
+such as `let s: Service = ...` can still infer the lifetime.
 
 **Fix**: Spell the anonymous lifetime explicitly as `Service<'_>`.
 
 ```rust
-let s: Service<'_> = club_kdl::from_str(r#"service "api""#).unwrap();
+async fn handle(service: Service<'_>) {
+    println!("{}", service.name);
+}
 ```
 
 If you do not need borrowing, making the field a `String` removes the lifetime altogether.
+See the [Rust explanation of E0726](https://doc.rust-lang.org/error_codes/E0726.html).
 
 ## Child node mapping
 

@@ -1,6 +1,8 @@
 # 02. Short reference notation in compose
 
-> **Status**: Draft — implemented on the working branch; release pending
+English | **[日本語](./02-compose-short-references.ja.md)**
+
+> **Status**: Active — v0.16.0 release content; publication tracked by the release workflow
 > **Related**: [design 02](../design/02-compose-short-references.md), `mem_1CgfhGM9mjkVTjoUNZfX1E` (decision), `mem_1Cgfgpd9ECRvRMSkf68so2` (prototype findings)
 > **対象**: `src/compose/mod.rs`, `src/compose/error.rs`, `tests/compose.rs`, `tests/compose_short_references.rs`
 
@@ -11,7 +13,7 @@ The notation names are fixed as follows:
 | Form | Japanese name | English name | Status |
 |---|---|---|---|
 | `"a"` alone as a reference | 暗黙参照記法 | implicit reference | Rejected proposal; remains ordinary data |
-| `> "a"` | 短縮参照記法 | short reference | Implemented on the working branch; unreleased |
+| `> "a"` | 短縮参照記法 | short reference | Implemented in v0.16.0 |
 | `(<)file "./a.kdl"` | ファイル取込記法 | file import | Existing behavior |
 
 “Short reference notation” (or “shorthand” below) means the complete `> "a"`
@@ -183,3 +185,5 @@ remain excluded by the user's final scope decision.
 - 2026-11-04: User selected short references only after reconsidering implicit
   references. Implemented validation, deterministic completion and shared import
   behavior after observing the new tests fail. Release remains pending.
+- 2026-11-04: Prepared the v0.16.0 release after team-b review and successful
+  Linux/macOS/Windows CI. Registry publication is a separate workflow gate.

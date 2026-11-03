@@ -1,5 +1,7 @@
 # 01. Compact vocabulary codec
 
+English | **[日本語](./01-name-shortcuts.ja.md)**
+
 > **Status**: Active (v0.15.0)
 > **Related**: [spec 01](../spec/01-name-shortcuts.md), `mem_1CgYBNbHDqGGdtK66QsMCL`
 > **対象**: `src/compact.rs`, `src/write.rs`, `tests/compact.rs`, `tests/compact_spec.rs`, `benches/name_shortcuts.rs`

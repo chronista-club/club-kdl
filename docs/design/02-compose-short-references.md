@@ -1,6 +1,8 @@
 # 02. Implementing short reference notation in compose
 
-> **Status**: Draft — implemented on the working branch; release pending
+English | **[日本語](./02-compose-short-references.ja.md)**
+
+> **Status**: Active — v0.16.0 release content; publication tracked by the release workflow
 > **Related**: [spec 02](../spec/02-compose-short-references.md), `mem_1CgfhGM9mjkVTjoUNZfX1E` (decision), `mem_1Cgfgpd9ECRvRMSkf68so2` (prototype findings)
 > **対象**: `src/compose/mod.rs`, `src/compose/error.rs`, `tests/compose.rs`, `tests/compose_short_references.rs`
 
@@ -83,9 +85,8 @@ filesystem globs is covered by [design 03](03-fallible-glob.md).
 - `from_path<T>` deserializing the expanded nodes.
 
 Run the existing compose tests alongside these regressions. Use independent KDL
-parsing to verify the documented notation, and keep published API examples on
-released behavior until this feature ships. Development examples are explicitly
-marked unreleased. The new suite was run before production changes: 16 tests
+parsing to verify the documented notation. Short-reference examples require
+version 0.16 or later. The new suite was run before production changes: 16 tests
 failed on the unexpanded `>` node while the data-preservation test passed. After
 implementation, all 17 new tests and 25 existing integration tests passed locally.
 
@@ -125,3 +126,6 @@ changed by that experiment.
 - 2026-11-04: Implemented the short-reference helper and shared directive
   dispatch after RED. Implicit references remain outside the agreed scope.
   Added real-file integration coverage and documented the validation rules.
+- 2026-11-04: Prepared release content for v0.16.0 after COMMIT READY from
+  team-b and all eight CI jobs passed, including Windows. Registry publication
+  is tracked separately by the release workflow.

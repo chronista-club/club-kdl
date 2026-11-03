@@ -2,26 +2,24 @@
 
 **[English](./custom-types.md)** | 日本語
 
-club-kdl が標準で対応しない型 (外部 crate の型・独自 newtype など) を KDL 値にマッピングする方法。
+club-kdl が標準では扱わない型を、KDL の値として読み書きする方法を説明する。外部クレートの型や、独自の newtype が対象となる。
 
-## Overview
+## 概要
 
-club-kdl は以下の型を標準でサポートします:
+club-kdl が標準で扱う型は次のとおり。
 
-- 整数 (`i8` `i16` `i32` `i64` `i128` `isize` `u8` `u16` `u32` `u64` `usize`) / 浮動小数 (`f32` `f64`) / 真偽値 (`bool`)
-- 文字列 (`String` `&str`) / パス (`PathBuf`)
-- コレクション (`Vec<T>` `HashMap<String, String>`) / `Option<T>`
+- 整数（`i8` `i16` `i32` `i64` `i128` `isize` `u8` `u16` `u32` `u64` `usize`）、浮動小数点数（`f32` `f64`）、真偽値（`bool`）
+- 文字列（`String` `&str`）、パス（`PathBuf`）
+- コレクション（`Vec<T>` `HashMap<String, String>`）、`Option<T>`
 
-これ以外の型 ―― 例えば `chrono::NaiveDate`、 独自の `UserId(u64)`、 外部 crate の列挙型 ―― を
-`#[kdl(argument)]` / `#[kdl(property)]` フィールドで使いたい場合、 その型に
-**`FromKdlValue` / `ToKdlValue` trait を実装**します。
+`chrono::NaiveDate`、独自の `UserId(u64)`、外部クレートの列挙型などを `#[kdl(argument)]` / `#[kdl(property)]` のフィールドで使うには、その型に **`FromKdlValue` / `ToKdlValue` を実装する**。
 
-## Prerequisites
+## 前提
 
-- club-kdl の基本 (`#[derive(KdlDeserialize, KdlSerialize)]` と `#[kdl(...)]` 属性) を理解していること
-- 対象は argument / property にマッピングされる「スカラー値」 としての型。 子ノード構造を持つ型は通常の struct + derive で表現します
+- `#[derive(KdlDeserialize, KdlSerialize)]` と `#[kdl(...)]` 属性の基本的な使い方を理解していること。
+- 対象は、引数やプロパティに対応するスカラー値であること。子ノードの構造を持つ型は、通常の構造体と derive で表す。
 
-## The traits
+## トレイト
 
 ```rust
 use club_kdl::{FromKdlValue, ToKdlValue};
@@ -35,15 +33,15 @@ pub trait ToKdlValue {
 }
 ```
 
-- デシリアライズには `FromKdlValue`、 シリアライズには `ToKdlValue` が必要。 片方だけの実装も可
-- どちらの trait も club-kdl の軽量ツリーの値 `club_kdl::Value` を扱う。 `ToKdlValue` は `self` から借用した `Value` を返してよい (`Value::String(Cow::Borrowed(..))`)。 文字列をその場で組み立てるときは所有した値 (`.to_string().into()`) を返す
-- `'de` ライフタイムは KDL ソースからの借用 (zero-copy) を可能にする。 値を所有したい場合は `.to_owned()` する
+- デシリアライズには `FromKdlValue`、シリアライズには `ToKdlValue` が必要。片方だけ実装してもよい。
+- どちらも、club-kdl の軽量ツリーで値を表す `club_kdl::Value` を使う。`ToKdlValue` は `self` から借用した `Value`（`Value::String(Cow::Borrowed(..))`）を返せる。計算して作った文字列には、所有する文字列（`.to_string().into()`）を使う。
+- `'de` は、KDL のソースからコピーせずに借用するためのライフタイム。値を所有する必要がある場合は `.to_owned()` を使う。
 
-## Usage
+## 使用例
 
-### 例 1: newtype ―― 既存型に薄いラッパ
+### 例 1: newtype で既存の型を包む
 
-`UserId(u64)` のような newtype は、 内部型の実装にデリゲートするだけです。
+`UserId(u64)` のような newtype は、内側の型の実装に処理を委ねるだけでよい。
 
 ```rust
 use club_kdl::{FromKdlValue, Result, ToKdlValue, Value};
@@ -63,11 +61,9 @@ impl ToKdlValue for UserId {
 }
 ```
 
-### 例 2: 外部型 ―― `chrono::NaiveDate` を文字列にマッピング
+### 例 2: `chrono::NaiveDate` を文字列として扱う
 
-外部 crate の型 (`chrono::NaiveDate`) に club-kdl の trait を直接実装することは
-**orphan rule によりできません** (型も trait も自分の crate の外にあるため)。
-**newtype でラップ**して回避します。
+外部クレートの型である `chrono::NaiveDate` に、club-kdl のトレイトを直接実装することはできない。型とトレイトの両方が自分のクレート外にあるため、Rust の **orphan rule** に違反する。自分のクレートで定義した **newtype で包む**ことで対応できる。
 
 ```rust
 use club_kdl::{Error, FromKdlValue, Result, ToKdlValue, Value};
@@ -77,7 +73,7 @@ struct Date(NaiveDate);
 
 impl<'de> FromKdlValue<'de> for Date {
     fn from_kdl_value(value: &'de Value<'de>) -> Result<Self> {
-        // まず &str として取り出し、 chrono でパース
+        // First extract as &str, then parse with chrono
         let s = <&str>::from_kdl_value(value)?;
         NaiveDate::parse_from_str(s, "%Y-%m-%d")
             .map(Date)
@@ -92,15 +88,15 @@ impl ToKdlValue for Date {
 }
 ```
 
-これで `#[kdl(property)] created: Date` のように使えます:
+この `Date` を `#[kdl(property)] created: Date` として使うと、次の KDL を読み書きできる。
 
 ```kdl
 record created="2026-05-17"
 ```
 
-### 例 3: 値の検証を挟む
+### 例 3: 値を検証する
 
-`from_kdl_value` は `Result` を返すので、 パースと同時にバリデーションできます。
+`from_kdl_value` は `Result` を返すため、変換時に値を検証できる。
 
 ```rust
 struct Port(u16);
@@ -116,15 +112,15 @@ impl<'de> FromKdlValue<'de> for Port {
 }
 ```
 
-## Troubleshooting
+## トラブルシューティング
 
 | 症状 | 原因 | 対処 |
-|------|------|------|
-| `only traits defined in the current crate can be implemented for types defined outside of the crate` | orphan rule ―― 外部型に外部 trait を実装しようとした | newtype でラップする (例 2) |
-| `borrowed value does not live long enough` | `&'de str` を借用したまま型変換しようとした | 所有が必要なら `String` 経由で `.to_owned()` |
-| 型不一致を返したい | KDL 値の種類が期待と違う | `Error::type_mismatch("expected", value)` を返す |
+|---|---|---|
+| `only traits defined in the current crate can be implemented for types defined outside of the crate` | 外部の型に外部のトレイトを実装しようとして、orphan rule に違反した | newtype で包む（例 2） |
+| `borrowed value does not live long enough` | `&'de str` を借用したまま変換しようとした | 所有する値が必要なら、`.to_owned()` で `String` にする |
+| 型の不一致をエラーにしたい | KDL の値の種類が想定と異なる | `Error::type_mismatch("expected", value)` を返す |
 
-## 関連
+## 関連項目
 
-- README の「サポートする型」 セクション
-- enum のスカラーマッピングは derive が自動対応 (`#[kdl(rename = "...")]`) ―― 手書き実装は不要
+- README の「サポートされる型」
+- スカラー列挙型の対応は derive（`#[kdl(rename = "...")]`）が生成するため、手動での実装は不要

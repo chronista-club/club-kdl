@@ -36,7 +36,7 @@ When you reach 3 or more arguments, that is usually a sign most of them should b
 
 | Attribute | Multiplicity | Rust type |
 |-----------|--------------|-----------|
-| `#[kdl(child)]` | a single child, 0..1 | `T` / `Option<T>` |
+| `#[kdl(child)]` | a single child; optional with `Option<T>` | `T` / `Option<T>` |
 | `#[kdl(children)]` | repeated children of the same kind | `Vec<T>` |
 | `#[kdl(child_map)]` | a set of key-value pairs | `HashMap<String, String>` |
 

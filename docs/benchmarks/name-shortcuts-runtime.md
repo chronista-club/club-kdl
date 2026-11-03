@@ -1,5 +1,7 @@
 # Rule-based automatic aliases: runtime measurements
 
+English | **[日本語](./name-shortcuts-runtime.ja.md)**
+
 This records the initial indented codec at `adcef50` (merged as `3f10721`), before
 the v0.15.0 indentation change. See [indentation measurements](indent-pack.md)
 for the later output sizes and production API comparison.

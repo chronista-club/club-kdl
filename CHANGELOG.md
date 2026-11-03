@@ -7,6 +7,8 @@
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-11-04
+
 ### 追加
 
 - compose に短縮参照記法 `> "a"` を追加。参照元ファイルを基準に `a.kdl` を取り込み、
@@ -26,6 +28,11 @@
 
 - 短縮参照記法 `> "a"` と `.kdl` 補完の仕様・設計・検証項目を記録。
   不採用の `"a"` 単独案は「暗黙参照記法」、既存の `(<)file` は「ファイル取込記法」と呼び分ける。
+- `docs/` の英語 Markdown 13 本に対応する日本語版を追加・改訂。
+  PLaMo API の下訳を原文と照合し、用語・要件・検証範囲・性能評価を読みやすく整理した。
+  日英ページ間と日本語資料同士のリンクも整備した。
+- トラブルシューティングの E0726 の説明を、実際に再現する `async fn` 引数の例へ修正。
+  ローカル変数の型注釈でライフタイムを省略できないとする誤記を、日英両方で訂正した。
 
 ## [0.15.1] - 2026-10-30
 
@@ -504,7 +511,8 @@ chronista-club ecosystem の crates.io 公開 crate は **`club-` prefix** で�
 - `usize` 型対応
 - 網羅テスト整備
 
-[Unreleased]: https://github.com/chronista-club/club-kdl/compare/v0.15.1...HEAD
+[Unreleased]: https://github.com/chronista-club/club-kdl/compare/v0.16.0...HEAD
+[0.16.0]: https://github.com/chronista-club/club-kdl/compare/v0.15.1...v0.16.0
 [0.15.1]: https://github.com/chronista-club/club-kdl/compare/v0.15.0...v0.15.1
 [0.15.0]: https://github.com/chronista-club/club-kdl/compare/v0.14.1...v0.15.0
 [0.14.1]: https://github.com/chronista-club/club-kdl/compare/v0.14.0...v0.14.1
