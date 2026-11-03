@@ -7,6 +7,8 @@
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-11-04
+
 ### 追加
 
 - `edit` feature に `EditableDocument` を追加。既存ノードの引数・プロパティの値だけを
@@ -518,7 +520,8 @@ chronista-club ecosystem の crates.io 公開 crate は **`club-` prefix** で�
 - `usize` 型対応
 - 網羅テスト整備
 
-[Unreleased]: https://github.com/chronista-club/club-kdl/compare/v0.16.0...HEAD
+[Unreleased]: https://github.com/chronista-club/club-kdl/compare/v0.17.0...HEAD
+[0.17.0]: https://github.com/chronista-club/club-kdl/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/chronista-club/club-kdl/compare/v0.15.1...v0.16.0
 [0.15.1]: https://github.com/chronista-club/club-kdl/compare/v0.15.0...v0.15.1
 [0.15.0]: https://github.com/chronista-club/club-kdl/compare/v0.14.1...v0.15.0

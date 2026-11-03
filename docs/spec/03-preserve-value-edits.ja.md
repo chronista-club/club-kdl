@@ -2,7 +2,7 @@
 
 **[English](./03-preserve-value-edits.md)** | 日本語
 
-> **Status**: Draft
+> **Status**: Active
 > **関連**: design 04、`mem_1CggW2QewS8jT8ejr6jRC6`
 > **対象**: `src/edit.rs`, `tests/preserve_edits.rs`
 
@@ -38,3 +38,7 @@
 失敗時の不変性を、テキストの完全一致で確認する。KDL 仕様コーパスで、原文保持・指定した値の
 更新・再解析後の意味を確認する。既存パーサー・writer のテストと変更前後のベンチマークで、
 通常の経路も検証する。
+
+## Status log
+
+- 2026-11-04: PR #51 のマージを受け、v0.17.0 に向けて Active にした。対応範囲は既存の値の編集。

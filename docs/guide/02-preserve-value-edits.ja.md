@@ -3,11 +3,10 @@
 **[English](./02-preserve-value-edits.md)** | 日本語
 
 `edit` feature は、コメント・空白・改行・他の値を書き換えずに、既存の値を更新する。
-**未リリース**で、公開済みの 0.16.0 には含まれていない。このチェックアウトを隣接する
-プロジェクトから使う場合は、次のように指定する。
+**0.17.0 から利用できる**。依存に次のように指定する。
 
 ```toml
-club-kdl = { path = "../club-kdl", features = ["edit"] }
+club-kdl = { version = "0.17", features = ["edit"] }
 ```
 
 ## 値を変更する

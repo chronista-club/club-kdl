@@ -2,7 +2,7 @@
 
 **[English](./04-preserve-value-edits.md)** | 日本語
 
-> **Status**: Draft
+> **Status**: Active
 > **関連**: spec 03、`mem_1CggW2QewS8jT8ejr6jRC6`
 > **対象**: `src/edit.rs`, `src/parse.rs`
 
@@ -44,6 +44,8 @@
   成功した。検証・原文保持の 3 件も成功。仕様コーパスで正常文書 233 件、不正文書 87 件、
   指定可能な値 198 個を確認した。workspace のテスト、Clippy、rustdoc、doctest、
   MSRV 1.95 のチェックが成功した。
+
+- 2026-11-04: PR #51 のマージを受け、v0.17.0 に向けて Active にした。対応範囲は既存の値の編集。
 
 ## 通常経路の性能確認
 

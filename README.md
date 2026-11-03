@@ -13,9 +13,9 @@ A **family of crates** for working with [KDL](https://kdl.dev) in Rust — deriv
 
 ```toml
 [dependencies]
-club-kdl = "0.16"
+club-kdl = "0.17"
 # optional features, both off by default:
-# club-kdl = { version = "0.16", features = ["compose", "kdl-rs"] }
+# club-kdl = { version = "0.17", features = ["compose", "kdl-rs"] }
 ```
 
 ## The crate family
@@ -35,7 +35,7 @@ club-kdl = "0.16"
 | `compose` | `club_kdl::compose` — multi-file KDL via `>` short references and `(<)file` / `(<)glob` imports ([below](#multi-file-kdl-with-the-compose-feature)) | `glob` |
 | `kdl-rs` | Interop with kdl-rs: `from_kdl_document` / `from_kdl_node` / `to_kdl_document`, `From` conversions, the `club_kdl::kdl` re-export ([below](#interop-with-kdl-rs)) | `kdl` |
 | `compact` | Rule-based automatic aliases and indentation-free output for machine-oriented KDL files and messages; ordinary config stays readable ([guide](docs/guide/01-compact-names.md)) | `sha2` |
-| `edit` (unreleased) | Update existing values while preserving comments and surrounding source text ([guide](docs/guide/02-preserve-value-edits.md)) | None |
+| `edit` | Update existing values while preserving comments and surrounding source text ([guide](docs/guide/02-preserve-value-edits.md)) | None |
 
 Until 0.13, `compose` was the separate `club-kdl-compose` crate; `kdl_compose::compose` is now `club_kdl::compose::compose`.
 
@@ -150,7 +150,7 @@ kdl-rs builds a format-preserving document: every node and value carries its ori
 
 ### What it gives up
 
-The ordinary semantic tree and struct serializers **do not preserve comments or layout**: reading a file into structs and writing it back produces normalized KDL. For existing-value updates, the unreleased `edit` feature adds `edit::EditableDocument`, which retains the original text and replaces only the selected value token. See the [editing guide](docs/guide/02-preserve-value-edits.md). For broader tree edits with kdl-rs, parse and retain the original kdl-rs document; converting through the semantic tree does not restore discarded comments.
+The ordinary semantic tree and struct serializers **do not preserve comments or layout**: reading a file into structs and writing it back produces normalized KDL. For existing-value updates, the `edit` feature (since 0.17) adds `edit::EditableDocument`, which retains the original text and replaces only the selected value token. See the [editing guide](docs/guide/02-preserve-value-edits.md). For broader tree edits with kdl-rs, parse and retain the original kdl-rs document; converting through the semantic tree does not restore discarded comments.
 
 ### How correctness is checked
 
@@ -196,7 +196,7 @@ See [`club-kdl-codegen` on docs.rs](https://docs.rs/club-kdl-codegen) for the fu
 When a schema or config gets large, split it across files and include with `(<)file` (or `(<)glob` for batch import). Enable the feature first:
 
 ```toml
-club-kdl = { version = "0.16", features = ["compose"] }
+club-kdl = { version = "0.17", features = ["compose"] }
 ```
 
 ```kdl
@@ -577,7 +577,7 @@ To append records to a file one node at a time (NDKDL — "newline-delimited KDL
 Requires the `kdl-rs` feature:
 
 ```toml
-club-kdl = { version = "0.16", features = ["kdl-rs"] }
+club-kdl = { version = "0.17", features = ["kdl-rs"] }
 ```
 
 ```rust
