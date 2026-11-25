@@ -2,8 +2,8 @@
 
 English | **[日本語](./02-compose-short-references.ja.md)**
 
-> **Status**: Active — v0.16.0 release content; publication tracked by the release workflow
-> **Related**: [design 02](../design/02-compose-short-references.md), `mem_1CgfhGM9mjkVTjoUNZfX1E` (decision), `mem_1Cgfgpd9ECRvRMSkf68so2` (prototype findings)
+> **Status**: Active — short references since v0.16.0; `(>)` import spelling pending release
+> **Related**: `mem_1ChPKArZHC3qRh4uTjUKgk` (import marker unification), [design 02](../design/02-compose-short-references.md), `mem_1CgfhGM9mjkVTjoUNZfX1E` (decision), `mem_1Cgfgpd9ECRvRMSkf68so2` (prototype findings)
 > **対象**: `src/compose/mod.rs`, `src/compose/error.rs`, `tests/compose.rs`, `tests/compose_short_references.rs`
 
 ## Terminology
@@ -14,7 +14,8 @@ The notation names are fixed as follows:
 |---|---|---|---|
 | `"a"` alone as a reference | 暗黙参照記法 | implicit reference | Rejected proposal; remains ordinary data |
 | `> "a"` | 短縮参照記法 | short reference | Implemented in v0.16.0 |
-| `(<)file "./a.kdl"` | ファイル取込記法 | file import | Existing behavior |
+| `(>)file "./a.kdl"` | ファイル取込記法 | file import | Primary spelling; `(<)file` is a compatibility alias |
+| `(>)glob "./*.kdl"` | glob 取込記法 | glob import | Primary spelling; `(<)glob` is a compatibility alias |
 
 “Short reference notation” (or “shorthand” below) means the complete `> "a"`
 form, including the explicit `>` marker. “Implicit reference” names only the
@@ -84,9 +85,11 @@ fallback, search path, environment expansion, or automatic directory import.
 - Share the existing single-file expansion and option semantics: `only` /
   `except`, then `rename`, then `as`. These transform the first string argument
   of included top-level nodes, not arbitrary internal cross-references.
-- Preserve the existing `(<)file` and successful `(<)glob` behavior, including
-  literal path/pattern handling. Do not apply implicit `.kdl` completion to
-  either. Glob failure handling is clarified in [design 03](../design/03-fallible-glob.md).
+- Accept `(>)file` / `(>)glob` as the primary explicit import forms, sharing
+  the existing `(<)file` / `(<)glob` behavior and literal paths/patterns.
+  Neither spelling applies implicit `.kdl` completion. Reject unknown variants
+  and missing path/pattern arguments with `ComposeError::InvalidDirective`.
+  Glob failure handling is clarified in [design 03](../design/03-fallible-glob.md).
 - Keep ordinary `path "./output.kdl"`, `a`, `"a"`, and `enabled` as data.
   Import recognition must not depend on whether a similarly named file exists.
 - Propagate single-file resolution/read/parse errors and include cycles instead
@@ -126,9 +129,13 @@ export {
 
 ## Compatibility and alternatives
 
-`(<)file` and `(<)glob` remain supported. The earlier `(>)path` and `>path`
+`(>)file` and `(>)glob` are the primary import spellings. `(<)file` and
+`(<)glob` remain backward-compatible aliases with unchanged behavior.
+The earlier `(>)path` and `>path`
 proposals are design history, not additional aliases required by this spec;
-neither was implemented in the production composer during this discussion.
+neither is an import alias. Compose now reserves the `>` type tag as well as
+`<`: `(>)path` and all other unknown variants are errors, while `>path` and
+`(custom)>` remain data. Ordinary parsing still preserves these nodes without I/O.
 
 Implicit reference notation (`"a"` alone) was tried and is not selected. The
 current AST treats `"a"` and `a` identically, so interpreting an empty node as a
@@ -147,7 +154,8 @@ directives already perform recursive interpretation and transformations.
 
 ## Scope
 
-This document selects the shorthand and extension-completion rule. It does not
+This document selects the shorthand, extension-completion rule, and unified
+`>` marker for explicit file/glob imports. It does not
 add directory imports, new glob syntax, expression evaluation, automatic
 writeback, transactions, or file watching.
 
@@ -169,8 +177,9 @@ marker variant is selected. This does not establish production support for
 legacy directives, options, glob, custom I/O or dependency reports.
 
 The implementation is now covered by `tests/compose_short_references.rs` using
-real temporary files alongside the existing compose tests. It adds the explicit
-short reference only. No parser or AST change is needed; implicit references
+real temporary files alongside the existing compose tests. The same suite now
+checks the explicit import aliases as well. No parser or AST change is needed;
+implicit references
 remain excluded by the user's final scope decision.
 
 ## Status log
@@ -187,3 +196,7 @@ remain excluded by the user's final scope decision.
   behavior after observing the new tests fail. Release remains pending.
 - 2026-11-04: Prepared the v0.16.0 release after team-b review and successful
   Linux/macOS/Windows CI. Registry publication is a separate workflow gate.
+- 2026-11-25: Unified explicit imports on `(>)file` / `(>)glob` to align with
+  short references. Retained `(<)file` / `(<)glob` as compatibility aliases,
+  literal paths and shared options. The `>` type tag is now reserved in compose;
+  unknown variants are errors. Publication remains a separate release step.

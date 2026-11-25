@@ -53,7 +53,7 @@ club-kdl-derive = { path = "./derive", version = "=0.17.0" }
 # `kdl-rs` feature: conversions to and from kdl-rs trees. The engine itself
 # does not use kdl-rs.
 kdl = { workspace = true, optional = true }
-# `compose` feature: `(<)glob` include directives.
+# `compose` feature: `(>)glob` include directives (`(<)glob` is a compatibility alias).
 glob = { version = "0.3", optional = true }
 # Stable identities for reusable compact name tables.
 sha2 = { version = "0.10.9", optional = true }
@@ -64,7 +64,7 @@ default = []
 # `to_kdl_document`, `From` conversions, `KdlNodeExt`, `club_kdl::kdl`.
 kdl-rs = ["dep:kdl"]
 # Multi-file composition: `club_kdl::compose` resolves `>` short references
-# and `(<)file` / `(<)glob` include directives.
+# and `(>)file` / `(>)glob` include directives (`(<)` aliases remain supported).
 compose = ["dep:glob"]
 # Rule-based name aliases in ordinary KDL v2 messages and files.
 compact = ["dep:sha2"]
