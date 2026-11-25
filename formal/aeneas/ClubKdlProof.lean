@@ -80,4 +80,41 @@ theorem document_as_node_matches_spec (d : Document) :
 
 #print axioms document_as_node_matches_spec
 
+theorem document_into_nodes_matches_spec (d : Document) :
+    Document.impl.into_nodes d = Aeneas.Std.Result.ok d.root.children := by
+  rfl
+#print axioms document_into_nodes_matches_spec
+
+theorem node_entries_matches_spec (n : Node) :
+    Node.impl.entries n = Aeneas.Std.Result.ok n.entries.slice := by
+  rfl
+#print axioms node_entries_matches_spec
+
+theorem node_children_matches_spec (n : Node) :
+    Node.impl.children n = Aeneas.Std.Result.ok n.children.slice := by
+  rfl
+#print axioms node_children_matches_spec
+
+theorem node_into_children_matches_spec (n : Node) :
+    Node.impl.into_children n = Aeneas.Std.Result.ok n.children := by
+  rfl
+#print axioms node_into_children_matches_spec
+
+theorem node_into_parts_matches_spec (n : Node) :
+    Node.impl.into_parts n = Aeneas.Std.Result.ok (n.entries, n.children) := by
+  rfl
+#print axioms node_into_parts_matches_spec
+
+theorem editable_into_string_matches_spec (d : ClubKdlGenerated.edit.EditableDocument) :
+    ClubKdlGenerated.edit.EditableDocument.impl.into_string d =
+      Aeneas.Std.Result.ok d.source := by
+  rfl
+#print axioms editable_into_string_matches_spec
+
+theorem node_builder_build_matches_spec (b : ClubKdlGenerated.ser.NodeBuilder) :
+    ClubKdlGenerated.ser.NodeBuilder.impl.build b = Aeneas.Std.Result.ok b.node := by
+  cases b with
+  | mk n => cases n; rfl
+#print axioms node_builder_build_matches_spec
+
 end ClubKdlProof

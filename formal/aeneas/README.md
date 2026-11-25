@@ -1,6 +1,6 @@
 # 実 Rust からの抽出証明（Charon / Aeneas / Lean 4）
 
-`src/ast.rs` の 8 メソッドを **実際の Cargo crate から抽出**し、期待仕様との一致を証明します。Rust を写した別 crate や手書きのメソッド代替実装は使いません。
+`src/ast.rs`・`src/edit.rs`・`src/ser.rs` の 15 メソッドを **実際の Cargo crate から抽出**し、期待仕様との一致を証明します。Rust を写した別 crate や手書きのメソッド代替実装は使いません。
 
 ## 対象
 
@@ -14,8 +14,14 @@
 | `Entry::value` | `expectedEntryValue` | entry の値をそのまま返す |
 | `Document::nodes` | `expectedDocumentNodes` | root.children の全要素を順序・重複を保って返す |
 | `Document::as_node` | `expectedDocumentAsNode` | root ノードをそのまま返す |
+| `Document::into_nodes` | `d.root.children` | top-level の Vec を順序・重複も含めて移す |
+| `Node::entries`, `Node::children` | `n.entries.slice`, `n.children.slice` | 格納済み Slice の全体を返す |
+| `Node::into_children` | `n.children` | children の Vec を移す |
+| `Node::into_parts` | `(n.entries, n.children)` | 両方の Vec をそのまま組にする |
+| `EditableDocument::into_string` | `d.source` | 保持した元のテキスト全体を返す |
+| `NodeBuilder::build` | `b.node` | 全フィールドを保持したノードを返す |
 
-各 `*_matches_spec` は任意の入力について `Result.ok (expected... input)` との一致を証明します。したがって抽出モデル上では、値の一致だけでなく正常終了も含みます。`ClubKdlProof.lean` の各定理直後に `#print axioms` を置いています。
+各 `*_matches_spec` は任意の入力について `Result.ok` に包んだ期待値 との一致を証明します。したがって抽出モデル上では、値の一致だけでなく正常終了も含みます。`ClubKdlProof.lean` の各定理直後に `#print axioms` を置いています。
 
 ## 固定ツール
 
@@ -48,11 +54,11 @@ bun formal/aeneas/check.ts --mutation-test
 通常の検証は次の順に進みます。
 
 1. ツール版を検査。
-2. `charon cargo --preset=aeneas --sysroot default --start-from crate::ast::... -- ... --manifest-path Cargo.toml --lib` で、8 対象を実 crate から抽出。古い LLBC は事前に消し、新しい出力が無ければ失敗。
+2. `charon cargo --preset=aeneas --sysroot default --start-from crate::... -- ... --manifest-path Cargo.toml --lib --features compact,edit,compose` で、15 対象を実 crate から抽出。古い LLBC は事前に消し、新しい出力が無ければ失敗。
 3. Aeneas の `-namespace ClubKdlGenerated -impl-namespace` で Lean を生成。生出力を `.lake/ClubKdl.raw.lean` に保存し、互換用 import のみを機械的に付加。
 4. `lake build ClubKdl` で生成定義を検査。
 5. `lake env lean -DwarningAsError=true ClubKdlProof.lean` で証明を毎回検査。
-6. 8 件の公理出力が各 1 件あることを検査。許可する公理は `propext`, `Quot.sound` のみ。`sorryAx`、`Classical.choice`、独自の公理は拒否。
+6. 15 件の公理出力が各 1 件あることを検査。許可する公理は `propext`, `Quot.sound` のみ。`sorryAx`、`Classical.choice`、独自の公理は拒否。
 
 `ClubKdl.lean` は生成物としてコミットします。手で編集せず、変更は Rust または検証工程をレビューしてから再生成してください。
 
@@ -60,7 +66,7 @@ bun formal/aeneas/check.ts --mutation-test
 
 `--mutation-test` は正常なソースを証明した後、一時ディレクトリに `Cargo.toml` / `Cargo.lock` / `src/` / `derive/` と workspace member の `codegen/`、manifest が明示する `benches/` をコピーします。元の workspace の manifest は変更しません。このライブラリ repo は `Cargo.lock` を追跡しないため、初回は Cargo が lockfile を作成します。既存 lockfile がある抽出とすべての mutation 試行は `--locked` で実行します。
 
-8 試行それぞれで正しい元ソースに戻してから、一つだけ壊します。
+15 試行それぞれで正しい元ソースに戻してから、一つだけ壊します。
 
 | 対象 | 一時コピーへの変更 |
 | --- | --- |
@@ -70,17 +76,27 @@ bun formal/aeneas/check.ts --mutation-test
 | `Entry::value` | 元の値の代わりに Null を返す |
 | `Document::nodes` | 全ノードの代わりに空の範囲 `[0..0]` を返す |
 | `Document::as_node` | root の代わりに最初の子を返す（空なら panic） |
+| `Document::into_nodes`, `Node::into_children` | Vec を空にする |
+| `Node::entries`, `Node::children` | 空の範囲 `[0..0]` を返す |
+| `Node::into_parts` | entries だけを空にする |
+| `EditableDocument::into_string` | 元のテキストの代わりに空文字列を返す |
+| `NodeBuilder::build` | 格納ノードの entries を空にする |
 
-各試行では Rust を再抽出し、生成 Lean が正常時と異なることを確認してから再ビルド・再証明します。成功条件は **対象定理だけが `sorryAx` を伴う Lean の証明失敗となり、残り 7 定理の公理検査は通ること**です。Rust 抽出失敗、Lean 定義のビルド失敗、ツール欠落は mutation 成功として扱いません。
+各試行では Rust を再抽出し、生成 Lean が正常時と異なることを確認してから再ビルド・再証明します。成功条件は **対象定理だけが `sorryAx` を伴う Lean の証明失敗となり、残り 14 定理の公理検査は通ること**です。Rust 抽出失敗、Lean 定義のビルド失敗、ツール欠落は mutation 成功として扱いません。
 
-一時ディレクトリは `finally` で削除し、エラー終了時も元の `src/ast.rs` と `ClubKdl.lean` が開始時のバイト列と同じか照合します。証拠は `.lake/proof.log` と `.lake/mutation-<method>.log` に残ります。`.lake/` は git 管理外です。
+一時ディレクトリは `finally` で削除し、エラー終了時も元の `src/ast.rs`・`src/edit.rs`・`src/ser.rs` と `ClubKdl.lean` が開始時のバイト列と同じか照合します。証拠は `.lake/proof.log` と `.lake/mutation-<method>.log` に残ります。`.lake/` は git 管理外です。
 
 ## 保証の範囲と信頼境界
 
-- 実 Rust の対象 8 メソッドと、それらが扱う AST 型を Charon → Aeneas → Lean で検査します。parser、`Node::arg` / `prop` の iterator 実装、derive の展開全体、serializer / writer 全体は抽出対象に含みません。それらの構造法則の手書きモデルは [../lean](../lean/README.md) を参照してください。
+- 実 Rust の対象 15 メソッドと、それらが扱う AST・document・builder 型を Charon → Aeneas → Lean で検査します。parser、`Node::arg` / `prop` の iterator 実装、derive の展開全体、serializer / writer 全体は抽出対象に含みません。それらの構造法則の手書きモデルは [../lean](../lean/README.md) を参照してください。
+- `compact,edit,compose` feature を有効にして抽出しますが、feature 内のすべての実関数を証明したという意味ではありません。DFS / remap / transform の複合処理は手書き構造モデル、実抽出は上表の 15 メソッドです。
 - 固定 Aeneas 2e3d448 は Rust `f64` を `F64` と出力しますが、対応する Lean 型をライブラリに定義していません。`ExtractionCompat.lean` で `F64 := BitVec 64` という **64 bit 値キャリアだけ**を補完します。IEEE 754 浮動小数点算術、丸め、比較、NaN の演算則は扱いません。variant 識別と値の受け渡しのみを証明します。NaN・無限大・負のゼロもビット列として保持します。
 - `Value::Bool` コンストラクタと Lean の `Bool` 型も名前が衝突するため、`-impl-namespace` でメソッドを `.impl` に置き、互換ファイルで `abbrev ClubKdlGenerated.ast.Value.impl.Bool := _root_.Bool` と定義します。名前解決だけの型別名であり、新しい公理や振る舞いは追加しません。
 - 上流の `Aeneas.Std.alloc.vec.Vec.deref` は格納 Slice を List 経由で再構築し、その長さの補題が `Classical.choice` に依存します。許可公理を広げず、互換ファイルに `ClubKdlGenerated.alloc.vec.Vec.deref v := v.slice` を定義して、抽出コードの標準ライブラリ呼び出しをこの構成的なモデルに名前解決します。格納済み Slice の全データと境界証明をそのまま返すモデルです。**この標準 primitive のモデル選択は信頼境界の一部**であり、Rust 標準ライブラリの `deref` 自体を抽出・証明したものではありません。対象の `Document::nodes` の Rust 本体と生成本体は無変更です。
 - 生成された型・関数の本体は一切書き換えません。補助 import と生出力は区別でき、同じ入力からの再生成で差分が出ないことを検査できます。
 - Lean カーネル、Charon/Aeneas の翻訳、Rust 標準ライブラリの Aeneas モデル、ツールチェーンと依存コードを信頼します。証明は実 CPU の実行・ABI・コンパイラの正しさを保証しません。参照を返す API は抽出モデルの値として扱い、実アドレスの同一性は主張しません。
-- mutation test は検証の感度を確かめる 8 個の意図的な反例です。あらゆる Rust バグを検出する完全性や全 API の正しさを主張するものではありません。
+- mutation test は検証の感度を確かめる 15 個の意図的な反例です。あらゆる Rust バグを検出する完全性や全 API の正しさを主張するものではありません。
+
+## CI
+
+`Lean proofs` ジョブは Ubuntu 24.04 で Aeneas/Charon と elan の固定リリースを SHA-256 検査して導入します。Lake 依存のキャッシュキーは OS・arch・toolchain・manifest・lakefile から作り、miss 時だけ `lake exe cache get` を実行します。構造モデルの空公理検査 → 15 定理・15 mutation → `ClubKdl.lean` / `lake-manifest.json` の差分ゼロの順に検査し、公理・mutation ログを artifact に保存します。通常のローカルコマンドだけでは構造モデルを実行しないため、[../lean のコマンド](../lean/README.md#実行)も実行してください。
