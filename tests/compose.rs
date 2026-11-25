@@ -1,9 +1,9 @@
 //! End-to-end tests for `club_kdl::compose` (the `compose` feature).
 //!
-//! Every test points at a fixture under `tests/fixtures/compose/<scenario>/`. The
-//! fixture files are real `.kdl` so that the path-resolution and IO paths
-//! get exercised end-to-end — that is the point of the crate, and inlining
-//! the schemas as strings would defeat it.
+//! Scenarios use checked-in fixtures under `tests/fixtures/compose/<scenario>/`
+//! or real temporary files, exercising path resolution and filesystem I/O.
+//!
+//! Directive alias task: mem_1ChPKArZHC3qRh4uTjUKgk.
 
 #![cfg(feature = "compose")]
 
@@ -399,4 +399,111 @@ fn glob_filters_out_directories_matched_by_pattern() {
     // `sub/skipped.kdl` untouched.
     let doc = compose(fixture("glob-dir", "root.kdl")).expect("compose");
     assert_eq!(top_level_names(&doc), vec!["real-file", "after-mixed"]);
+}
+
+// Both spellings share real-file expansion, transformations and diagnostics.
+fn assert_import_aliases(variant: &str, path: &str) {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::create_dir(dir.path().join("protocols")).unwrap();
+    let types = "meta 2\nitem \"User\" { link \"User\"; }\nitem \"Memory\"\nitem \"Internal\"\n";
+    std::fs::write(dir.path().join("types.kdl"), types).unwrap();
+    // Create b before a: glob must still produce lexical order.
+    std::fs::write(
+        dir.path().join("protocols/b.kdl"),
+        "item \"Memory\"\nitem \"Internal\"\n",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.path().join("protocols/a.kdl"),
+        "meta 2\nitem \"User\" { link \"User\"; }\n",
+    )
+    .unwrap();
+    for tag in [">", "<"] {
+        for options in [
+            "",
+            r#"as="shared" { only "User" "Memory"; except "Memory"; rename "User" "Acct"; }"#,
+        ] {
+            let input = format!("before\n({tag}){variant} \"{path}\" {options}\nafter\n");
+            // Both tags remain ordinary KDL syntax, independent of composition.
+            let parsed = club_kdl::Document::parse(&input).unwrap();
+            assert_eq!(
+                club_kdl::Document::parse(&parsed.to_string()).unwrap(),
+                parsed
+            );
+            #[cfg(feature = "kdl-rs")]
+            let _: club_kdl::kdl::KdlDocument = input.parse().unwrap();
+            std::fs::write(dir.path().join("root.kdl"), input).unwrap();
+            let included = if options.is_empty() {
+                types
+            } else {
+                "meta 2\nitem \"shared.Acct\" { link \"User\"; }\n"
+            };
+            assert_eq!(
+                compose(dir.path().join("root.kdl")).unwrap(),
+                club_kdl::Document::parse(&format!("before\n{included}after\n")).unwrap(),
+                "({tag}){variant} {options}"
+            );
+        }
+    }
+}
+
+#[test]
+fn gt_file_matches_legacy_expansion_and_options() {
+    assert_import_aliases("file", "./types.kdl");
+}
+
+#[test]
+fn gt_glob_matches_legacy_expansion_and_options() {
+    assert_import_aliases("glob", "./protocols/*.kdl");
+}
+
+#[test]
+fn gt_and_legacy_directives_leave_no_nodes_after_nested_expansion() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("root.kdl"),
+        "outer { (>)file \"a.kdl\"; }\n(<)file \"leaf.kdl\"\n",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.path().join("a.kdl"),
+        "(<)glob \"leaf*.kdl\"\n(>)glob \"leaf*.kdl\"\n",
+    )
+    .unwrap();
+    std::fs::write(dir.path().join("leaf.kdl"), "leaf\n").unwrap();
+    let doc = compose(dir.path().join("root.kdl")).unwrap();
+    fn assert_no_directives(nodes: &[club_kdl::Node<'_>]) {
+        for node in nodes {
+            assert!(!matches!(node.ty(), Some(">" | "<")), "leaked: {node}");
+            assert_no_directives(node.children());
+        }
+    }
+    assert_no_directives(doc.nodes());
+    assert_eq!(
+        doc,
+        club_kdl::Document::parse("outer { leaf; leaf; }\nleaf\n").unwrap()
+    );
+}
+
+#[test]
+fn gt_and_legacy_invalid_directives_report_the_importer_and_spelling() {
+    let dir = tempfile::tempdir().unwrap();
+    for tag in [">", "<"] {
+        for variant in ["wat", "path", "file", "glob"] {
+            let input = if matches!(variant, "wat" | "path") {
+                format!("({tag}){variant} \"./x.kdl\"")
+            } else {
+                format!("({tag}){variant}")
+            };
+            std::fs::write(dir.path().join("root.kdl"), &input).unwrap();
+            match compose(dir.path().join("root.kdl")).unwrap_err() {
+                ComposeError::InvalidDirective { path, message } => {
+                    assert!(path.ends_with("root.kdl"));
+                    assert!(message.contains(&format!("({tag})")), "{message}");
+                    assert!(message.contains(variant), "{message}");
+                }
+                other => panic!("expected InvalidDirective for {input}, got {other:?}"),
+            }
+        }
+    }
 }

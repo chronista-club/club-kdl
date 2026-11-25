@@ -111,7 +111,7 @@ bunx @informalsystems/quint@0.33.1 run formal/quint/derive.qnt \
 
 - `REPARSE_SPANS_ON_EDIT`: 現在の文書に対応する span を使う。false は初回の span を使い続けるため、値を長くした後の編集が別の位置を置換する。
 - `NO_ALIAS_SHADOWING`: 名前集合全体を予約してから短い alias を生成し、読込時にも他の元名との衝突を拒否する。false は元名 `a` と `long_name` の alias `a` が重なり、往復で元名が失われる。読込検証では alias が一意でも元名を相互に隠す辞書を比較する。
-- `EXPLICIT_SHORT_REF`: 型注釈のない `>` のみを短縮参照とする。false は空データノードも参照扱いする不採用案で、`enabled` や名前 `a` のノードが失われる。`(<)file` は両モードともリテラルパスの取込。
+- `EXPLICIT_SHORT_REF`: 型注釈のない `>` のみを短縮参照とする。false は空データノードも参照扱いする不採用案で、`enabled` や名前 `a` のノードが失われる。`(>)file` と互換エイリアス `(<)file` は両モードともリテラルパスの取込。`pathsAndLiteralTest` は両表記を同じ拡張子なしファイルへ解決・展開し、短縮参照だけに `.kdl` を補う。
 - `FILTER_BEFORE_RENAME`: 元の最初の文字列引数に `only` / `except` を適用し、その後 `rename` → `as=`。false は変更後の名前でフィルタを判定する。
 
 ### 不変条件期待表

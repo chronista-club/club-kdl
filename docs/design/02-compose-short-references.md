@@ -2,8 +2,8 @@
 
 English | **[日本語](./02-compose-short-references.ja.md)**
 
-> **Status**: Active — v0.16.0 release content; publication tracked by the release workflow
-> **Related**: [spec 02](../spec/02-compose-short-references.md), `mem_1CgfhGM9mjkVTjoUNZfX1E` (decision), `mem_1Cgfgpd9ECRvRMSkf68so2` (prototype findings)
+> **Status**: Active — short references since v0.16.0; `(>)` import spelling pending release
+> **Related**: `mem_1ChPKArZHC3qRh4uTjUKgk` (import marker unification), [spec 02](../spec/02-compose-short-references.md), `mem_1CgfhGM9mjkVTjoUNZfX1E` (decision), `mem_1Cgfgpd9ECRvRMSkf68so2` (prototype findings)
 > **対象**: `src/compose/mod.rs`, `src/compose/error.rs`, `tests/compose.rs`, `tests/compose_short_references.rs`
 
 ## Approach
@@ -16,13 +16,14 @@ No lexer, parser, writer or KDL grammar extension is required. The composer must
 recognize the new convention; accepting the syntax alone does not import a file.
 
 Normalize the shorthand into the same single-file expansion path as the
-existing file import notation (ファイル取込記法), `(<)file`.
-Keep the shorthand's extension policy separate from legacy path behavior.
+file import notation (ファイル取込記法), `(>)file` (compatibility alias `(<)file`).
+Keep the shorthand's extension policy separate from literal import paths.
 
 ## Recognition and path handling
 
 1. In `parse_directive`, recognize the exact untyped node name `>` as the new
-   single-file directive. Keep existing `<` type-annotation dispatch unchanged.
+   single-file directive. Dispatch `>` and `<` type annotations to the same
+   `file` / `glob` variants; reject unknown variants for either tag.
 2. Validate the path and options, retaining the original spelling for errors.
 3. For the shorthand, append `.kdl` when the path has no extension; otherwise
    retain the supplied path. Complete only the final component, not dots in
@@ -37,8 +38,11 @@ Keep the shorthand's extension policy separate from legacy path behavior.
    directive position. Keep cycle detection based on resolved source identity.
 
 `parse_directive` dispatches on `(node.ty(), node.name())`: `(None, ">")`
-uses `short_reference_path`; the existing `(<)` variants keep their literal
-paths. The helper requires exactly one unannotated string positional argument
+uses `short_reference_path`; `(Some(tag @ (">" | "<")), "file")` and
+`(Some(tag @ (">" | "<")), "glob")` keep literal paths/patterns. Errors use the
+actual tag, including missing arguments and unknown variants. The `(<)` aliases
+retain their existing validation rules. The short-reference helper requires
+exactly one unannotated string positional argument
 and returns the effective path as `DirectiveKind::File`. Validation diagnostics
 retain the original spelling; I/O diagnostics report the effective path. The
 rest of option parsing and expansion is shared, without new public types or
@@ -70,14 +74,15 @@ filesystem globs is covered by [design 03](03-fallible-glob.md).
 
 `tests/compose_short_references.rs` covers:
 
-- `> "a"` and `> "./a.kdl"` producing the same document as `(<)file "./a.kdl"`.
+- `> "a"` and `> "./a.kdl"` producing the same document as `(>)file "./a.kdl"`
+  and `(<)file "./a.kdl"`.
 - New shorthand options matching the legacy single-file options and order.
 - Nested and transitive references resolving from each importer, with source
   order, repeated imports and ordinary sibling nodes preserved.
 - `.kdl` completion even when `a` and `a.kdl` both exist; missing `a.kdl` must
   fail rather than falling back to an existing `a`.
-- Explicit extensions remaining unchanged, and `(<)file "a"` continuing to
-  read the literal extensionless file. Existing glob behavior remains separate.
+- Explicit extensions remaining unchanged, and `(>)file "a"` / `(<)file "a"` both reading
+  the literal extensionless file. Existing glob behavior remains separate.
 - `path`, `a`, `"a"` and empty nodes remaining data; only the exact untyped `>`
   name selects the new directive. Parser/writer round trips retain this meaning.
 - Missing/unreadable files, parse errors and mixed legacy/shorthand cycles.
@@ -89,6 +94,11 @@ parsing to verify the documented notation. Short-reference examples require
 version 0.16 or later. The new suite was run before production changes: 16 tests
 failed on the unexpanded `>` node while the data-preservation test passed. After
 implementation, all 17 new tests and 25 existing integration tests passed locally.
+
+`tests/compose.rs` also verifies both file/glob spellings, transformation order,
+nested expansion without directive nodes, and tag-specific error diagnostics.
+The Quint path scenario expands both file spellings as literal imports; glob
+and real filesystem I/O remain outside that finite model.
 
 ## Prototype boundary
 
@@ -109,6 +119,8 @@ changed by that experiment.
 - Do not infer imports from quotation marks, empty nodes or file existence.
 - Do not treat `>` as a new KDL operator or require a custom parser syntax.
 - Do not add `(>)path` or `>path` aliases solely because they were discussed.
+  The `>` type tag is reserved for imports: `(>)path` is an unknown-variant
+  error; `>path` and `(custom)>` remain data.
 - Do not change legacy extensionless paths while adding shorthand completion.
 - Do not reimplement filtering/renaming separately for the new notation.
 - Do not mark the specification Active based on the scratch prototype alone.
@@ -129,3 +141,7 @@ changed by that experiment.
 - 2026-11-04: Prepared release content for v0.16.0 after COMMIT READY from
   team-b and all eight CI jobs passed, including Windows. Registry publication
   is tracked separately by the release workflow.
+- 2026-11-25: Unified explicit imports on `(>)file` / `(>)glob` to align with
+  short references. Retained `(<)file` / `(<)glob` as compatibility aliases,
+  literal paths and shared options. The `>` type tag is now reserved in compose;
+  unknown variants are errors. Publication remains a separate release step.

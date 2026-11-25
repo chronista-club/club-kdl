@@ -32,7 +32,7 @@ club-kdl = "0.17"
 
 | Feature | 追加されるもの | 追加の依存 |
 |---------|---------------|-----------|
-| `compose` | `club_kdl::compose` — `>` 短縮参照と `(<)file` / `(<)glob` 取込による複数ファイル合成 ([下記](#複数ファイルの-kdl--compose-feature)) | `glob` |
+| `compose` | `club_kdl::compose` — `>` 短縮参照と `(>)file` / `(>)glob` 取込による複数ファイル合成 ([下記](#複数ファイルの-kdl--compose-feature)) | `glob` |
 | `kdl-rs` | kdl-rs との相互運用: `from_kdl_document` / `from_kdl_node` / `to_kdl_document`、 `From` 変換、 `club_kdl::kdl` の再エクスポート ([下記](#kdl-rs-との相互運用)) | `kdl` |
 | `compact` | 自動エイリアスとインデント省略で通信・機械向け保存を短縮。人が読む設定は本名と整形を維持 ([ガイド](docs/guide/01-compact-names.ja.md)) | `sha2` |
 | `edit` | コメントと周囲の原文を保持して、既存の値を更新する（[ガイド](docs/guide/02-preserve-value-edits.ja.md)） | なし |
@@ -193,7 +193,7 @@ schema 文法は **data 方言**（`struct` / `enum`）に加えて、 関係デ
 
 ## 複数ファイルの KDL — `compose` feature
 
-schema や設定が大きくなったら、 `(<)file`（または batch import 用に `(<)glob`）で分割する。 まず feature を有効にする:
+schema や設定が大きくなったら、 `(>)file`（または batch import 用に `(>)glob`）で分割する。 `(>)` は 0.17.0 より後に追加する記法で、`(<)file` / `(<)glob` も互換エイリアスとして維持する。0.17.0 以前では `(<)` を使う。まず feature を有効にする:
 
 ```toml
 club-kdl = { version = "0.17", features = ["compose"] }
@@ -201,11 +201,11 @@ club-kdl = { version = "0.17", features = ["compose"] }
 
 ```kdl
 # schema.kdl
-(<)file "./types.kdl"
+(>)file "./types.kdl"
 
 protocol "sidebar" version="1.0.0" {
     channel "ipc" from="client" envelope="t" {
-        (<)file "./common-requests.kdl"
+        (>)file "./common-requests.kdl"
         request "specific:save" { field "data" type="string" }
     }
 }
@@ -219,18 +219,18 @@ struct "User" { field "id" type="string" }
 directive は **top-level でも任意の block の中でも**書けて、 cycle 検出つきで再帰的に解決される。 選択 import は children block で:
 
 ```kdl
-(<)file "./types.kdl" as="shared" {
+(>)file "./types.kdl" as="shared" {
     only "User" "Memory"
     rename "User" "Acct"
 }
 ```
 
-これで取り込まれる top-level ノードの **first string argument** が `shared.Acct` / `shared.Memory` に rewrite される。 `club-kdl-codegen` CLI は内部でこれを使うので `(<)` directive はそのまま動く。 ライブラリから使うなら、 合成した `club_kdl::Document` を受け取る `club_kdl::compose::compose(path)` か、 合成と struct への読み込みを一度に行う `club_kdl::compose::from_path::<T>(path)` を呼ぶ。
+これで取り込まれる top-level ノードの **first string argument** が `shared.Acct` / `shared.Memory` に rewrite される。 `club-kdl-codegen` CLI は内部でこれを使うので `(>)` directive はそのまま動く。 ライブラリから使うなら、 合成した `club_kdl::Document` を受け取る `club_kdl::compose::compose(path)` か、 合成と struct への読み込みを一度に行う `club_kdl::compose::from_path::<T>(path)` を呼ぶ。
 
 **短縮参照記法（0.16 から）。** `> "types"` で `types.kdl` を取り込める。
 `> "./types.kdl"` と明示してもよい。参照元ファイルからの相対パスとして解決し、
 拡張子がなければ `.kdl` を補う。ファイルの有無による別候補への切替は行わない。
-`only` / `except` / `rename` / `as` は従来と共通。`(<)file` / `(<)glob` のパスは従来どおり
+`only` / `except` / `rename` / `as` は従来と共通。`(>)file` / `(>)glob` と互換エイリアス `(<)` のパスは従来どおり
 指定そのままで扱い、`"types"` 単独も通常データのまま。compose 内では型注釈のない `>` が
 参照用の名前になるが、通常のパースではデータとして扱う。
 

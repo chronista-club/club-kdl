@@ -1,5 +1,5 @@
 //! Multi-file composition for KDL documents — resolves short references (`>`),
-//! `(<)file` and `(<)glob` directives into a single composed [`Document`].
+//! `(>)file` and `(>)glob` directives into a single composed [`Document`].
 //!
 //! `club-kdl` itself is a **pure parser** — `from_str` takes a string, returns
 //! a value, no IO. This crate adds the **composer** layer on top: it reads
@@ -44,35 +44,38 @@
 //! `path "a"` and `(custom)> "a"` remain data. Quoting `>` does not change its
 //! parsed name. Ordinary parsing and deserialization do not perform file I/O.
 //!
-//! ## File import notation — `(<)variant`
+//! ## File import notation — `(>)variant`
+//!
+//! The `(>)` spelling is new after 0.17.0; use `(<)` with 0.17.0 and earlier.
 //!
 //! KDL has no native include directive — the spec deliberately leaves
 //! composition to the host language. KDL **type annotations** (tags) are by
 //! convention used to type values (`(date)"2026-05-19"`, `(u8)42`), so a word
 //! tag like `(include)` would visually compete with type names. This crate
-//! uses a **symbol tag** `(<)` instead — directional, single character,
-//! unambiguously *not* a type name. The `<` mnemonic is "content flowing
-//! into this position from another file".
+//! uses a **symbol tag** `(>)` instead — directional, single character,
+//! unambiguously *not* a type name. The `>` marker aligns
+//! explicit imports with short references (`> "a"`). `(<)file` and `(<)glob`
+//! remain supported as backward-compatible aliases.
 //!
 //! ```kdl
 //! // MVP — inline a single file
-//! (<)file "./types.kdl"
+//! (>)file "./types.kdl"
 //!
 //! // Glob — inline every matching file
-//! (<)glob "./protocols/*.kdl"
+//! (>)glob "./protocols/*.kdl"
 //!
 //! // Namespace prefix — top-level nodes' first string arg get `shared.`
-//! (<)file "./types.kdl" as="shared"
+//! (>)file "./types.kdl" as="shared"
 //!
 //! // Children-block options — list-valued filters
-//! (<)file "./types.kdl" as="shared" {
+//! (>)file "./types.kdl" as="shared" {
 //!     only "User" "Memory"
 //!     except "Internal"
 //!     rename "User" "Acct"
 //! }
 //! ```
 //!
-//! - **tag** = directive marker (`<` for include; future categories like
+//! - **tag** = directive marker (`>` for include; future categories like
 //!   overlay / template would pick their own symbol)
 //! - **node name** = variant (`file`, `glob`; future `remote` / `module`)
 //! - **`as=` property** = single-value namespace prefix
@@ -84,7 +87,7 @@
 //!
 //! ## What gets composed
 //!
-//! For each short reference or `(<)file/glob` directive anywhere in the document —
+//! For each short reference or `(>)file/glob` directive anywhere in the document —
 //! top-level or nested inside any block — the directive node is replaced by
 //! the composed top-level nodes of the referenced file(s), spliced into the
 //! same position. Non-directive nodes are recursively walked: their children
@@ -94,8 +97,10 @@
 //!
 //! - **Paths are resolved relative to the importing file.** No search paths,
 //!   no CWD, no environment lookups. A schema's directory is the only base.
-//! - **Legacy paths stay literal.** `.kdl` completion applies only to `>`;
-//!   `(<)file "a"` still reads the extensionless file named `a`.
+//! - **Explicit import paths stay literal.** `.kdl` completion applies only to `>`;
+//!   `(>)file "a"` and `(<)file "a"` read the extensionless file named `a`.
+//! - **Compose reserves the `>` and `<` type tags for imports.** Unknown
+//!   variants (including `(>)path`) are errors. Pure parsing is unchanged.
 //! - **Compose reserves untyped `>` nodes.** Existing uses of that name as data
 //!   change meaning starting in 0.16. Pure parsing is unchanged.
 //! - **`as=` renames the first string argument of each top-level included
@@ -157,7 +162,7 @@ pub use error::{ComposeError, Result};
 // Public API
 // =============================================================================
 
-/// Compose a KDL document from `path`, resolving every `>` reference and `(<)` directive
+/// Compose a KDL document from `path`, resolving every `>` reference and `(>)` / `(<)` directive
 /// recursively. Returns the composed [`Document`] — equivalent to the file
 /// the user wrote, but with every include spliced in place.
 ///
@@ -271,7 +276,7 @@ struct Directive {
     rename: BTreeMap<String, String>,
 }
 
-/// The expansion kind, shared by short references and legacy imports.
+/// The expansion kind, shared by short references and explicit imports.
 #[derive(Debug)]
 enum DirectiveKind {
     /// A single path, relative to the importing file's directory.
@@ -280,29 +285,31 @@ enum DirectiveKind {
     Glob(String),
 }
 
-/// Recognize an untyped `>` short reference or a `(<)` directive. Other
+/// Recognize an untyped `>` short reference or a `(>)` / `(<)` directive. Other
 /// nodes are data. Malformed directives return an error instead of data.
 fn parse_directive(node: &Node<'_>, current_file: &Path) -> Result<Option<Directive>> {
     let kind = match (node.ty(), node.name()) {
         (None, ">") => DirectiveKind::File(short_reference_path(node, current_file)?),
-        (Some("<"), "file") => {
+        (Some(tag @ (">" | "<")), "file") => {
             let path = first_string_arg(node).ok_or_else(|| ComposeError::InvalidDirective {
                 path: current_file.to_path_buf(),
-                message: "(<)file requires a string path as its first argument".to_string(),
+                message: format!("({tag})file requires a string path as its first argument"),
             })?;
             DirectiveKind::File(PathBuf::from(path))
         }
-        (Some("<"), "glob") => {
+        (Some(tag @ (">" | "<")), "glob") => {
             let pattern = first_string_arg(node).ok_or_else(|| ComposeError::InvalidDirective {
                 path: current_file.to_path_buf(),
-                message: "(<)glob requires a string pattern as its first argument".to_string(),
+                message: format!("({tag})glob requires a string pattern as its first argument"),
             })?;
             DirectiveKind::Glob(pattern.to_string())
         }
-        (Some("<"), other) => {
+        (Some(tag @ (">" | "<")), other) => {
             return Err(ComposeError::InvalidDirective {
                 path: current_file.to_path_buf(),
-                message: format!("unknown (<) variant `{other}`; supported variants: file, glob"),
+                message: format!(
+                    "unknown ({tag}) variant `{other}`; supported variants: file, glob"
+                ),
             });
         }
         _ => return Ok(None),
@@ -349,7 +356,7 @@ fn parse_directive(node: &Node<'_>, current_file: &Path) -> Result<Option<Direct
 }
 
 /// Validate the short reference's single path argument and complete `.kdl`
-/// without probing the filesystem. Legacy directives keep their literal paths.
+/// without probing the filesystem. Explicit directives keep their literal paths.
 fn short_reference_path(node: &Node<'_>, current_file: &Path) -> Result<PathBuf> {
     let invalid_argument = || ComposeError::InvalidDirective {
         path: current_file.to_path_buf(),
@@ -647,6 +654,57 @@ mod tests {
     // parse_directive — recognize a `(<)` directive and reject malformed ones.
     // -------------------------------------------------------------------------
 
+    // Task: mem_1ChPKArZHC3qRh4uTjUKgk.
+    #[test]
+    fn gt_file_extracts_literal_path_and_options() {
+        let d = parse_with_block(
+            r#"(>)file "plain_name" as="shared" {
+            only "User" "Memory"
+            except "Memory"
+            rename "User" "Acct"
+        }"#,
+        );
+        assert!(matches!(d.kind, DirectiveKind::File(p) if p == Path::new("plain_name")));
+        assert_eq!(d.as_prefix.as_deref(), Some("shared"));
+        assert_eq!(d.only.unwrap(), ["User", "Memory"]);
+        assert_eq!(d.except, ["Memory"]);
+        assert_eq!(d.rename.get("User").map(String::as_str), Some("Acct"));
+    }
+
+    #[test]
+    fn gt_glob_extracts_pattern_and_prefix() {
+        let d = parse_with_block(r#"(>)glob "./protocols/*.kdl" as="shared""#);
+        assert!(matches!(d.kind, DirectiveKind::Glob(p) if p == "./protocols/*.kdl"));
+        assert_eq!(d.as_prefix.as_deref(), Some("shared"));
+    }
+
+    #[test]
+    fn gt_unknown_variant_is_rejected() {
+        let node = first_node(r#"(>)wat "./x.kdl""#);
+        let err = parse_directive(&node, dummy_path()).unwrap_err();
+        let ComposeError::InvalidDirective { message, .. } = err else {
+            panic!("expected InvalidDirective");
+        };
+        assert!(message.contains("unknown (>) variant"));
+        assert!(message.contains("wat"));
+    }
+
+    #[test]
+    fn gt_file_without_path_is_rejected() {
+        let node = first_node("(>)file");
+        let err = parse_directive(&node, dummy_path()).unwrap_err();
+        assert!(matches!(err, ComposeError::InvalidDirective { message, .. }
+            if message.contains("(>)file")));
+    }
+
+    #[test]
+    fn gt_glob_without_pattern_is_rejected() {
+        let node = first_node("(>)glob");
+        let err = parse_directive(&node, dummy_path()).unwrap_err();
+        assert!(matches!(err, ComposeError::InvalidDirective { message, .. }
+            if message.contains("(>)glob")));
+    }
+
     #[test]
     fn parse_directive_returns_none_for_untagged_node() {
         let node = first_node(r#"file "./x.kdl""#);
@@ -654,7 +712,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_directive_returns_none_for_non_lt_tag() {
+    fn parse_directive_returns_none_for_unrelated_tag() {
         // `(date)` is the canonical "this is a type" tag — must not be
         // mistaken for a directive.
         let node = first_node(r#"(date)"2026-05-19""#);

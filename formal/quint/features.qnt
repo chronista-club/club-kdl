@@ -119,7 +119,7 @@ module featureModel {
     if (n.name == ">" and n.tag == "") {
       if (n.args.length() != 1 or n.argTyped) { kind: "InvalidDirective", request: "" }
       else { kind: "short", request: n.args[0] }
-    } else if (n.name == "file" and n.tag == "<") {
+    } else if (n.name == "file" and Set(">", "<").contains(n.tag)) {
       if (n.args.length() == 0) { kind: "InvalidDirective", request: "" }
       else { kind: "literal", request: n.args[0] }
     } else if (not(EXPLICIT_SHORT_REF) and n.tag == "" and n.args.length() == 0)
@@ -172,12 +172,13 @@ module featureModel {
     else { error: "", nodes: done.output }
   }
   pure val LEAF = { name: "type", tag: "", args: List("User"), argTyped: false }
-  pure val LITERAL = { name: "file", tag: "<", args: List("literal"), argTyped: false }
+  pure val LITERAL = { name: "file", tag: ">", args: List("literal"), argTyped: false }
+  pure val LEGACY_LITERAL = { ...LITERAL, tag: "<" }
   pure def files(which: int): List[File] = {
     val base = List("pkg", "sub")
     val rootNodes = if (which == 0) List(LEAF)
       else if (which == 1) List(data("enabled"), data("a"))
-      else if (which == 2) List(short("types"), short("a.data"), LITERAL)
+      else if (which == 2) List(short("types"), short("a.data"), LITERAL, LEGACY_LITERAL)
       else if (which == 3) List(short("B"), short("C"))
       else if (which == 4) List(short("loop"))
       else if (which == 5) List({ ...short("types"), tag: "custom" })
@@ -196,7 +197,7 @@ module featureModel {
   }
   pure def composeExpected(which: int): Composed =
     if (which == 1) { error: "", nodes: List(data("enabled"), data("a")) }
-    else if (which == 2) { error: "", nodes: List(LEAF, { ...LEAF, args: List("Data") }, { ...LEAF, args: List("Literal") }) }
+    else if (which == 2) { error: "", nodes: List(LEAF, { ...LEAF, args: List("Data") }, { ...LEAF, args: List("Literal") }, { ...LEAF, args: List("Literal") }) }
     else if (which == 3) { error: "", nodes: List(LEAF, LEAF) }
     else if (which == 4) { error: "Cycle", nodes: List() }
     else if (which == 5) { error: "", nodes: List({ ...short("types"), tag: "custom" }) }
@@ -320,7 +321,10 @@ module featureModel {
     resolvePath(List("pkg", "sub", "A.kdl"), directive(short("types"))) == List("pkg", "sub", "types.kdl"),
     resolvePath(List("pkg", "sub", "A.kdl"), directive(short("types.kdl"))) == List("pkg", "sub", "types.kdl"),
     resolvePath(List("pkg", "sub", "A.kdl"), directive(short("a.data"))) == List("pkg", "sub", "a.data"),
+    directive(LITERAL).kind == "literal",
+    directive(LEGACY_LITERAL).kind == "literal",
     resolvePath(List("pkg", "sub", "A.kdl"), directive(LITERAL)) == List("pkg", "sub", "literal"),
+    resolvePath(List("pkg", "sub", "A.kdl"), directive(LEGACY_LITERAL)) == List("pkg", "sub", "literal"),
   })
   run diamondTest = init.then(composeCase(3)).expect(composeDataAndCycleSafe and composed.nodes == List(LEAF, LEAF))
   run cycleTest = init.then(composeCase(4)).expect(composeDataAndCycleSafe and composed.error == "Cycle")

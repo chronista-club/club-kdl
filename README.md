@@ -32,7 +32,7 @@ club-kdl = "0.17"
 
 | Feature | What it adds | Extra dependency |
 |---------|--------------|------------------|
-| `compose` | `club_kdl::compose` — multi-file KDL via `>` short references and `(<)file` / `(<)glob` imports ([below](#multi-file-kdl-with-the-compose-feature)) | `glob` |
+| `compose` | `club_kdl::compose` — multi-file KDL via `>` short references and `(>)file` / `(>)glob` imports ([below](#multi-file-kdl-with-the-compose-feature)) | `glob` |
 | `kdl-rs` | Interop with kdl-rs: `from_kdl_document` / `from_kdl_node` / `to_kdl_document`, `From` conversions, the `club_kdl::kdl` re-export ([below](#interop-with-kdl-rs)) | `kdl` |
 | `compact` | Rule-based automatic aliases and indentation-free output for machine-oriented KDL files and messages; ordinary config stays readable ([guide](docs/guide/01-compact-names.md)) | `sha2` |
 | `edit` | Update existing values while preserving comments and surrounding source text ([guide](docs/guide/02-preserve-value-edits.md)) | None |
@@ -193,7 +193,7 @@ See [`club-kdl-codegen` on docs.rs](https://docs.rs/club-kdl-codegen) for the fu
 
 ## Multi-file KDL with the `compose` feature
 
-When a schema or config gets large, split it across files and include with `(<)file` (or `(<)glob` for batch import). Enable the feature first:
+When a schema or config gets large, split it across files and include with `(>)file` (or `(>)glob` for batch import). The `(>)` spelling is new after 0.17.0; `(<)file` / `(<)glob` remain supported aliases. With 0.17.0 and earlier, use the `(<)` spelling. Enable the feature first:
 
 ```toml
 club-kdl = { version = "0.17", features = ["compose"] }
@@ -201,11 +201,11 @@ club-kdl = { version = "0.17", features = ["compose"] }
 
 ```kdl
 # schema.kdl
-(<)file "./types.kdl"
+(>)file "./types.kdl"
 
 protocol "sidebar" version="1.0.0" {
     channel "ipc" from="client" envelope="t" {
-        (<)file "./common-requests.kdl"
+        (>)file "./common-requests.kdl"
         request "specific:save" { field "data" type="string" }
     }
 }
@@ -219,13 +219,13 @@ struct "User" { field "id" type="string" }
 The directive lives anywhere — top-level or inside any block — and resolves recursively with cycle detection. Selective import lives in a children block:
 
 ```kdl
-(<)file "./types.kdl" as="shared" {
+(>)file "./types.kdl" as="shared" {
     only "User" "Memory"
     rename "User" "Acct"
 }
 ```
 
-This renames the first string argument of each top-level included node to `shared.Acct` / `shared.Memory`. The `club-kdl-codegen` CLI uses it internally, so `(<)` directives just work. From a library, call `club_kdl::compose::compose(path)` to get the composed `club_kdl::Document`, or `club_kdl::compose::from_path::<T>(path)` to compose and deserialize in one step.
+This renames the first string argument of each top-level included node to `shared.Acct` / `shared.Memory`. The `club-kdl-codegen` CLI uses it internally, so `(>)` directives just work. From a library, call `club_kdl::compose::compose(path)` to get the composed `club_kdl::Document`, or `club_kdl::compose::from_path::<T>(path)` to compose and deserialize in one step.
 
 Glob matches are sorted and directories are excluded. No matches is valid;
 directory traversal failures, failed metadata lookups for matched entries,
@@ -237,7 +237,7 @@ filesystem sandbox or a consistent snapshot during concurrent changes.
 `> "types"` to import `types.kdl`, or `> "./types.kdl"` for an explicit path.
 Paths resolve relative to the importing file; a missing extension becomes `.kdl`
 without an existence-based fallback. The same `only` / `except` / `rename` / `as`
-options apply. Legacy `(<)file` and `(<)glob` paths stay literal. Bare `"types"`
+options apply. Explicit `(>)file` / `(>)glob` imports and their `(<)` aliases keep paths literal. Bare `"types"`
 remains data. This reserves untyped `>` nodes within compose; ordinary parsing
 still treats them as data.
 

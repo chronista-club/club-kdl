@@ -1,5 +1,6 @@
 //! Short reference behavior with real files (spec/design 02).
 //! Task: mem_1CggNetBUkKbDNuApathjJ.
+//! Directive alias task: mem_1ChPKArZHC3qRh4uTjUKgk.
 
 #![cfg(feature = "compose")]
 
@@ -22,7 +23,12 @@ fn short_reference_matches_file_import_with_or_without_an_extension() {
         ("legacy.kdl", "(<)file \"./a.kdl\"\n"),
     ]);
     let expected = compose(dir.path().join("legacy.kdl")).unwrap();
-    for input in [r#"> "a""#, r#"> "./a""#, r#"> "./a.kdl""#] {
+    for input in [
+        r#"> "a""#,
+        r#"> "./a""#,
+        r#"> "./a.kdl""#,
+        r#"(>)file "./a.kdl""#,
+    ] {
         std::fs::write(dir.path().join("root.kdl"), input).unwrap();
         assert_eq!(
             compose(dir.path().join("root.kdl")).unwrap(),
@@ -33,15 +39,15 @@ fn short_reference_matches_file_import_with_or_without_an_extension() {
 }
 
 #[test]
-fn completion_is_deterministic_and_legacy_paths_stay_literal() {
+fn completion_is_deterministic_and_explicit_import_paths_stay_literal() {
     let dir = fixture(&[
         ("a", "literal\n"),
         ("a.kdl", "completed\n"),
-        ("root.kdl", "> \"a\"\n(<)file \"a\"\n"),
+        ("root.kdl", "> \"a\"\n(<)file \"a\"\n(>)file \"a\"\n"),
     ]);
     assert_eq!(
         compose(dir.path().join("root.kdl")).unwrap(),
-        Document::parse("completed\nliteral\n").unwrap()
+        Document::parse("completed\nliteral\nliteral\n").unwrap()
     );
 }
 
@@ -98,7 +104,7 @@ fn options_share_legacy_filter_rename_prefix_order_after_recursive_expansion() {
         ),
     ]);
     let options = r#"as="shared" { only "A" "B"; except "B"; rename "A" "Renamed"; }"#;
-    for reference in [r#"> "a""#, r#"(<)file "./a.kdl""#] {
+    for reference in [r#"> "a""#, r#"(<)file "./a.kdl""#, r#"(>)file "./a.kdl""#] {
         std::fs::write(
             dir.path().join("root.kdl"),
             format!("{reference} {options}"),
@@ -114,7 +120,7 @@ fn options_share_legacy_filter_rename_prefix_order_after_recursive_expansion() {
 
 #[test]
 fn plain_and_typed_data_are_preserved_even_when_a_file_exists() {
-    let data = "a\n\"a\"\nenabled\npath \"a\"\n(custom)> \"a\"\n(>)path \"a\"\n>path\n";
+    let data = "a\n\"a\"\nenabled\npath \"a\"\n(custom)> \"a\"\n>path\n";
     let dir = fixture(&[("a.kdl", "should-not-appear\n"), ("root.kdl", data)]);
     assert_eq!(
         compose(dir.path().join("root.kdl")).unwrap(),
@@ -147,6 +153,8 @@ fn pure_parsing_and_writing_preserve_reference_meaning_without_doing_io() {
 #[test]
 fn mixed_short_and_legacy_cycles_are_reported() {
     for (root, child) in [
+        ("> \"a\"\n", "(>)file \"root.kdl\"\n"),
+        ("(>)file \"a.kdl\"\n", "(<)file \"root.kdl\"\n"),
         ("> \"a\"\n", "(<)file \"root.kdl\"\n"),
         ("(<)file \"a.kdl\"\n", "> \"root\"\n"),
     ] {
