@@ -1,0 +1,21 @@
+name = "club_kdl_rust_proof"
+version = "0.1.0"
+defaultTargets = ["ClubKdlProof"]
+
+[[require]]
+name = "aeneas"
+git = "https://github.com/AeneasVerif/aeneas.git"
+rev = "2e3d4488280bb8a95411db81019a7854a784861f"
+subDir = "backends/lean"
+
+[[lean_lib]]
+name = "ClubKdlProof"
+moreLeanArgs = ["-DwarningAsError=true"]
+
+[[lean_lib]]
+name = "ClubKdl"
+moreLeanArgs = ["-DwarningAsError=true"]
+
+[[lean_lib]]
+name = "ExtractionCompat"
+moreLeanArgs = ["-DwarningAsError=true"]
