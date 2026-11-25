@@ -13,9 +13,9 @@ A **family of crates** for working with [KDL](https://kdl.dev) in Rust — deriv
 
 ```toml
 [dependencies]
-club-kdl = "0.17"
+club-kdl = "0.18"
 # optional features, both off by default:
-# club-kdl = { version = "0.17", features = ["compose", "kdl-rs"] }
+# club-kdl = { version = "0.18", features = ["compose", "kdl-rs"] }
 ```
 
 ## The crate family
@@ -193,10 +193,10 @@ See [`club-kdl-codegen` on docs.rs](https://docs.rs/club-kdl-codegen) for the fu
 
 ## Multi-file KDL with the `compose` feature
 
-When a schema or config gets large, split it across files and include with `(>)file` (or `(>)glob` for batch import). The `(>)` spelling is new after 0.17.0; `(<)file` / `(<)glob` remain supported aliases. With 0.17.0 and earlier, use the `(<)` spelling. Enable the feature first:
+When a schema or config gets large, split it across files and include with `(>)file` (or `(>)glob` for batch import). The `(>)` spelling was introduced in 0.18.0; `(<)file` / `(<)glob` remain supported aliases. With 0.17.0 and earlier, use the `(<)` spelling. Enable the feature first:
 
 ```toml
-club-kdl = { version = "0.17", features = ["compose"] }
+club-kdl = { version = "0.18", features = ["compose"] }
 ```
 
 ```kdl
@@ -577,7 +577,7 @@ To append records to a file one node at a time (NDKDL — "newline-delimited KDL
 Requires the `kdl-rs` feature:
 
 ```toml
-club-kdl = { version = "0.17", features = ["kdl-rs"] }
+club-kdl = { version = "0.18", features = ["kdl-rs"] }
 ```
 
 ```rust

@@ -15,7 +15,7 @@
 //! a string, deserialize), and users who want multi-file composition opt in:
 //!
 //! ```toml
-//! club-kdl = { version = "0.17", features = ["compose"] }
+//! club-kdl = { version = "0.18", features = ["compose"] }
 //! ```
 //!
 //! Until 0.13 this lived in the separate `club-kdl-compose` crate
@@ -46,7 +46,7 @@
 //!
 //! ## File import notation — `(>)variant`
 //!
-//! The `(>)` spelling is new after 0.17.0; use `(<)` with 0.17.0 and earlier.
+//! The `(>)` spelling was introduced in 0.18.0; use `(<)` with 0.17.0 and earlier.
 //!
 //! KDL has no native include directive — the spec deliberately leaves
 //! composition to the host language. KDL **type annotations** (tags) are by

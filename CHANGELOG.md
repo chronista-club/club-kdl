@@ -7,6 +7,8 @@
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-11-25
+
 ### 追加
 
 - compose の明示取込の主表記を `(>)file` / `(>)glob` に統一し、短縮参照 `> "a"` と記号を揃える。
@@ -14,6 +16,15 @@
   `.kdl` 補完は短縮参照だけに適用する。再帰展開・循環検出・取込オプションは共通。
   compose 内では `>` 型注釈を取込用に予約するため、以前はデータだった `(>)path` などの
   未知 variant は `ComposeError::InvalidDirective` になる。通常のパーサーの動作は変わらない。
+
+### 検証・CI
+
+- Lean 4（`formal/lean/`）・Charon + Aeneas（`formal/aeneas/`）・Quint（`formal/quint/`）による
+  形式検証スイートと GitHub Actions CI ジョブ（`Lean proofs` / `Quint verify`）を追加。
+  AST・`derive`・`edit`・`compact`・`compose` の構造法則（全 42 定理・追加公理なし）、
+  実 Rust 15 メソッドの機械抽出証明と 15 通りの mutation 拒否テスト、および
+  12 モード・156 シナリオ・66 不変条件の Quint モデル検査を毎回の CI で実行する。
+  配布パッケージには `formal/` を含めない。
 
 ## [0.17.0] - 2026-11-04
 
@@ -528,7 +539,8 @@ chronista-club ecosystem の crates.io 公開 crate は **`club-` prefix** で�
 - `usize` 型対応
 - 網羅テスト整備
 
-[Unreleased]: https://github.com/chronista-club/club-kdl/compare/v0.17.0...HEAD
+[Unreleased]: https://github.com/chronista-club/club-kdl/compare/v0.18.0...HEAD
+[0.18.0]: https://github.com/chronista-club/club-kdl/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/chronista-club/club-kdl/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/chronista-club/club-kdl/compare/v0.15.1...v0.16.0
 [0.15.1]: https://github.com/chronista-club/club-kdl/compare/v0.15.0...v0.15.1
