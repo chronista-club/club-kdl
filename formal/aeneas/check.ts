@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+// mem_1ChPHc9zUwMyPFSSRfUSKc
 /** 実 crate の抽出・証明。mutation は隔離コピーにだけ適用する。 */
 import { copyFileSync, cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync,
   statSync, symlinkSync, writeFileSync } from "node:fs";
@@ -14,10 +15,15 @@ const AENEAS_REV = "2e3d4488280bb8a95411db81019a7854a784861f";
 const DATA = process.env.XDG_DATA_HOME ?? join(homedir(), ".local/share");
 const TOOLS = resolve(process.env.AENEAS_HOME ?? join(DATA, "nostos-formal/aeneas-2e3d448"));
 const METHODS = {
-  as_integer: "Value::as_integer", as_float: "Value::as_float",
-  as_bool: "Value::as_bool", is_null: "Value::is_null",
-  entry_arg: "Entry::arg", entry_value: "Entry::value",
-  document_nodes: "Document::nodes", document_as_node: "Document::as_node",
+  as_integer: "ast::Value::as_integer", as_float: "ast::Value::as_float",
+  as_bool: "ast::Value::as_bool", is_null: "ast::Value::is_null",
+  entry_arg: "ast::Entry::arg", entry_value: "ast::Entry::value",
+  document_nodes: "ast::Document::nodes", document_as_node: "ast::Document::as_node",
+  document_into_nodes: "ast::Document::into_nodes",
+  node_entries: "ast::Node::entries", node_children: "ast::Node::children",
+  node_into_children: "ast::Node::into_children", node_into_parts: "ast::Node::into_parts",
+  editable_into_string: "edit::EditableDocument::into_string",
+  node_builder_build: "ser::NodeBuilder::build",
 } as const;
 type Method = keyof typeof METHODS;
 const methods = Object.keys(METHODS) as Method[];
@@ -65,8 +71,8 @@ function extract(sourceRoot: string, proofRoot: string) {
   const llbc = join(cache, "club_kdl.llbc");
   rmSync(llbc, { force: true });
   run([join(TOOLS, "charon"), "cargo", "--preset=aeneas", "--sysroot", "default",
-    ...methods.flatMap((method) => ["--start-from", `crate::ast::${METHODS[method]}`]),
-    "--dest-file", llbc, "--", "--manifest-path", "Cargo.toml", "--lib",
+    ...methods.flatMap((method) => ["--start-from", `crate::${METHODS[method]}`]),
+    "--dest-file", llbc, "--", "--manifest-path", "Cargo.toml", "--lib", "--features", "compact,edit,compose",
     ...(statSync(join(sourceRoot, "Cargo.lock"), { throwIfNoEntry: false }) ? ["--locked"] : [])],
     { cwd: sourceRoot, env: { ...process.env, CARGO_TARGET_DIR: join(cache, "rust-target") } });
   if (!statSync(llbc, { throwIfNoEntry: false })?.isFile()) throw new Error("No fresh Charon LLBC");
@@ -105,22 +111,35 @@ function checkAxioms(output: string, selected: Method[] = methods) {
   }
 }
 function mutationTest() {
-  const mutations: Record<Method, [string, string]> = {
-    as_integer: ["Value::Integer(i) => Some(*i),", "Value::Integer(_i) => None,"],
-    as_float: ["Value::Float(f) => Some(*f),", "Value::Float(_f) => None,"],
-    as_bool: ["Value::Bool(b) => Some(*b),", "Value::Bool(_b) => None,"],
-    is_null: ["matches!(self, Value::Null)", "matches!(self, Value::Bool(_))"],
-    entry_arg: ["pub fn arg(value: Value<'a>) -> Self {\n        Self {\n            name: None,\n            ty: None,\n            value,",
+  const mutations: Record<Method, [string, string, string]> = {
+    as_integer: ["src/ast.rs", "Value::Integer(i) => Some(*i),", "Value::Integer(_i) => None,"],
+    as_float: ["src/ast.rs", "Value::Float(f) => Some(*f),", "Value::Float(_f) => None,"],
+    as_bool: ["src/ast.rs", "Value::Bool(b) => Some(*b),", "Value::Bool(_b) => None,"],
+    is_null: ["src/ast.rs", "matches!(self, Value::Null)", "matches!(self, Value::Bool(_))"],
+    entry_arg: ["src/ast.rs", "pub fn arg(value: Value<'a>) -> Self {\n        Self {\n            name: None,\n            ty: None,\n            value,",
       "pub fn arg(_value: Value<'a>) -> Self {\n        Self {\n            name: None,\n            ty: None,\n            value: Value::Null,"],
-    entry_value: ["pub fn value(&self) -> &Value<'a> {\n        &self.value",
+    entry_value: ["src/ast.rs", "pub fn value(&self) -> &Value<'a> {\n        &self.value",
       "pub fn value(&self) -> &Value<'a> {\n        &Value::Null"],
-    document_nodes: ["pub fn nodes(&self) -> &[Node<'a>] {\n        &self.root.children",
+    document_nodes: ["src/ast.rs", "pub fn nodes(&self) -> &[Node<'a>] {\n        &self.root.children",
       "pub fn nodes(&self) -> &[Node<'a>] {\n        &self.root.children[0..0]"],
-    document_as_node: ["pub fn as_node(&self) -> &Node<'a> {\n        &self.root",
+    document_as_node: ["src/ast.rs", "pub fn as_node(&self) -> &Node<'a> {\n        &self.root",
       "pub fn as_node(&self) -> &Node<'a> {\n        &self.root.children[0]"],
+    document_into_nodes: ["src/ast.rs", "pub fn into_nodes(self) -> Vec<Node<'a>> {\n        self.root.children",
+      "pub fn into_nodes(self) -> Vec<Node<'a>> {\n        Vec::new()"],
+    node_entries: ["src/ast.rs", "pub fn entries(&self) -> &[Entry<'a>] {\n        &self.entries",
+      "pub fn entries(&self) -> &[Entry<'a>] {\n        &self.entries[0..0]"],
+    node_children: ["src/ast.rs", "pub fn children(&self) -> &[Node<'a>] {\n        &self.children",
+      "pub fn children(&self) -> &[Node<'a>] {\n        &self.children[0..0]"],
+    node_into_children: ["src/ast.rs", "pub fn into_children(self) -> Vec<Node<'a>> {\n        self.children",
+      "pub fn into_children(self) -> Vec<Node<'a>> {\n        Vec::new()"],
+    node_into_parts: ["src/ast.rs", "(self.entries, self.children)", "(Vec::new(), self.children)"],
+    editable_into_string: ["src/edit.rs", "pub fn into_string(self) -> String {\n        self.source",
+      "pub fn into_string(self) -> String {\n        String::new()"],
+    node_builder_build: ["src/ser.rs", "pub fn build(self) -> Node<'a> {\n        self.node",
+      "pub fn build(mut self) -> Node<'a> {\n        self.node.entries = Vec::new();\n        self.node"],
   };
-  const sourceFile = join(REPO, "src/ast.rs");
-  const originalSource = readFileSync(sourceFile);
+  const originals = new Map(["src/ast.rs", "src/edit.rs", "src/ser.rs"].map(
+    (file) => [file, readFileSync(join(REPO, file))]));
   const originalGenerated = readFileSync(join(PROOF, "ClubKdl.lean"));
   try {
     withTempDir(join(tmpdir(), "club-kdl-rust-mutation-"), (root) => {
@@ -130,7 +149,6 @@ function mutationTest() {
         cpSync(join(REPO, name), join(root, name), { recursive: true, dereference: true,
           filter: (path) => !["target", ".git"].includes(path.split(/[\\/]/).at(-1)!) });
       }
-      const source = join(root, "src/ast.rs");
       const trial = join(root, "proof");
       mkdirSync(trial);
       for (const name of ["lakefile.toml", "lake-manifest.json", "lean-toolchain", "ClubKdlProof.lean", "ExtractionCompat.lean"]) {
@@ -140,8 +158,11 @@ function mutationTest() {
       // 依存のビルドキャッシュだけ共有。対象の Lean/Rust 成果物は隔離する。
       symlinkSync(join(PROOF, ".lake/packages"), join(trial, ".lake/packages"), "dir");
       for (const method of methods) {
-        const [from, to] = mutations[method];
-        const text = originalSource.toString();
+        // Reset every source file: mutations in different modules must not accumulate.
+        for (const [file, bytes] of originals) writeFileSync(join(root, file), bytes);
+        const [file, from, to] = mutations[method];
+        const source = join(root, file);
+        const text = originals.get(file)!.toString();
         if (text.split(from).length !== 2) throw new Error(`Mutation target changed: ${method}`);
         writeFileSync(source, text.replace(from, to));
         console.log(`MUTATION: ${method} (temporary Rust copy)`);
@@ -157,16 +178,16 @@ function mutationTest() {
           throw new Error(`Expected a proof failure, not a tool failure: ${method}; see ${log}`);
         }
         checkAxioms(result.output, methods.filter((other) => other !== method));
-        console.log(`PASS: ${method} rejected; other 7 specifications still proved (log: ${log})`);
+        console.log(`PASS: ${method} rejected; other ${methods.length - 1} specifications still proved (log: ${log})`);
       }
     });
   } finally {
-    if (!readFileSync(sourceFile).equals(originalSource)
+    if ([...originals].some(([file, bytes]) => !readFileSync(join(REPO, file)).equals(bytes))
       || !readFileSync(join(PROOF, "ClubKdl.lean")).equals(originalGenerated)) {
       throw new Error("Mutation test changed the original Rust or generated Lean");
     }
   }
-  console.log("PASS: all 8 mutations rejected; original src/ast.rs and ClubKdl.lean byte-identical");
+  console.log(`PASS: all ${methods.length} mutations rejected; original src/ast.rs, src/edit.rs, src/ser.rs and ClubKdl.lean byte-identical`);
 }
 function main() {
   const { values } = parseArgs({ args: process.argv.slice(2), options: {
@@ -182,7 +203,7 @@ function main() {
   writeFileSync(join(PROOF, ".lake/proof.log"), result.output);
   if (result.exitCode !== 0) throw new Error(`Lean proof failed (exit ${result.exitCode})`);
   checkAxioms(result.output);
-  console.log("PASS: current Rust matches all 8 specifications; axiom audit passed");
+  console.log(`PASS: current Rust matches all ${methods.length} specifications; axiom audit passed`);
   if (values["mutation-test"]) mutationTest();
 }
 try { main(); }

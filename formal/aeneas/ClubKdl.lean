@@ -115,12 +115,47 @@ def ast.Document.impl.nodes
   (self : ast.Document) : Result (Slice ast.Node) := do
   ok (alloc.vec.Vec.deref self.root.children)
 
+/-- [club_kdl::ast::{club_kdl::ast::Document<'a>}::into_nodes]:
+    Source: 'src/ast.rs', lines 144:4-146:5
+    Visibility: public -/
+def ast.Document.impl.into_nodes
+  (self : ast.Document) : Result (alloc.vec.Vec ast.Node) := do
+  ok self.root.children
+
 /-- [club_kdl::ast::{club_kdl::ast::Document<'a>}::as_node]:
     Source: 'src/ast.rs', lines 150:4-152:5
     Visibility: public -/
 def ast.Document.impl.as_node (self : ast.Document) : Result ast.Node := do
   ok (ast.Node.mk self.root.name self.root.ty self.root.entries
     self.root.children)
+
+/-- [club_kdl::ast::{club_kdl::ast::Node<'a>}::entries]:
+    Source: 'src/ast.rs', lines 199:4-201:5
+    Visibility: public -/
+def ast.Node.impl.entries (self : ast.Node) : Result (Slice ast.Entry) := do
+  ok (alloc.vec.Vec.deref self.entries)
+
+/-- [club_kdl::ast::{club_kdl::ast::Node<'a>}::children]:
+    Source: 'src/ast.rs', lines 205:4-207:5
+    Visibility: public -/
+def ast.Node.impl.children (self : ast.Node) : Result (Slice ast.Node) := do
+  ok (alloc.vec.Vec.deref self.children)
+
+/-- [club_kdl::ast::{club_kdl::ast::Node<'a>}::into_children]:
+    Source: 'src/ast.rs', lines 278:4-280:5
+    Visibility: public -/
+def ast.Node.impl.into_children
+  (self : ast.Node) : Result (alloc.vec.Vec ast.Node) := do
+  ok self.children
+
+/-- [club_kdl::ast::{club_kdl::ast::Node<'a>}::into_parts]:
+    Source: 'src/ast.rs', lines 284:4-286:5
+    Visibility: public -/
+def ast.Node.impl.into_parts
+  (self : ast.Node) :
+  Result ((alloc.vec.Vec ast.Entry) × (alloc.vec.Vec ast.Node))
+  := do
+  ok (self.entries, self.children)
 
 /-- [club_kdl::ast::{club_kdl::ast::Entry<'a>}::arg]:
     Source: 'src/ast.rs', lines 309:4-315:5
@@ -178,5 +213,31 @@ def ast.Value.impl.is_null (self : ast.Value) : Result Bool := do
   | ast.Value.Float _ => ok false
   | ast.Value.Bool _ => ok false
   | ast.Value.Null => ok true
+
+/-- [club_kdl::edit::EditableDocument]
+    Source: 'src/edit.rs', lines 51:0-53:1
+    Visibility: public -/
+structure edit.EditableDocument where
+  source : String
+
+/-- [club_kdl::edit::{club_kdl::edit::EditableDocument}::into_string]:
+    Source: 'src/edit.rs', lines 70:4-72:5
+    Visibility: public -/
+def edit.EditableDocument.impl.into_string
+  (self : edit.EditableDocument) : Result String := do
+  ok self.source
+
+/-- [club_kdl::ser::NodeBuilder]
+    Source: 'src/ser.rs', lines 264:0-266:1
+    Visibility: public -/
+structure ser.NodeBuilder where
+  node : ast.Node
+
+/-- [club_kdl::ser::{club_kdl::ser::NodeBuilder<'a>}::build]:
+    Source: 'src/ser.rs', lines 331:4-333:5
+    Visibility: public -/
+def ser.NodeBuilder.impl.build (self : ser.NodeBuilder) : Result ast.Node := do
+  ok (ast.Node.mk self.node.name self.node.ty self.node.entries
+    self.node.children)
 
 end ClubKdlGenerated

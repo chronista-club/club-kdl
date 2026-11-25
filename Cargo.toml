@@ -14,6 +14,7 @@ readme = "README.md"
 # Keep the large spec corpus, its dependent tests, and exploratory code out of
 # packages, so `cargo test` on the published crate does not require the corpus.
 exclude = [
+    "formal",
     "tests/kdl-spec",
     "tests/spec_compliance.rs",
     "tests/robustness.rs",

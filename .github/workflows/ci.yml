@@ -100,3 +100,101 @@ jobs:
       - uses: obi1kenobi/cargo-semver-checks-action@v2
         with:
           package: club-kdl
+
+  lean:
+    name: Lean proofs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.5'
+
+      - name: Install pinned Aeneas and Charon
+        env:
+          AENEAS_RELEASE: nightly-2026.11.21-2e3d448
+          AENEAS_SHA256: 7bb314c2a58f64178a2849bfcd3339d5a4a34e9f47f2530ae064548c614c25e0
+        run: |
+          tool_dir="$RUNNER_TEMP/aeneas"
+          mkdir -p "$tool_dir"
+          curl --fail --location --retry 3 \
+            "https://github.com/AeneasVerif/aeneas/releases/download/$AENEAS_RELEASE/aeneas-linux-x86_64.tar.gz" \
+            -o "$RUNNER_TEMP/aeneas.tar.gz"
+          printf '%s  %s\n' "$AENEAS_SHA256" "$RUNNER_TEMP/aeneas.tar.gz" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/aeneas.tar.gz" -C "$tool_dir"
+          echo "AENEAS_HOME=$tool_dir" >> "$GITHUB_ENV"
+          rustup toolchain install nightly-2026-09-17 --profile minimal \
+            --component rustc-dev,rust-src,llvm-tools-preview
+
+      - name: Install pinned elan
+        env:
+          ELAN_SHA256: 0e8250aa2be86c7af929ade68db617af9edc8b9ccf6eaf5ece228250d0d032e2
+        run: |
+          curl --fail --location --retry 3 \
+            https://github.com/leanprover/elan/releases/download/v4.4.0/elan-x86_64-unknown-linux-gnu.tar.gz \
+            -o "$RUNNER_TEMP/elan.tar.gz"
+          printf '%s  %s\n' "$ELAN_SHA256" "$RUNNER_TEMP/elan.tar.gz" | sha256sum --check
+          mkdir -p "$RUNNER_TEMP/elan"
+          tar -xzf "$RUNNER_TEMP/elan.tar.gz" -C "$RUNNER_TEMP/elan"
+          "$RUNNER_TEMP/elan/elan-init" -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Cache Lean dependencies
+        id: lean-cache
+        uses: actions/cache@v4
+        with:
+          path: formal/aeneas/.lake/packages
+          key: club-kdl-lean-${{ runner.os }}-${{ runner.arch }}-v1-${{ hashFiles('formal/aeneas/lean-toolchain', 'formal/aeneas/lake-manifest.json', 'formal/aeneas/lakefile.toml') }}
+
+      - name: Fetch Mathlib cache using locked dependencies
+        if: steps.lean-cache.outputs.cache-hit != 'true'
+        working-directory: formal/aeneas
+        run: lake exe cache get
+
+      - name: Prove structural laws without axioms
+        working-directory: formal/lean
+        run: |
+          set -euo pipefail
+          lean -DwarningAsError=true KdlCore.lean | tee ../aeneas/.lake/core-proof.log
+          if grep -E 'depends on axioms:|sorryAx' ../aeneas/.lake/core-proof.log; then
+            exit 1
+          fi
+          # Require one axiom-free report for every theorem, including helpers.
+          declared=$(grep -Ec '^ *(private )?theorem ' KdlCore.lean)
+          proved=$(grep -c 'does not depend on any axioms' ../aeneas/.lake/core-proof.log)
+          test "$declared" -gt 0
+          test "$declared" -eq "$proved"
+
+      - name: Prove current Rust and reject fifteen mutations
+        run: bun formal/aeneas/check.ts --mutation-test
+
+      - name: Check generated definition and dependency lock are current
+        run: git diff --exit-code -- formal/aeneas/ClubKdl.lean formal/aeneas/lake-manifest.json
+
+      - name: Upload mutation proof logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lean-mutation-logs
+          path: formal/aeneas/.lake/*.log
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 7
+
+  quint:
+    name: Quint verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.5'
+      - name: Check Quint scenarios and invariants
+        run: bun formal/quint/check.ts
