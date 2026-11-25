@@ -13,9 +13,9 @@ Rust で [KDL](https://kdl.dev) を扱う **クレートファミリー** — �
 
 ```toml
 [dependencies]
-club-kdl = "0.17"
+club-kdl = "0.18"
 # 任意の feature (どちらも既定は off):
-# club-kdl = { version = "0.17", features = ["compose", "kdl-rs"] }
+# club-kdl = { version = "0.18", features = ["compose", "kdl-rs"] }
 ```
 
 ## クレートファミリー
@@ -193,10 +193,10 @@ schema 文法は **data 方言**（`struct` / `enum`）に加えて、 関係デ
 
 ## 複数ファイルの KDL — `compose` feature
 
-schema や設定が大きくなったら、 `(>)file`（または batch import 用に `(>)glob`）で分割する。 `(>)` は 0.17.0 より後に追加する記法で、`(<)file` / `(<)glob` も互換エイリアスとして維持する。0.17.0 以前では `(<)` を使う。まず feature を有効にする:
+schema や設定が大きくなったら、 `(>)file`（または batch import 用に `(>)glob`）で分割する。 `(>)` は 0.18.0 で追加した記法で、`(<)file` / `(<)glob` も互換エイリアスとして維持する。0.17.0 以前では `(<)` を使う。まず feature を有効にする:
 
 ```toml
-club-kdl = { version = "0.17", features = ["compose"] }
+club-kdl = { version = "0.18", features = ["compose"] }
 ```
 
 ```kdl
@@ -573,7 +573,7 @@ for event in &events {
 `kdl-rs` feature が必要:
 
 ```toml
-club-kdl = { version = "0.17", features = ["kdl-rs"] }
+club-kdl = { version = "0.18", features = ["kdl-rs"] }
 ```
 
 ```rust
